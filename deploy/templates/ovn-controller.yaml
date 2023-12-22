@@ -1,0 +1,26 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: kube-ovn-controller
+  namespace: kube-system
+  annotations:
+    kubernetes.io/description: |
+      kube-ovn controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-ovn-controller
+  template:
+    metadata:
+      labels:
+        app: kube-ovn-controller
+        component: network
+        type: infra
+    spec:
+      hostNetwork: true
+      serviceAccountName: ovn
+      containers:
+        - name: kube-ovn-controller
+          image: lmxia/ovnmaster:v5
+          imagePullPolicy: IfNotPresent
