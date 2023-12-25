@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
 	"time"
 
 	"github.com/multi-cluster-network/ovn-builder/pkg/api"
 	"github.com/multi-cluster-network/ovn-builder/pkg/controller/pod"
 	"github.com/multi-cluster-network/ovn-builder/pkg/subnet"
+	"github.com/multi-cluster-network/ovn-builder/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -32,13 +34,23 @@ func main() {
 		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
 
+	//
+	CIDR := os.Getenv("CIDR")
+	gateway, err := util.GetIndexIpFromCIDR(CIDR, 1)
+	if err != nil {
+		klog.Fatalf("invalid gateway of cidr", err.Error())
+	}
+	cnfPodIP, err := util.GetIndexIpFromCIDR(CIDR, 2)
+	if err != nil {
+		klog.Fatalf("invalid second ip of cidr", err.Error())
+	}
 	// config it.
 	defaultSubnet := &api.SubnetSpec{
 		Name:       "default",
 		Default:    true,
-		CIDRBlock:  "10.16.0.0/16",
-		Gateway:    "10.16.0.1",
-		ExcludeIps: []string{"10.16.0.1", "10.16.0.2"},
+		CIDRBlock:  CIDR,
+		Gateway:    gateway,
+		ExcludeIps: []string{gateway, cnfPodIP},
 		Provider:   "default",
 	}
 

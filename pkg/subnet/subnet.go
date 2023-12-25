@@ -1,6 +1,10 @@
 package subnet
 
 import (
+	"errors"
+	"fmt"
+	"os"
+
 	"github.com/multi-cluster-network/ovn-builder/pkg/api"
 	"github.com/ovn-org/libovsdb/ovsdb"
 	"k8s.io/klog/v2"
@@ -10,7 +14,12 @@ import (
 
 // InitDefaultLogicSwitch just init subnet with logic switch.
 func InitDefaultLogicSwitch(defaultSubnet *api.SubnetSpec) (*ovs.OVNNbClient, error) {
-	OVNNbClient, err := ovs.NewOvnNbClient("tcp:[172.18.0.2]:6641", 60)
+	mastarIP := os.Getenv("NODE_IPS")
+	if len(mastarIP) == 0 {
+		klog.Error("failed to get ovn nb service ip")
+		return nil, errors.New("no ovn nb service")
+	}
+	OVNNbClient, err := ovs.NewOvnNbClient(fmt.Sprintf("tcp:[%s]:6641", mastarIP), 60)
 	if err != nil {
 		klog.Errorf("failed to create ovn nb client %s", err)
 		return nil, err

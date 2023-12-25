@@ -7,7 +7,7 @@ metadata:
     kubernetes.io/description: |
       kube-ovn controller
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: kube-ovn-controller
@@ -22,5 +22,10 @@ spec:
       serviceAccountName: ovn
       containers:
         - name: kube-ovn-controller
-          image: lmxia/ovnmaster:v5
+          image: lmxia/ovnmaster:v7
           imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_IPS
+              value: "172.18.0.2"
+            - name: CIDR
+              value: "10.16.0.0/16"

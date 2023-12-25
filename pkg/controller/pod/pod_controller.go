@@ -53,23 +53,7 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 	}
 	yachtcontroller := yacht.NewController("pod").
 		WithCacheSynced(podInformer.Informer().HasSynced).
-		WithHandlerFunc(podController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
-		var tempObj interface{}
-		if newObj != nil {
-			tempObj = newObj
-		} else {
-			tempObj = oldObj
-		}
-
-		if tempObj != nil {
-			newPod := tempObj.(*v1.Pod)
-			// ignore the eps sourced from it-self
-			if newPod.GetAnnotations()[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
-				return false, nil
-			}
-		}
-		return true, nil
-	})
+		WithHandlerFunc(podController.Handle)
 	_, err = podInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
 	if err != nil {
 		return nil, err
@@ -119,6 +103,7 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	}
 	cachedPod := pod.DeepCopy()
 	if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
+		err := c.recycleResources(pod)
 		d := 2 * time.Second
 		return &d, err
 	}
@@ -201,13 +186,7 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 
 	if err := c.nbClient.CreateLogicalSwitchPort(podNet.Name, portName, ipStr, mac, pod.Name, pod.Namespace,
-		false, "", "", false, nil, ""); err != nil {
-		klog.Errorf("%v", err)
-		return err
-	}
-
-	// set l2 forward true
-	if err := c.nbClient.EnablePortLayer2forward(portName); err != nil {
+		true, "", "", false, nil, ""); err != nil {
 		klog.Errorf("%v", err)
 		return err
 	}
@@ -239,11 +218,21 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	key := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 	var macStr *string
+	var ipStr string
+	isCNFPod := strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true")
+	needRandomAddress := false
+	if pod.Annotations == nil {
+		needRandomAddress = true
+	}
+
+	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
+		needRandomAddress = false
+	}
 
 	// Random allocate
 	var skippedAddrs []string
 	// common pod.
-	if !strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true") {
+	if !isCNFPod && needRandomAddress {
 		ipv4, ipv6, mac, err := c.ipam.GetRandomAddress(key, portName, macStr, podNet.Name, "", skippedAddrs, true)
 		if err != nil {
 			klog.Error(err)
@@ -255,7 +244,12 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	var v4IP, v6IP, mac string
 	var err error
 	// cnf pod allocate
-	ipStr := podNet.ExcludeIps[1]
+	if isCNFPod {
+		ipStr = podNet.ExcludeIps[1]
+	} else {
+		ipStr = pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, "ovn")]
+	}
+
 	if v4IP, v6IP, mac, err = c.ipam.GetStaticAddress(key, portName, ipStr, macStr, podNet.Name, true); err != nil {
 		klog.Errorf("failed to get static ip %v, mac %v, subnet %v, err %v", ipStr, mac, podNet, err)
 		return "", "", "", err
