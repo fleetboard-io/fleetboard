@@ -102,10 +102,12 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 		return nil, err
 	}
 	cachedPod := pod.DeepCopy()
-	if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
-		err := c.recycleResources(pod)
-		d := 2 * time.Second
-		return &d, err
+	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] != "true" {
+		if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
+			err := c.recycleResources(pod)
+			d := 2 * time.Second
+			return &d, err
+		}
 	}
 
 	return nil, nil
@@ -220,10 +222,7 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	var macStr *string
 	var ipStr string
 	isCNFPod := strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true")
-	needRandomAddress := false
-	if pod.Annotations == nil {
-		needRandomAddress = true
-	}
+	needRandomAddress := true
 
 	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
 		needRandomAddress = false
