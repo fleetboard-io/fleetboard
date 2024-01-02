@@ -26,6 +26,6 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IPS
-              value: "172.18.0.4"
+              value: "172.18.0.2"
             - name: CIDR
               value: "10.16.0.0/16"

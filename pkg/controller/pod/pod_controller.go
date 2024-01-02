@@ -27,7 +27,7 @@ import (
 )
 
 type PodController struct {
-	yachtController    *yacht.Controller
+	podAddController   *yacht.Controller
 	k8sClient          kubernetes.Interface
 	podLister          v1lister.PodLister
 	k8sInformerFactory informers.SharedInformerFactory
@@ -51,20 +51,53 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 	if err != nil {
 		return nil, err
 	}
-	yachtcontroller := yacht.NewController("pod").
+	podAddController := yacht.NewController("pod").
 		WithCacheSynced(podInformer.Informer().HasSynced).
-		WithHandlerFunc(podController.Handle)
-	_, err = podInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
+		WithHandlerFunc(podController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
+		var tempObj *v1.Pod
+		var oldPod *v1.Pod
+		var newPod *v1.Pod
+
+		// create pod.
+		if oldObj == nil {
+			newPod = newObj.(*v1.Pod)
+			// ignore host network pod
+			if newPod.Spec.HostNetwork {
+				return false, nil
+			}
+			if newPod.Annotations == nil {
+				return true, nil
+			}
+			tempObj = newPod
+		} else if newObj == nil {
+			oldPod = oldObj.(*v1.Pod)
+			// delete pod
+			tempObj = oldPod
+			if oldPod.Spec.HostNetwork {
+				return false, nil
+			}
+		} else {
+			// ignore update pod
+			return false, nil
+		}
+
+		if isPodAlive(tempObj) && tempObj.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate,
+			"ovn")] == "true" {
+			return false, nil
+		}
+		return true, nil
+	})
+	_, err = podInformer.Informer().AddEventHandler(podAddController.DefaultResourceEventHandlerFuncs())
 	if err != nil {
 		return nil, err
 	}
-	podController.yachtController = yachtcontroller
+	podController.podAddController = podAddController
 	return podController, nil
 }
 
 func (c *PodController) Run(ctx context.Context) error {
 	c.k8sInformerFactory.Start(ctx.Done())
-	c.yachtController.Run(ctx)
+	c.podAddController.Run(ctx)
 	return nil
 }
 
@@ -84,12 +117,14 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 		}
 	}
 	// pod is been deleting
-	if podNotExist || pod.GetDeletionTimestamp() != nil {
+	if podNotExist || !isPodAlive(pod) {
 		// recycle related resources.
-		err := c.recycleResources(pod)
+		err := c.recycleResources(key)
 		if err != nil {
-			return nil, err
+			d := 2 * time.Second
+			return &d, err
 		}
+		return nil, nil
 	}
 
 	if len(pod.Annotations) == 0 {
@@ -101,10 +136,12 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 		klog.Errorf("failed to sync pod nets %v", err)
 		return nil, err
 	}
+
 	cachedPod := pod.DeepCopy()
 	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] != "true" {
 		if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
-			err := c.recycleResources(pod)
+			klog.Errorf("failed to reconcile pod nets %v", err)
+			//err := c.recycleResources(key)
 			d := 2 * time.Second
 			return &d, err
 		}
@@ -147,6 +184,11 @@ func (c *PodController) syncKubeOvnNet(pod *v1.Pod) error {
 		if err := c.nbClient.DeleteLogicalSwitchPort(portNeedDel); err != nil {
 			klog.Errorf("failed to delete lsp %s, %v", portNeedDel, err)
 			return err
+		}
+	}
+	for annotationKey := range pod.Annotations {
+		if strings.HasPrefix(annotationKey, "ovn") {
+			delete(pod.Annotations, annotationKey)
 		}
 	}
 
@@ -201,17 +243,13 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	_, err = c.k8sClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
 		types.MergePatchType, patch, metav1.PatchOptions{}, "")
 	if err != nil {
+		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
 		if k8serrors.IsNotFound(err) {
-			// Sometimes pod is deleted between kube-ovn configure ovn-nb and patch pod.
-			// Then we need to recycle the resource again.
-			//key := strings.Join([]string{namespace, name}, "/")
-			//c.deletingPodObjMap.Store(key, pod)
-			//c.deletePodQueue.AddRateLimited(key)
 			return nil
 		}
-		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
 		return err
 	}
+	klog.Infof("pod has been patch with annotation %v", pod.Annotations)
 
 	return nil
 }
@@ -256,11 +294,10 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	return v4IP, v6IP, mac, err
 }
 
-func (c *PodController) recycleResources(pod *v1.Pod) error {
-	key := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
+func (c *PodController) recycleResources(key string) error {
 	ports, err := c.nbClient.ListNormalLogicalSwitchPorts(true, map[string]string{"pod": key})
 	if err != nil {
-		klog.Errorf("failed to list lsps of pod '%s', %v", pod.Name, err)
+		klog.Errorf("failed to list lsps of pod '%s', %v", key, err)
 		return err
 	}
 	for _, port := range ports {
@@ -273,4 +310,31 @@ func (c *PodController) recycleResources(pod *v1.Pod) error {
 	}
 	c.ipam.ReleaseAddressByPod(key, c.subnet.Name)
 	return nil
+}
+
+func isPodAlive(p *v1.Pod) bool {
+	if p.DeletionTimestamp != nil && p.DeletionGracePeriodSeconds != nil {
+		now := time.Now()
+		deletionTime := p.DeletionTimestamp.Time
+		gracePeriod := time.Duration(*p.DeletionGracePeriodSeconds) * time.Second
+		if now.After(deletionTime.Add(gracePeriod)) {
+			return false
+		}
+	}
+	return isPodStatusPhaseAlive(p)
+}
+
+func isPodStatusPhaseAlive(p *v1.Pod) bool {
+	if p.Status.Phase == v1.PodSucceeded && p.Spec.RestartPolicy != v1.RestartPolicyAlways {
+		return false
+	}
+
+	if p.Status.Phase == v1.PodFailed && p.Spec.RestartPolicy == v1.RestartPolicyNever {
+		return false
+	}
+
+	if p.Status.Phase == v1.PodFailed && p.Status.Reason == "Evicted" {
+		return false
+	}
+	return true
 }
