@@ -53,7 +53,7 @@ spec:
             - name: ENABLE_SSL
               value: "false"
             - name: NODE_IPS
-              value: "172.18.0.2"
+              value: "172.18.0.4"
             - name: POD_IP
               valueFrom:
                 fieldRef:
