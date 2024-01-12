@@ -230,7 +230,7 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 
 	if err := c.nbClient.CreateLogicalSwitchPort(podNet.Name, portName, ipStr, mac, pod.Name, pod.Namespace,
-		true, "", "", false, nil, ""); err != nil {
+		false, "", "", false, nil, ""); err != nil {
 		klog.Errorf("%v", err)
 		return err
 	}
