@@ -22,7 +22,7 @@ spec:
       serviceAccountName: ovn
       containers:
         - name: kube-ovn-controller
-          image: lmxia/ovnmaster:v8
+          image: lmxia/ovnmaster:v15
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IPS

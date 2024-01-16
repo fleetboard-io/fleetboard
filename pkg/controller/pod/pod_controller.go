@@ -34,6 +34,8 @@ type PodController struct {
 	subnet             *api.SubnetSpec
 	nbClient           *ovs.OVNNbClient
 	ipam               *ovnipam.IPAM
+	initSkipedIPs      map[string]string
+	podSynced          cache.InformerSynced
 }
 
 func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernetes.Interface, subnet *api.SubnetSpec,
@@ -45,6 +47,7 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 		subnet:             subnet,
 		nbClient:           client,
 		ipam:               ovnipam.NewIPAM(),
+		podSynced:          podInformer.Informer().HasSynced,
 	}
 
 	err := podController.ipam.AddOrUpdateSubnet(subnet.Name, subnet.CIDRBlock, subnet.Gateway, subnet.ExcludeIps)
@@ -54,7 +57,7 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 	podAddController := yacht.NewController("pod").
 		WithCacheSynced(podInformer.Informer().HasSynced).
 		WithHandlerFunc(podController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
-		var tempObj *v1.Pod
+		//var tempObj *v1.Pod
 		var oldPod *v1.Pod
 		var newPod *v1.Pod
 
@@ -68,11 +71,11 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 			if newPod.Annotations == nil {
 				return true, nil
 			}
-			tempObj = newPod
+			//tempObj = newPod
 		} else if newObj == nil {
 			oldPod = oldObj.(*v1.Pod)
 			// delete pod
-			tempObj = oldPod
+			//tempObj = oldPod
 			if oldPod.Spec.HostNetwork {
 				return false, nil
 			}
@@ -81,10 +84,10 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 			return false, nil
 		}
 
-		if isPodAlive(tempObj) && tempObj.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate,
-			"ovn")] == "true" {
-			return false, nil
-		}
+		//if isPodAlive(tempObj) && tempObj.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate,
+		//	"ovn")] == "true" {
+		//	return false, nil
+		//}
 		return true, nil
 	})
 	_, err = podInformer.Informer().AddEventHandler(podAddController.DefaultResourceEventHandlerFuncs())
@@ -97,6 +100,20 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 
 func (c *PodController) Run(ctx context.Context) error {
 	c.k8sInformerFactory.Start(ctx.Done())
+	// wait for pod synced
+	cache.WaitForCacheSync(ctx.Done(), c.podSynced)
+	var err error
+	// get all pod allocated ips
+	c.initSkipedIPs, err = getAllExistingPodAllocatedIPs(c.podLister)
+	if err != nil {
+		return err
+	}
+	klog.Infof("init we get skipped ips are %v", c.initSkipedIPs)
+	// remove unneeded lsp.
+	err = removeUnexsitLogicalPort(c.nbClient, c.initSkipedIPs)
+	if err != nil {
+		return err
+	}
 	c.podAddController.Run(ctx)
 	return nil
 }
@@ -138,14 +155,14 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	}
 
 	cachedPod := pod.DeepCopy()
-	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] != "true" {
-		if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
-			klog.Errorf("failed to reconcile pod nets %v", err)
-			//err := c.recycleResources(key)
-			d := 2 * time.Second
-			return &d, err
-		}
+	//if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] != "true" {
+	if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
+		klog.Errorf("failed to reconcile pod nets %v", err)
+		//err := c.recycleResources(key)
+		d := 2 * time.Second
+		return &d, err
 	}
+	//}
 
 	return nil, nil
 }
@@ -186,11 +203,11 @@ func (c *PodController) syncKubeOvnNet(pod *v1.Pod) error {
 			return err
 		}
 	}
-	for annotationKey := range pod.Annotations {
-		if strings.HasPrefix(annotationKey, "ovn") {
-			delete(pod.Annotations, annotationKey)
-		}
-	}
+	//for annotationKey := range pod.Annotations {
+	//	if strings.HasPrefix(annotationKey, "ovn") {
+	//		delete(pod.Annotations, annotationKey)
+	//	}
+	//}
 
 	return nil
 }
@@ -262,12 +279,17 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	isCNFPod := strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true")
 	needRandomAddress := true
 
+	klog.Infof("pod annotations are %v", pod.Annotations)
+
 	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
 		needRandomAddress = false
 	}
 
 	// Random allocate
 	var skippedAddrs []string
+	for k := range c.initSkipedIPs {
+		skippedAddrs = append(skippedAddrs, k)
+	}
 	// common pod.
 	if !isCNFPod && needRandomAddress {
 		ipv4, ipv6, mac, err := c.ipam.GetRandomAddress(key, portName, macStr, podNet.Name, "", skippedAddrs, true)
@@ -291,10 +313,14 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 		klog.Errorf("failed to get static ip %v, mac %v, subnet %v, err %v", ipStr, mac, podNet, err)
 		return "", "", "", err
 	}
+	// TODO  or maybe we don't need async.
+	delete(c.initSkipedIPs, ipStr)
+	klog.Infof("skipped ips are %s", c.initSkipedIPs)
 	return v4IP, v6IP, mac, err
 }
 
 func (c *PodController) recycleResources(key string) error {
+
 	ports, err := c.nbClient.ListNormalLogicalSwitchPorts(true, map[string]string{"pod": key})
 	if err != nil {
 		klog.Errorf("failed to list lsps of pod '%s', %v", key, err)
