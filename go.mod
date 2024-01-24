@@ -4,11 +4,16 @@ go 1.18
 
 require (
 	github.com/dixudx/yacht v0.8.0
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/kubeovn/kube-ovn v1.12.4
+	github.com/mattbaird/jsonpatch v0.0.0-20240118010651-0ba75a80ca38
 	github.com/ovn-org/libovsdb v0.0.0-20230711201130-6785b52d4020
+	k8s.io/api v0.28.4
+	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.110.1
 	sigs.k8s.io/controller-runtime v0.16.3
+	sigs.k8s.io/mcs-api v0.1.1-0.20230217171204-d9e516ac3939
 )
 
 require (
@@ -30,9 +35,9 @@ require (
 	github.com/mdlayher/packet v1.1.1 // indirect
 	github.com/mdlayher/socket v0.4.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.17.0 // indirect
+	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
@@ -78,8 +83,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.28.4 // indirect
-	k8s.io/apimachinery v0.29.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect

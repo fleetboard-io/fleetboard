@@ -9,4 +9,7 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 ovnmaster:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/ovnmaster cmd/main.go
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/ovnmaster/ovnmaster cmd/ovnmaster/main.go
+
+syncer:
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/syncer/syncer cmd/syncer/main.go
