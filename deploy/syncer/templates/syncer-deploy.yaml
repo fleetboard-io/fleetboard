@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: syncer
+  namespace: lmxia
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clusternet:controller-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: syncer
+    namespace: lmxia
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncer
+  namespace: lmxia
+  labels:
+    app: syncer
+spec:
+  selector:
+    matchLabels:
+      app: syncer
+  template:
+    metadata:
+      labels:
+        app: syncer
+    spec:
+      containers:
+        - name: syncer
+          image: lmxia/syncer:v12
+          env:
+            - name: SYNCER_CLUSTERID
+              value: cluster1
+            - name: SYNCER_HUBURL
+              value: https://121.41.31.123:6443
+            - name: SYNCER_LOCALNAMESPACE
+              value: syncer-operator
+            - name: SYNCER_SHARENAMESPACE
+              value: syncer-operator
+      serviceAccountName: syncer
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hub-syncer
+  namespace: syncer-operator
+data:
+  apiserver-advertise-url: aHR0cHM6Ly8xMjEuNDEuMzEuMTIzOjY0NDM=
+  ca.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM1ekNDQWMrZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJek1EUXhOekE0TURFeU5sb1hEVE16TURReE5EQTRNREV5Tmxvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBT2Z2CmVPM0pZSUhzYm1pTmtzZEhDb3MzeFg0MUZQdjZrakZVaXVkMHJyMzlWMnc1VTA4dU52RG15dHNSb3E4VjY0blYKYlp0TzJ4ZGNZWjRWQnBEOGE2eTIxc1NtaGt2OVVabVdUdkxLWWNoTHF4bUdxU25vTTR4bWRjQnEyL0I4T1ZtaQpSQ0ZxT2VhZndFbDNxVlYxWmprcnpBWW1XODRwRCtSZE1pRFJtdzJrNzBkY29BaGFhNmJsbzVvdXJLVXdIUG4xCjZpbVhCSEtvM1BDMjJoMDR2ZG1sYW0yNS81TnE0Y291dHlHcWpBSExickYrWCtTMGRnSHdYZFp5R1hyV1VIT20KV0M5bUFJc1VDbGdlQnkvZFlyQzAyS1hQV2xNRFlpbTJGQUpPMzdyTzZ4YjU4VUNNREdkTmZVM0FVNWtDVFVrcAp5cFozMUh1bjNRS1B5UGVRRjdFQ0F3RUFBYU5DTUVBd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZIbGR2RTlsN2VJWjhvODRrKytLT0VVV3JISWdNQTBHQ1NxR1NJYjMKRFFFQkN3VUFBNElCQVFESWtiRy9PaytJanBFTmU5SVhvNkNWUEZDdkNlelhZMG4wNEVOVXRWL1h0VnJ2U0lsVwpVODRBeEhzZXl5UjJINENrc1hIQm9vUjdMN2R0VGJyK3hNdEpSalIzODd0U1FPTkJ5SndXOENqOGVDQVF3Y2JECllWb3ZaSXF4MFVWUUNCSmxPWkpVS1pqVG5BRHNHVnZQZmFQSzZpcCtOQlplbEJqaWR6UldLWGNvSy9TRVZmdW8KcUx5elVTQzZ1UWR5cTEyaWZudituZnNJbDNXckFtMTBwcmFOZ1dUNnlTd3ZLaVg2TStMQXNMbzNYaFVDNVMrMQpWWGgxWGUvbkx6bjJvaEY1bFp0MHZnOUdUYzhaNk1WKzJLc09ld3ZXSUhPOHhLWFlXZklKWHM0YmJGVjFQNzgzCmtXNjlGek1lcnlFV0N1cWlMaHpueHVnb2VWQksxdEdSeGhsVgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  token: ZXlKaGJHY2lPaUpTVXpJMU5pSXNJbXRwWkNJNkltNXdNWEJ6YUZab1lUSktSakV3V1dOUU9UVk5VM1pNV2xWUlRtNXRaM2MxZUhsVGNDMUhjbmhVUVdzaWZRLmV5SnBjM01pT2lKcmRXSmxjbTVsZEdWekwzTmxjblpwWTJWaFkyTnZkVzUwSWl3aWEzVmlaWEp1WlhSbGN5NXBieTl6WlhKMmFXTmxZV05qYjNWdWRDOXVZVzFsYzNCaFkyVWlPaUp6ZVc1alpYSXRiM0JsY21GMGIzSWlMQ0pyZFdKbGNtNWxkR1Z6TG1sdkwzTmxjblpwWTJWaFkyTnZkVzUwTDNObFkzSmxkQzV1WVcxbElqb2ljM2x1WTJWeUxYUnZhMlZ1TFhFMFlqSnhJaXdpYTNWaVpYSnVaWFJsY3k1cGJ5OXpaWEoyYVdObFlXTmpiM1Z1ZEM5elpYSjJhV05sTFdGalkyOTFiblF1Ym1GdFpTSTZJbk41Ym1ObGNpSXNJbXQxWW1WeWJtVjBaWE11YVc4dmMyVnlkbWxqWldGalkyOTFiblF2YzJWeWRtbGpaUzFoWTJOdmRXNTBMblZwWkNJNklqa3lNamt3T1RNNUxXTXdZalV0TkRJMFppMDRZams0TFRZMk9USmxOR1U0T0RrMU5DSXNJbk4xWWlJNkluTjVjM1JsYlRwelpYSjJhV05sWVdOamIzVnVkRHB6ZVc1alpYSXRiM0JsY21GMGIzSTZjM2x1WTJWeUluMC5UUmh1dVp5S1lra1JXN1hQcFllemR4bE9hS24xblBwNkVtVDBXYU5hNFpJYW1pNzdCOHNGNXVxUVZyR3J6NWp5aW9qMlJjTFEwQ2k0NGVpZ1RmbFM0Y0NzNFhfWFVycnVSN2QzdmJDc2tTMEF5clAySEVaSFEwNEo0V283TjRuOXBtMkFiUmFwajlKTzJ6Zzl6bFd6NUJFaUpQUFF0akNZTmhqSkpuY0JPSmM1RE4wTWlodXNreERlVVdkTFJvOXo5d0phZ0hOU1NQSHRRaC01X1dPYXVLZjBGWUhKZ3BJVW51RVVVcjJEZDhnRFZRNHVYSU96SmhLejQydmdtb2tsN2VLN2tWbmxhYUNjTjhuWGFxSjlBaU0tVnk3RGNhVEl0QkVYNnRRTHJpRzFiWFhDejd4dXhQZEczRUhZSXpBMUpIbzFyeEZkQXlUQWlBY3lFZ1VUNFE=
