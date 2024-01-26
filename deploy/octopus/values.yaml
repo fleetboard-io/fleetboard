@@ -1,0 +1,35 @@
+# Default values for octopus.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+image:
+  repository: lmxia/octopus
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "v12"
+
+cluster:
+  # Specifies whether this is a hub
+  hub: true
+  clusterID: hub
+  sharenamespace: syncer-operator
+  localnamespace: syncer-operator
+
+tunnel:
+  endpoint: 121.41.31.123
+  cidr: 10.112.0.0/12
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: octopus
+
+service:
+  type: NodePort
+  port: 31820
+  nodePort: 31820
+  protocol: UDP
+  targetPort: 31820

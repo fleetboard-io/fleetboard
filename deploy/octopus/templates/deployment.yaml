@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  namespace: octopus-system
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            privileged: false
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: OCTOPUS_CLUSTERID
+              value: {{ .Values.cluster.clusterID }}
+            {{- if not .Values.cluster.hub }}
+            - name: OCTOPUS_HUBURL
+              value: https://121.41.31.123:6443
+            - name: OCTOPUS_LOCALNAMESPACE
+              value: {{ .Values.cluster.localnamespace }}
+            {{- else }}
+            - name: OCTOPUS_ENDPOINT
+              value: {{ .Values.tunnel.endpoint }}
+            {{- end }}
+            - name: OCTOPUS_SHARENAMESPACE
+              value: {{ .Values.cluster.sharenamespace }}
+            - name: OCTOPUS_CIDR
+              value: {{ .Values.tunnel.cidr }}
+            - name: OCTOPUS_ISHUB
+              value: {{ .Values.cluster.hub }}
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

@@ -9,3 +9,7 @@ WORKDIR /
 COPY ./cmd/syncer/syncer .
 ENTRYPOINT ["./syncer"]
 
+FROM  alpine:3.7 as octopus
+WORKDIR /
+COPY ./cmd/octopus/octopus .
+ENTRYPOINT ["./octopus"]
