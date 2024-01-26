@@ -13,3 +13,10 @@ FROM  alpine:3.7 as octopus
 WORKDIR /
 COPY ./cmd/octopus/octopus .
 ENTRYPOINT ["./octopus"]
+
+FROM scratch as crossdns
+
+ADD ./cmd/crossdns/crossdns /crossdns
+
+EXPOSE 53 53/udp
+ENTRYPOINT ["/crossdns"]
