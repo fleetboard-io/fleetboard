@@ -4,6 +4,7 @@ metadata:
   name: ovn-nb
   namespace: kube-system
 spec:
+  clusterIP: 10.96.0.20
   ports:
     - name: ovn-nb
       protocol: TCP
