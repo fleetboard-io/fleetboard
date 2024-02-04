@@ -4,6 +4,7 @@ metadata:
   name: ovn-sb
   namespace: kube-system
 spec:
+  clusterIP: 10.96.0.21
   ports:
     - name: ovn-sb
       protocol: TCP
