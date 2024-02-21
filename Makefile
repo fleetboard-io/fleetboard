@@ -43,3 +43,11 @@ CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
+
+dedinic:
+	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/dedinic/dedinic cmd/dedinic/main.go
+
+
+images: dedinic
+	docker build  --build-arg https_proxy=http://proxy-prc.intel.com:913 -f ./build/dedinic.Dockerfile ./ -t docker.io/airren/dedinic:v1.13.0-debug
+	docker push docker.io/airren/dedinic:v1.13.0-debug

@@ -101,24 +101,6 @@ spec:
             - mountPath: /var/run/containerd
               name: cruntime
               readOnly: true
-          readinessProbe:
-            exec:
-              command:
-                - bash
-                - -c
-                - LOG_ROTATE=true /kube-ovn/ovs-healthcheck.sh
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            timeoutSeconds: 45
-          livenessProbe:
-            exec:
-              command:
-                - bash
-                - /kube-ovn/ovs-healthcheck.sh
-            initialDelaySeconds: 60
-            periodSeconds: 5
-            failureThreshold: 5
-            timeoutSeconds: 45
           resources:
             limits:
               cpu: "1"
