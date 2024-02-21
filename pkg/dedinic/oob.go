@@ -4,17 +4,19 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
-	"k8s.io/utils/inotify"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/kubeovn/kube-ovn/pkg/request"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog/v2"
+	"k8s.io/utils/inotify"
 )
 
 type EventType int
@@ -27,7 +29,6 @@ const (
 	cgroupRootGAPath    = "kubepods.slice"
 	cgroupRootBTPath    = "kubepods.slice/kubepods-burstable.slice"
 	cgroupRootBEPath    = "kubepods.slice/kubepods-besteffort.slice"
-	NonNRI              = "OOBServer(Non NRI)"
 
 	DirCreated  = 0
 	DirRemoved  = 1
@@ -55,85 +56,18 @@ type OobImpl struct {
 	pods             map[string]corev1.Pod
 }
 
-func (o *OobImpl) Type() string {
-	return NonNRI
-}
+var (
+	OOBInstance *OobImpl
+	err         error
+)
 
-func FindCgroupInfoInPod(path string) []ContainerEvent {
-	containers := make([]ContainerEvent, 0, 10)
-	files, err := os.ReadDir(path)
+func init() {
+	OOBInstance, err = NewOobServer("/opt/dedinic/cgroup")
 	if err != nil {
-		fmt.Println("Error reading folder:", err)
-		return containers
+		klog.Fatalf("out of band engin start failed.")
 	}
-
-	for _, file := range files {
-		if file.IsDir() && strings.HasPrefix(file.Name(), "cri-containerd") {
-			fmt.Printf("Directory: %s\n", file.Name())
-			containerId, err := ParseContainerId(filepath.Base(file.Name()))
-			if err != nil {
-				klog.Infof("get containerId failed")
-				continue
-			}
-			podId, err := ParsePodId(filepath.Base(path))
-			if err != nil {
-				klog.Errorf("get podId failed, %v", err)
-				continue
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			defer cancel()
-
-			netns := GetNetNs(ctx, path+"/"+file.Name()+"/cgroup.procs")
-			containerEvent := ContainerEvent{
-				eventType:   0,
-				podId:       podId,
-				containerId: containerId,
-				cgroupPath:  path,
-				netns:       netns,
-			}
-			containers = append(containers, containerEvent)
-			//file.Name() + "/cgroup.procs"
-		}
-	}
-	return containers
-}
-
-func (o *OobImpl) Initialize() error {
-	klog.Infof("non nri engine start")
-	stopCtx := signals.SetupSignalHandler()
-	go o.Run(stopCtx.Done())
-	_, err := o.GetAllPods()
-	if err != nil {
-		klog.Errorf("Get all pods failed :%v", err)
-	}
-	dropRepeat := make(map[string]int)
-	for _, pod := range o.pods {
-		if _, ok := dropRepeat[string(pod.UID)]; ok {
-			continue
-		}
-		dropRepeat[string(pod.UID)] = 1
-		newPodId := strings.ReplaceAll(string(pod.UID), "-", "_")
-		var cgroupPath string
-		if pod.Status.QOSClass == "Guaranteed" {
-			cgroupPath = o.cgroupRootPath + cgroupRootGAPath + "/kubepods-pod" + newPodId + ".slice"
-		} else if pod.Status.QOSClass == "Burstable" {
-			cgroupPath = o.cgroupRootPath + cgroupRootBTPath + "/kubepods-burstable-pod" + newPodId + ".slice"
-		} else {
-			cgroupPath = o.cgroupRootPath + cgroupRootBEPath + "/kubepods-besteffort-pod" + newPodId + ".slice"
-		}
-
-		containerEvents := FindCgroupInfoInPod(cgroupPath)
-		fmt.Println(containerEvents)
-		//for _, v := range containerEvents {
-		//	//o.AnalysisOOBData(&v, v.netns, 1)
-		//}
-	}
-
-	return nil
-}
-
-func (o *OobImpl) Uninitialize() error {
-	return nil
+	go OOBInstance.Run(StopCh)
+	klog.Info("oob engin started >>>>>>> ")
 }
 
 type PodEvent struct {
@@ -191,7 +125,7 @@ func newKubeletStub() (KubeletStub, error) {
 	} else {
 		scheme = HTTPSScheme
 	}
-	nodeName := os.Getenv("Node_Name")
+	nodeName := os.Getenv("KUBE_NODE_NAME")
 	return NewKubeletStub(nodeName, port, scheme, 30*time.Second)
 }
 
@@ -210,38 +144,6 @@ func TypeOf(event *inotify.Event) EventType {
 		return FileUpdated
 	}
 	return UnknownType
-}
-
-func (o *OobImpl) AnalysisOOData(container *ContainerEvent, netns string, op int) {
-	//newPodId := strings.ReplaceAll(container.podId, "_", "-")
-	//pod, ok := o.pods[newPodId]
-	//if !ok {
-	//	klog.Errorf("can't find this pod %s", container.podId)
-	//}
-	//netnamespace := make([]*api.LinuxNamespace, 1)
-	//if op == 1 {
-	//	netnamespace[0] = &api.LinuxNamespace{
-	//		Type: "network",
-	//		Path: netns,
-	//	}
-	//}
-
-	//cgroupPath := strings.ReplaceAll(container.cgroupPath, "/opt/ioi/cgroup", "")
-	//pif := agent.PodInfo{
-	//	Operation:    op,
-	//	Name:         newPodId,
-	//	Namespace:    pod.Namespace,
-	//	NetNamespace: netnamespace, // fixme: need to check later
-	//	CGroupPath:   filepath.Dir(filepath.Dir(cgroupPath)),
-	//}
-	//PodInfoes := make(map[string]agent.PodInfo)
-	//PodInfoes[newPodId] = pif
-	//pdata := agent.PodData{
-	//	T:         0,
-	//	PodInfoes: PodInfoes,
-	//}
-	//// klog.Info("pod data: ", pdata)
-	//agent.PodInfoChan <- &pdata
 }
 
 func GetNetNs(ctx context.Context, cgroupPath string) string {
@@ -263,13 +165,13 @@ func GetNetNs(ctx context.Context, cgroupPath string) string {
 			}
 			pid := string(txt)
 
-			link, err := os.Readlink(fmt.Sprintf("/opt/ioi/proc/%s/ns/net", pid))
+			link, err := os.Readlink(fmt.Sprintf("/opt/dedinic/proc/%s/ns/net", pid))
 			if err != nil {
 				klog.Errorf("Can't read link file %v:", err)
 			}
 			re := regexp.MustCompile(`\d+`)
 			match := re.FindString(link)
-			root := "/opt/ioi/run/netns/"
+			root := "/var/run/netns/"
 			var netns string
 			err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
@@ -321,13 +223,30 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 			case ContainerAdded:
 				klog.Infof("ContainerAdded, %s %s", event.podId, event.containerId)
 			case ContainerDeleted:
-				//o.AnalysisOOBData(event, "", 0)
 				klog.Infof("ContainerDeleted, %s %s", event.podId, event.containerId)
 			case ContainerTaskIdDone:
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 				defer cancel()
+				_, err := o.GetAllPods()
+				if err != nil {
+					klog.Errorf("Get all pods failed %v", err)
+				}
 				netns := GetNetNs(ctx, event.cgroupPath)
-				//o.AnalysisOOBData(event, netns, 1)
+				if pod, ok := o.pods[event.podId]; ok {
+					klog.Infof("add dedinic to the pod:%v", pod)
+					podRequest := &request.CniRequest{
+						CniType:      "kube-ovn",
+						PodName:      pod.Name,
+						PodNamespace: pod.Namespace,
+						ContainerID:  string(pod.GetUID()),
+						NetNs:        netns,
+						IfName:       "eth-ovn",
+						Provider:     "ovn",
+					}
+					DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
+				} else {
+					klog.Errorf("cant find the pod info: %v", event.podId)
+				}
 				klog.Infof("netns is %s", netns)
 				klog.Infof("ContainerTaskIdDone, %s %s %s", event.podId, event.containerId, netns)
 			}
@@ -338,21 +257,21 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 }
 
 func (o *OobImpl) Run(stopCh <-chan struct{}) {
-	cgroupGAPath := o.cgroupRootPath + cgroupRootGAPath
+	cgroupGAPath := path.Join(o.cgroupRootPath, cgroupRootGAPath)
 	err := o.podWatcher.AddWatch(cgroupGAPath, inotify.InCreate|inotify.InDelete)
 	if err != nil {
 		klog.Errorf("failed to watch path %s, err %v", cgroupGAPath, err)
 		return
 	}
 	klog.Infof("add GAPath to watcher, %s", cgroupGAPath)
-	cgroupBTPath := o.cgroupRootPath + cgroupRootBTPath
+	cgroupBTPath := path.Join(o.cgroupRootPath, cgroupRootBTPath)
 	err = o.podWatcher.AddWatch(cgroupBTPath, inotify.InCreate|inotify.InDelete)
 	if err != nil {
 		klog.Errorf("failed to watch path %s, err %v", cgroupBTPath, err)
 		return
 	}
 	klog.Infof("add BTPath to watcher, %s", cgroupBTPath)
-	cgroupBEPath := o.cgroupRootPath + cgroupRootBEPath
+	cgroupBEPath := path.Join(o.cgroupRootPath, cgroupRootBEPath)
 	err = o.podWatcher.AddWatch(cgroupBEPath, inotify.InCreate|inotify.InDelete)
 	if err != nil {
 		klog.Errorf("failed to watch path %s, err %v", cgroupBEPath, err)
@@ -418,7 +337,7 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 					klog.Infof("get podId failed, %v", err)
 					continue
 				}
-				err = o.taskIdWatcher.AddWatch(event.Name+"/cgroup.procs", inotify.InCreate|inotify.InModify|inotify.InAllEvents)
+				err = o.taskIdWatcher.AddWatch(path.Join(event.Name, "cgroup.procs"), inotify.InCreate|inotify.InModify|inotify.InAllEvents)
 				if err != nil {
 					klog.Errorf("failed to watch path %s, err %v", event.Name+"/cgroup.procs", err)
 				}
@@ -508,7 +427,9 @@ func ParsePodId(basename string) (string, error) {
 
 	for i := range patterns {
 		if strings.HasPrefix(basename, patterns[i].prefix) && strings.HasSuffix(basename, patterns[i].suffix) {
-			return basename[len(patterns[i].prefix) : len(basename)-len(patterns[i].suffix)], nil
+			podIdStr := basename[len(patterns[i].prefix) : len(basename)-len(patterns[i].suffix)]
+			return strings.ReplaceAll(podIdStr, "_", "-"), nil
+
 		}
 	}
 	return "", fmt.Errorf("fail to parse pod id: %v", basename)
@@ -546,6 +467,7 @@ func newContainerEvent(podId string, containerId string, eventType int, cgroupPa
 }
 
 func (o *OobImpl) GetAllPods() (corev1.PodList, error) {
+	klog.V(5).Infof("Update the PodList")
 	pods, err := o.kubeletStub.GetAllPods()
 	if err != nil {
 		return pods, err
@@ -557,11 +479,3 @@ func (o *OobImpl) GetAllPods() (corev1.PodList, error) {
 	}
 	return pods, err
 }
-
-//func init() {
-//	engine, err := NewOobServer("/opt/ioi/cgroup/")
-//	if err != nil {
-//		klog.Errorf("New OOB server error: %v", err)
-//	}
-//	//agent.GetAgent().RegisterEngine(engine)
-//}

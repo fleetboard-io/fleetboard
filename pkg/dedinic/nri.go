@@ -21,11 +21,16 @@ var (
 	_   = stub.ConfigureInterface(&CNIPlugin{})
 )
 
-func InitCNIPlugin(config *Configuration, controller *Controller) {
+func InitNRIPlugin(config *Configuration, controller *Controller) {
 	var (
 		err  error
 		opts []stub.Option
 	)
+	flag := os.Getenv("NRI_ENABLE")
+	if flag != "true" {
+		klog.Infof("NRI plugin is no enabled")
+		return
+	}
 	pluginName := "hydra"
 	opts = append(opts, stub.WithPluginName(pluginName))
 	pluginIdx := "00"
@@ -36,19 +41,19 @@ func InitCNIPlugin(config *Configuration, controller *Controller) {
 	klog.Info("nri start ....")
 
 	if p.Mask, err = api.ParseEventMask(events); err != nil {
-		klog.Fatalf("nri failed to parse events: %v", err)
+		klog.Errorf("nri failed to parse events: %v", err)
 	}
 
 	if p.Stub, err = stub.New(p, append(opts, stub.WithOnClose(p.OnClose))...); err != nil {
-		klog.Fatalf("nri failed to create nri stub: %v", err)
+		klog.Errorf("nri failed to create nri stub: %v", err)
 	}
 
 	csh = createCniHandler(config, controller)
 	klog.Info(">>>>>>>>>>>>>>>>>>>>>  nri CNI Plugin Started - Version Tag 0.0.1 <<<<<<<<<<<<<<<<<<<<<<<<<<")
+
 	err = p.Stub.Run(context.Background())
 	if err != nil {
 		klog.Errorf("nri CNIPlugin exited with error %v", err)
-		os.Exit(1)
 	}
 }
 

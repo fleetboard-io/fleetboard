@@ -7,7 +7,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/multi-cluster-network/ovn-builder/pkg/dedinic"
 )
@@ -15,7 +14,6 @@ import (
 func main() {
 
 	defer klog.Flush()
-	stopCh := signals.SetupSignalHandler().Done()
 
 	_ = dedinic.InitConfig()
 
@@ -29,7 +27,7 @@ func main() {
 			listOption.AllowWatchBookmarks = true
 		}))
 
-	ctl, err := dedinic.NewController(dedinic.Conf, stopCh, podInformerFactory, nodeInformerFactory)
+	ctl, err := dedinic.NewController(dedinic.Conf, dedinic.StopCh, podInformerFactory, nodeInformerFactory)
 	if err != nil {
 		util.LogFatalAndExit(err, "failed to create controller")
 	}
@@ -37,8 +35,8 @@ func main() {
 
 	go dedinic.InitDelayQueue()
 
-	go dedinic.InitCNIPlugin(dedinic.Conf, ctl)
+	go dedinic.InitNRIPlugin(dedinic.Conf, ctl)
 
 	klog.Info("start nri dedicated plugin run")
-	ctl.Run(stopCh)
+	ctl.Run(dedinic.StopCh)
 }
