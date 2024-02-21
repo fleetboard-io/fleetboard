@@ -45,9 +45,13 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 dedinic:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/dedinic/dedinic cmd/dedinic/main.go
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/dedinic/dedinic cmd/dedinic/main.go
 
+ep-controller:
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ep-controller cmd/ep-controller/main.go
 
 images: dedinic
-	docker build  --build-arg https_proxy=http://proxy-prc.intel.com:913 -f ./build/dedinic.Dockerfile ./ -t docker.io/airren/dedinic:v1.13.0-debug
+	docker build --build-arg https_proxy=http://proxy-prc.intel.com:913 -f ./build/dedinic.Dockerfile ./ -t docker.io/airren/dedinic:v1.13.0-debug
+	docker build --build-arg https_proxy=http://proxy-prc.intel.com:913 -f ./build/ep-controller.Dockerfile ./ -t docker.io/airren/ep-controller:latest
 	docker push docker.io/airren/dedinic:v1.13.0-debug
+	docker push docker.io/airren/ep-controller:latest
