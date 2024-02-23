@@ -6,6 +6,8 @@ image:
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
   tag: "v12"
+epControllerImage: docker.io/airren/ep-controller:latest
+dedinicImage: docker.io/airren/dedinic:v1.13.0-debug
 
 cluster:
   # Specifies whether this is a hub
@@ -26,7 +28,7 @@ serviceAccount:
   # Specifies whether a service account should be created
   create: true
   # Annotations to add to the service account
-  annotations: {}
+  annotations: { }
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: octopus

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: dedinic-cni
-  namespace: kube-system
+  namespace: octopus-system
 spec:
   revisionHistoryLimit: 10
   selector:
@@ -22,7 +22,7 @@ spec:
           env:
             - name: PARALLEL_IP_ANNOTATION
               value: "ovn.kubernetes.io/ip_address"
-          image: docker.io/airren/ep-controller:latest
+          image: {{ .Values.epControllerImage }}
           imagePullPolicy: Always
           resources:
             requests:
@@ -75,7 +75,7 @@ spec:
               value: "true"
             - name: DBUS_SYSTEM_BUS_ADDRESS
               value: unix:path=/host/var/run/dbus/system_bus_socket
-          image: docker.io/airren/dedinic:v1.13.0-debug
+          image: {{ .Values.dedinicImage }}
           imagePullPolicy: Always
           name: cni-server
           resources:
