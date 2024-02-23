@@ -127,9 +127,6 @@ spec:
             periodSeconds: 15
             failureThreshold: 5
             timeoutSeconds: 45
-#      nodeSelector:
-#        kubernetes.io/os: "linux"
-#        kube-ovn/role: "master"
       volumes:
         - name: host-run-ovs
           hostPath:
