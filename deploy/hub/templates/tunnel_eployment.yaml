@@ -47,7 +47,7 @@ spec:
             - name: OCTOPUS_CIDR
               value: {{ .Values.tunnel.cidr }}
             - name: OCTOPUS_ISHUB
-              value: {{ .Values.cluster.hub }}
+              value: {{ .Values.cluster.hub | quote }}
           resources:
             limits:
               cpu: 100m
