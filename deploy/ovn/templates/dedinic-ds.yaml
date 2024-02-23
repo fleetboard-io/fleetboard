@@ -48,6 +48,8 @@ spec:
             - bash
             - /dedinic/start-dedinic.sh
           env:
+            - name: NRI_ENABLE
+              value: "true"
             - name: ENABLE_SSL
               value: "false"
             - name: POD_IP
@@ -121,8 +123,13 @@ spec:
               readOnly: true
             - mountPath: /tmp
               name: tmp
-            - mountPath: /var/run/nri/nri.sock
+            - mountPath: /var/run/nri
+              mountPropagation: HostToContainer
               name: nrisock
+            - name: host-cgroup-root
+              mountPath: /opt/dedinic/cgroup
+            - name: host-proc
+              mountPath: /opt/dedinic/proc
       dnsPolicy: ClusterFirst
       hostNetwork: true
       hostPID: true
@@ -202,6 +209,14 @@ spec:
             type: ""
           name: local-bin
         - hostPath:
-            path: /var/run/nri/nri.sock
-            type: Socket
+            path: /var/run/nri
+            type: DirectoryOrCreate
           name: nrisock
+        - hostPath:
+            path: /sys/fs/cgroup/
+            type: ""
+          name: host-cgroup-root
+        - hostPath:
+            path: /proc/
+            type: ""
+          name: host-proc

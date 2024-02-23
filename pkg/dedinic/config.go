@@ -12,7 +12,12 @@ import (
 	"k8s.io/klog/v2"
 	"net"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"strings"
+)
+
+var (
+	StopCh = signals.SetupSignalHandler().Done()
 )
 
 type Configuration struct {
