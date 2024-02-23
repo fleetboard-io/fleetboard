@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: crossdns
+    component: crossdns
+  name: crossdns
+  namespace: octopus-system
+data:
+  Corefile: |
+    clusterset.local:53 {
+        crossdns
+        errors
+        health
+        ready
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: crossdns
+    component: crossdns
+  name: crossdns
+  namespace: octopus-system
+spec:
+  ports:
+    - name: udp
+      port: 53
+      protocol: UDP
+      targetPort: 53
+  selector:
+    app: crossdns
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crossdns
+  namespace: octopus-system
+  labels:
+    app: crossdns
+spec:
+  selector:
+    matchLabels:
+      app: crossdns
+  template:
+    metadata:
+      labels:
+        app: crossdns
+    spec:
+      containers:
+      - args:
+          - -conf
+          - /etc/coredns/Corefile
+        name: crossdns
+        image: {{ .Values.image.repository }}/crossdns:v1
+        volumeMounts:
+          - mountPath: /etc/coredns
+            name: config-volume
+            readOnly: true
+      serviceAccount: syncer
+      serviceAccountName: syncer
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: Corefile
+                path: Corefile
+            name: crossdns
+          name: config-volume
