@@ -1,0 +1,33 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: ipam-controller
+  namespace: octopus-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ipam-controller
+  template:
+    metadata:
+      labels:
+        app: ipam-controller
+        component: network
+        type: infra
+    spec:
+      hostNetwork: true
+      serviceAccountName: ovn
+      containers:
+        - name: ipam-controller
+          image: {{ .Values.image.repository }}/ovnmaster:v16
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_IPS
+              value: {{- range (lookup "v1" "Service" "kube-system" "").items }}
+                {{- if eq (dig "k8s-app" "no-kube-dns" .metadata.labels) "kube-dns" }}
+                {{- $last_part := splitList "." (.spec.clusterIP | trimAll "\n") | last | add1 }}
+                   {{ concat (slice (splitList "." .spec.clusterIP) 0 3 ) (list $last_part) | join "."}}
+                {{- end }}
+                {{- end }}
+            - name: CIDR
+              value: {{ .Values.tunnel.cidr }}
