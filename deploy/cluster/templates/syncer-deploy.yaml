@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: syncer
-          image: {{ .Values.image.repository }}/syncer:v12
+          image: {{ .Values.image.repository }}/syncer:v17
           env:
             - name: SYNCER_CLUSTERID
               value: {{ .Values.cluster.clusterID }}
