@@ -17,7 +17,6 @@ It consists of several parts for networking between clusters:
 
 ![](doc/pic/arch.png "topology")
 
-
 ## Hub Cluster
 
 We use hub cluster to exchange MCS related resources for connecting clusters, and establish secure tunnels with
@@ -54,3 +53,21 @@ Also, it creates logical switch, watches the Pod creation and deletion events, m
 logical ports. Finally, it writes the assigned address to the annotation of the Pod.
 
 ![](doc/pic/ovnmaster.png)
+
+
+## Install by helm
+- Hub
+  ```shell
+  helm repo add  mcs http://122.96.144.180:30088/charts/mcs
+  helm install octopus mcs/octopus --namespace octopus-system  --create-namespace \
+  --set image.repository=122.96.144.180:30080/octopus --set tunnel.endpoint=172.24.33.2 \
+  --set tunnel.cidr=10.112.0.0/12
+  ```
+- Cluster
+  ```shell
+  helm repo add  mcs http://122.96.144.180:30088/charts/mcs
+  helm install octopus mcs/octopus-agent --namespace octopus-system  --create-namespace \
+  --set image.repository=122.96.144.180:30080/octopus --set hub.hubURL=https://121.41.31.123:6443 \
+  --set tunnel.cidr=10.113.0.0/16 --set hub.ca={{ index $secret.data "ca.crt" }} \
+  --set hub.token={{ $secret.data.token }} 
+  ```
