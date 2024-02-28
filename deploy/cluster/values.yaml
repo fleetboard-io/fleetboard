@@ -20,6 +20,8 @@ cluster:
 
 hub:
   hubURL: https://121.41.31.123:6443
+  ca: please_enter_or_use_exiting_secret
+  token: please_enter_or_use_exiting_secret
 
 tunnel:
   cidr: 10.113.0.0/16

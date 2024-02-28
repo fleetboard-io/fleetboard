@@ -49,3 +49,15 @@ rules:
     resources: ["secrets"]
     verbs: ["get", "watch", "list"]
 {{ end }}
+
+{{- if ge (.Capabilities.KubeVersion.Minor|int) 24 }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+  namespace: octopus-system
+  annotations:
+    kubernetes.io/service-account.name: {{ .Values.serviceAccount.name | quote }}
+type: kubernetes.io/service-account-token
+{{- end }}

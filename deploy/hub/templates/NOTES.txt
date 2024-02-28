@@ -1,0 +1,20 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+Continue to install octopus-agent on clusters, with ca and token:
+
+  export HUB_SECRET_NAME=$(kubectl get sa --namespace octopus-system {{ .Values.serviceAccount.name }} \
+  -o jsonpath="{.secrets[0].name}")
+
+  export HUB_CA=$(kubectl get secret --namespace octopus-system  $HUB_SECRET_NAME -o jsonpath="{.data['ca\.crt']}")
+
+  export HUB_TOKEN=$(kubectl get secret --namespace octopus-system  $HUB_SECRET_NAME -o jsonpath="{.data.token}")
+
+And install octopus-agent in cluster by:
+
+  helm install octopus-agent mcs/octopus-agent --namespace octopus-system  --create-namespace \
+  --set image.repository=122.96.144.180:30080/octopus --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 \
+  --set hub.ca=$HUB_CA --set hub.token=$HUB_TOKEN --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
+
+
