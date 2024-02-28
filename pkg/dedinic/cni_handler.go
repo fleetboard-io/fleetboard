@@ -76,6 +76,13 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 				return errMsg
 			}
 		}
+
+		if len(routes) == 0 {
+			routes = append(routes, request.Route{
+				Destination: cidr,
+				Gateway:     gw,
+			})
+		}
 		if ifName = podRequest.IfName; ifName == "" {
 			ifName = "eth-ovn"
 		}
