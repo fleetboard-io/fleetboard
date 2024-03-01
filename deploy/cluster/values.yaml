@@ -5,7 +5,7 @@ image:
   repository: lmxia
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v12"
+  tag: "v13"
 epControllerImage: docker.io/airren/ep-controller:latest
 dedinicImage: docker.io/airren/dedinic:v1.13.0-debug
 
@@ -25,6 +25,7 @@ hub:
 
 tunnel:
   cidr: 10.113.0.0/16
+  globalcidr: 10.112.0.0/12
 
 serviceAccount:
   # Specifies whether a service account should be created

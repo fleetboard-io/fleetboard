@@ -36,6 +36,7 @@ func main() {
 
 	//
 	CIDR := os.Getenv("CIDR")
+	globalCIDR := os.Getenv("GLOBAL_CIDR")
 	gateway, err := util.GetIndexIpFromCIDR(CIDR, 1)
 	if err != nil {
 		klog.Fatalf("invalid gateway of cidr", err.Error())
@@ -49,6 +50,7 @@ func main() {
 		Name:       "default",
 		Default:    true,
 		CIDRBlock:  CIDR,
+		GlobalCIDR: globalCIDR,
 		Gateway:    gateway,
 		ExcludeIps: []string{gateway, cnfPodIP},
 		Provider:   "default",

@@ -2,12 +2,11 @@ package pod
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,6 +22,9 @@ import (
 
 	"github.com/dixudx/yacht"
 	ovnipam "github.com/kubeovn/kube-ovn/pkg/ipam"
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/kubeovn/kube-ovn/pkg/request"
+	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/multi-cluster-network/ovn-builder/pkg/api"
 )
 
@@ -239,6 +241,21 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	}
 	pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] = "true"
 
+	// cnf pod need no route to gateway pod.
+	if !strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true") {
+		routes := []request.Route{
+			{
+				Destination: podNet.GlobalCIDR,
+				Gateway:     podNet.Gateway,
+			},
+		}
+		routeBytes, err := json.Marshal(routes)
+		if err != nil {
+			klog.Errorf("Marshal error: %v", err)
+		}
+		pod.Annotations[fmt.Sprintf(util.RoutesAnnotationTemplate, "ovn")] = string(routeBytes)
+	}
+
 	if err := util.ValidatePodCidr(podNet.CIDRBlock, ipStr); err != nil {
 		klog.Errorf("validate pod %s/%s failed: %v", pod.Namespace, pod.Name, err)
 		return err
@@ -304,7 +321,7 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	var err error
 	// cnf pod allocate
 	if isCNFPod {
-		ipStr = podNet.ExcludeIps[1]
+		ipStr = podNet.Gateway
 	} else {
 		ipStr = pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, "ovn")]
 	}
