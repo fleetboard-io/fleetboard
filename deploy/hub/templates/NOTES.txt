@@ -15,6 +15,5 @@ And install octopus-agent in cluster by:
 
   helm install octopus-agent mcs/octopus-agent --namespace octopus-system  --create-namespace \
   --set image.repository=122.96.144.180:30080/octopus --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 \
-  --set hub.ca=$HUB_CA --set hub.token=$HUB_TOKEN --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
-
-
+  --set hub.ca=$HUB_CA --set hub.token=$HUB_TOKEN --set cluster.clusterID=cluster1 \
+  --set tunnel.cidr=10.113.0.0/16 --set tunnel.globalcidr={{ .Values.tunnel.cidr }}

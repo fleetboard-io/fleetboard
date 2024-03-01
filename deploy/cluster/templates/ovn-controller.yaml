@@ -31,3 +31,5 @@ spec:
                 {{- end }}
             - name: CIDR
               value: {{ .Values.tunnel.cidr }}
+            - name: GLOBAL_CIDR
+              value: {{ .Values.tunnel.globalcidr }}

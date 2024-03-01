@@ -18,3 +18,10 @@ const (
 	MaxNameLength      = 10
 	MaxClusternName    = 10
 )
+
+type RouteOperation int
+
+const (
+	Add RouteOperation = iota
+	Delete
+)

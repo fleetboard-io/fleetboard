@@ -13,6 +13,7 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
       protocol: {{ .Values.service.protocol }}
       name: udp
+      nodePort: {{ .Values.service.nodePort }}
   selector:
     app: {{ .Chart.Name }}
 {{- end }}

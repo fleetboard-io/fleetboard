@@ -3,18 +3,24 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"time"
 
-	"github.com/dixudx/yacht"
-	v1alpha1app "github.com/multi-cluster-network/ovn-builder/pkg/apis/octopus.io/v1alpha1"
-	octopusinformers "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions"
-	"github.com/multi-cluster-network/ovn-builder/pkg/generated/listers/octopus.io/v1alpha1"
+	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+
+	"github.com/dixudx/yacht"
+	v1alpha1app "github.com/multi-cluster-network/ovn-builder/pkg/apis/octopus.io/v1alpha1"
+	"github.com/multi-cluster-network/ovn-builder/pkg/constants"
+	octopusinformers "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions"
+	"github.com/multi-cluster-network/ovn-builder/pkg/generated/listers/octopus.io/v1alpha1"
+	"github.com/vishvananda/netlink"
 )
 
 type PeerController struct {
@@ -97,6 +103,10 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		if c.tunnel.RemovePeer(&oldKey) != nil {
 			return &failedPeriod, err
 		}
+		if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, constants.Delete); err != nil {
+			klog.Infof("delete route failed for %v", cachedPeer)
+			return &failedPeriod, err
+		}
 		klog.Infof("peer %s has been recycled successfully", peerName)
 	}
 
@@ -105,6 +115,12 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		return &failedPeriod, err
 	}
 	klog.Infof("peer %s has been synced successfully", peerName)
+
+	// add route for target peer
+	if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, constants.Add); err != nil {
+		klog.Infof("add route failed for %v", cachedPeer)
+		return &failedPeriod, err
+	}
 	return nil, nil
 }
 
@@ -124,4 +140,41 @@ func (p *PeerController) Start(ctx context.Context) {
 		}
 	}, time.Duration(0))
 	<-ctx.Done()
+}
+
+func configHostRoutingRules(CIDRs []string, operation constants.RouteOperation) error {
+	var ifaceIndex int
+	if wg, err := net.InterfaceByName(DefaultDeviceName); err == nil {
+		ifaceIndex = wg.Index
+	} else {
+		klog.Errorf("%s not found in octopus.", DefaultDeviceName)
+		return err
+	}
+
+	for _, cidr := range CIDRs {
+		_, dst, err := net.ParseCIDR(cidr)
+		if err != nil {
+			klog.Errorf("Can't parse cidr %s as route dst", cidr)
+			return err
+		}
+		route := netlink.Route{
+			Dst:       dst,
+			LinkIndex: ifaceIndex,
+			Protocol:  4,
+			Table:     0,
+		}
+		route.Scope = unix.RT_SCOPE_LINK
+		if operation == constants.Add {
+			err = netlink.RouteAdd(&route)
+			if err != nil && !os.IsExist(err) {
+				return err
+			}
+		} else {
+			err = netlink.RouteDel(&route)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
