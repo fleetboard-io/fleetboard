@@ -74,7 +74,7 @@ const (
 
 	// controllerName is a unique value used with LabelManagedBy to indicated
 	// the component managing an EndpointSlice.
-	controllerName = "dedinic.k8s.io"
+	controllerName = "mcs.nauti.io"
 )
 
 // NewController creates and initializes a new Controller
