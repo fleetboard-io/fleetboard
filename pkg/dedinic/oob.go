@@ -61,7 +61,7 @@ var (
 	err         error
 )
 
-func init() {
+func InitOOb() {
 	OOBInstance, err = NewOobServer("/opt/dedinic/cgroup")
 	if err != nil {
 		klog.Fatalf("out of band engin start failed.")
