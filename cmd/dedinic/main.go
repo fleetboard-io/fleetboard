@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,12 @@ func main() {
 	go dedinic.InitDelayQueue()
 
 	go dedinic.InitNRIPlugin(dedinic.Conf, ctl)
+
+	//todo if nri is invalid
+	if _, err := os.Stat("/var/run/nri/nri.sock"); os.IsNotExist(err) {
+		klog.Infof("nri is not enabled, start with oob mode")
+		go dedinic.InitOOb()
+	}
 
 	klog.Info("start nri dedicated plugin run")
 	ctl.Run(dedinic.StopCh)
