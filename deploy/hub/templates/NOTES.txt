@@ -3,14 +3,20 @@ Thank you for installing {{ .Chart.Name }}.
 Your release is named {{ .Release.Name }}.
 
 Continue to install octopus-agent on clusters, with ca and token:
+{{- if ge (.Capabilities.KubeVersion.Minor|int) 24 }}
+  export HUB_CA=$(kubectl -n octopus-system get secrets \
+  -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data['ca\.crt']}")
 
+  export HUB_TOKEN=$(kubectl -n octopus-system  get secrets \
+    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data.token}")
+{{- else }}
   export HUB_SECRET_NAME=$(kubectl get sa --namespace octopus-system {{ .Values.serviceAccount.name }} \
   -o jsonpath="{.secrets[0].name}")
 
   export HUB_CA=$(kubectl get secret --namespace octopus-system  $HUB_SECRET_NAME -o jsonpath="{.data['ca\.crt']}")
 
   export HUB_TOKEN=$(kubectl get secret --namespace octopus-system  $HUB_SECRET_NAME -o jsonpath="{.data.token}")
-
+{{- end }}
 And install octopus-agent in cluster by:
 
   helm install octopus-agent mcs/octopus-agent --namespace octopus-system  --create-namespace \
