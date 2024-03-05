@@ -80,7 +80,7 @@ func NewEndpointController(podInformer coreinformers.PodInformer, serviceInforme
 	e := &Controller{
 		client:           client,
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),
-		workerLoopPeriod: time.Second,
+		workerLoopPeriod: 60 * time.Second,
 	}
 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
