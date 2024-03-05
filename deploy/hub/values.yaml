@@ -5,7 +5,7 @@ image:
   repository: lmxia
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v13"
+  tag: "v13.1"
 
 cluster:
   # Specifies whether this is a hub

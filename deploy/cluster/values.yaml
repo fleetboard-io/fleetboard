@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 image:
   repository: lmxia
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v13"
+  tag: "v13.1"
 epControllerImage: docker.io/airren/ep-controller:latest
 dedinicImage: docker.io/airren/dedinic:v1.13.0-debug
 
