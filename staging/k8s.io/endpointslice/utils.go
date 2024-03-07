@@ -154,6 +154,7 @@ func newEndpointSlice(logger klog.Logger, service *v1.Service, endpointMeta *end
 	}
 	// add parent service labels
 	epSlice.Labels, _ = setEndpointSliceLabels(logger, epSlice, service, controllerName)
+	epSlice.Labels["service.kubernetes.io/headless"] = "true"
 
 	return epSlice
 }
