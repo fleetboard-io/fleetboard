@@ -65,9 +65,14 @@ logical ports. Finally, it writes the assigned address to the annotation of the 
   ```
 - Cluster
   ```shell
-  helm repo add  mcs http://122.96.144.180:30088/charts/mcs
-  helm install octopus mcs/octopus-agent --namespace octopus-system  --create-namespace \
+  1. helm repo add  mcs http://122.96.144.180:30088/charts/mcs
+  2. helm install octopus mcs/octopus-agent --namespace octopus-system  --create-namespace \
   --set image.repository=122.96.144.180:30080/octopus --set hub.hubURL=https://121.41.31.123:6443 \
   --set tunnel.cidr=10.113.0.0/16 --set tunnel.globalcidr=10.112.0.0/12 --set hub.ca={{ index $secret.data "ca.crt" }} \
   --set hub.token={{ $secret.data.token }} 
+  
+  3. Add a pv. In some cases, there maybe cluster has no storage class, so we need create a pv bound to ovn-central.
+  4. Recreate CNF pod and test pods.
+  5. Edit coredns configmap, and restart coredns pods.
   ```
+  
