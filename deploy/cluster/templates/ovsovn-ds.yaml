@@ -64,7 +64,7 @@ spec:
             - name: OVN_DB_IPS
               value:   {{- range (lookup "v1" "Service" "kube-system" "").items }}
               {{- if eq (dig "k8s-app" "no-kube-dns" .metadata.labels) "kube-dns" }}
-              {{- $last_part := splitList "." (.spec.clusterIP | trimAll "\n") | last | add1 | add1 }}
+              {{- $last_part := splitList "." (.spec.clusterIP | trimAll "\n") | last | add 3 }}
                  {{ concat (slice (splitList "." .spec.clusterIP) 0 3 ) (list $last_part) | join "."}}
               {{- end }}
               {{- end }}
