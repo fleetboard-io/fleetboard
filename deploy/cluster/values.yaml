@@ -17,6 +17,7 @@ cluster:
   clusterID: cluster1
   sharenamespace: syncer-operator
   localnamespace: syncer-operator
+  zone: hyperos.local
 
 hub:
   hubURL: https://121.41.31.123:6443
