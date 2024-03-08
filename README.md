@@ -60,8 +60,7 @@ logical ports. Finally, it writes the assigned address to the annotation of the 
   ```shell
   helm repo add  mcs http://122.96.144.180:30088/charts/mcs
   helm install octopus mcs/octopus --namespace octopus-system  --create-namespace \
-  --set image.repository=122.96.144.180:30080/octopus --set tunnel.endpoint=172.24.33.2 \
-  --set tunnel.cidr=10.112.0.0/12
+  --set tunnel.endpoint=172.24.33.2
   ```
 - Cluster
   ```shell

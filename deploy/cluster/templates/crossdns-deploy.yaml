@@ -8,7 +8,7 @@ metadata:
   namespace: octopus-system
 data:
   Corefile: |
-    clusterset.local:53 {
+    {{ .Values.cluster.zone }}:53 {
         crossdns
         errors
         health
