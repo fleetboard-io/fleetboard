@@ -9,7 +9,6 @@ toolchain go1.22.0
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/google/go-cmp v0.6.0
-	github.com/multi-cluster-network/ovn-builder v0.0.0-20240221083750-b75ae61eead5
 	github.com/stretchr/testify v1.8.4
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.29.0

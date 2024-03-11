@@ -3,8 +3,8 @@ package utils
 import (
 	"context"
 
-	"github.com/multi-cluster-network/ovn-builder/pkg/apis/octopus.io/v1alpha1"
-	clientset "github.com/multi-cluster-network/ovn-builder/pkg/generated/clientset/versioned"
+	"github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
+	clientset "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"

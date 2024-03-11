@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/multi-cluster-network/ovn-builder/pkg/known"
+	"github.com/multi-cluster-network/nauti/pkg/known"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -19,7 +19,7 @@ import (
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/multi-cluster-network/ovn-builder/pkg/controller"
+	"github.com/multi-cluster-network/nauti/pkg/controller"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

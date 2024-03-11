@@ -5,7 +5,7 @@ image:
   repository: lmxia
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v13.1"
+  tag: "v1.0"
 epControllerImage: docker.io/airren/ep-controller:latest
 dedinicImage: docker.io/airren/dedinic:v1.13.0-debug
 

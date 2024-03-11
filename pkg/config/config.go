@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	"github.com/multi-cluster-network/ovn-builder/pkg/known"
-	"github.com/multi-cluster-network/ovn-builder/utils"
+	"github.com/multi-cluster-network/nauti/pkg/known"
+	"github.com/multi-cluster-network/nauti/utils"
 )
 
 func GetHubConfig(kubeClientSet kubernetes.Interface, HubAPIServer, localNamespace string) (*rest.Config, error) {

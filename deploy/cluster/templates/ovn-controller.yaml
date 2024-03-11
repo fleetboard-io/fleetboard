@@ -19,8 +19,8 @@ spec:
       serviceAccountName: ovn
       containers:
         - name: ipam-controller
-          image: {{ .Values.image.repository }}/ovnmaster:v17.4
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.repository }}/ovnmaster:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: NODE_IPS
               value: {{- range (lookup "v1" "Service" "kube-system" "").items }}
