@@ -7,7 +7,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"k8s.io/klog/v2"
 
-	"github.com/multi-cluster-network/ovn-builder/pkg/apis/octopus.io/v1alpha1"
+	"github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )

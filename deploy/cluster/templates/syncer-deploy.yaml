@@ -36,7 +36,8 @@ spec:
     spec:
       containers:
         - name: syncer
-          image: {{ .Values.image.repository }}/syncer:v18
+          image: "{{ .Values.image.repository }}/syncer:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: SYNCER_CLUSTERID
               value: {{ .Values.cluster.clusterID }}

@@ -19,8 +19,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 
-	"github.com/multi-cluster-network/ovn-builder/pkg/controller/endpoint"
-	"github.com/multi-cluster-network/ovn-builder/pkg/controller/endpointslice"
+	"github.com/multi-cluster-network/nauti/pkg/controller/endpoint"
+	"github.com/multi-cluster-network/nauti/pkg/controller/endpointslice"
 )
 
 var (

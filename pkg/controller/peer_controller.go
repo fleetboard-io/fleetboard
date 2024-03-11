@@ -16,10 +16,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
-	v1alpha1app "github.com/multi-cluster-network/ovn-builder/pkg/apis/octopus.io/v1alpha1"
-	"github.com/multi-cluster-network/ovn-builder/pkg/constants"
-	octopusinformers "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions"
-	"github.com/multi-cluster-network/ovn-builder/pkg/generated/listers/octopus.io/v1alpha1"
+	v1alpha1app "github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/multi-cluster-network/nauti/pkg/constants"
+	octopusinformers "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions"
+	"github.com/multi-cluster-network/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/vishvananda/netlink"
 )
 

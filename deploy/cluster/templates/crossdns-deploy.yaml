@@ -62,7 +62,8 @@ spec:
           - -conf
           - /etc/coredns/Corefile
         name: crossdns
-        image: {{ .Values.image.repository }}/crossdns:v8
+        image: "{{ .Values.image.repository }}/crossdns:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
           - mountPath: /etc/coredns
             name: config-volume

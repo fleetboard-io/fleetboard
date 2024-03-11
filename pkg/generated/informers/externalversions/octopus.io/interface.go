@@ -18,8 +18,8 @@ limitations under the License.
 package octopus
 
 import (
-	internalinterfaces "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions/octopus.io/v1alpha1"
+	internalinterfaces "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions/octopus.io/v1alpha1"
 )
 
 // Interface provides access to each of this group's versions.

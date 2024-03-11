@@ -19,10 +19,11 @@ package endpoint
 import (
 	"context"
 	"fmt"
-	"github.com/multi-cluster-network/ovn-builder/pkg/controller/utils"
-	"k8s.io/apimachinery/pkg/types"
 	"math"
 	"time"
+
+	"github.com/multi-cluster-network/nauti/pkg/controller/utils"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"

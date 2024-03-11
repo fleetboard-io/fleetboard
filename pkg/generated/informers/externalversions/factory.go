@@ -22,9 +22,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/multi-cluster-network/ovn-builder/pkg/generated/clientset/versioned"
-	internalinterfaces "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions/internalinterfaces"
-	octopusio "github.com/multi-cluster-network/ovn-builder/pkg/generated/informers/externalversions/octopus.io"
+	versioned "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions/internalinterfaces"
+	octopusio "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions/octopus.io"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
