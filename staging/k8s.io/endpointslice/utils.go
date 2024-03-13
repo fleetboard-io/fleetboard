@@ -154,7 +154,7 @@ func newEndpointSlice(logger klog.Logger, service *v1.Service, endpointMeta *end
 	}
 	// add parent service labels
 	epSlice.Labels, _ = setEndpointSliceLabels(logger, epSlice, service, controllerName)
-	epSlice.Labels["service.kubernetes.io/headless"] = "true"
+	epSlice.Labels[v1.IsHeadlessService] = "true"
 
 	return epSlice
 }
@@ -258,15 +258,11 @@ func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice
 	}
 
 	// add or remove headless label depending on the service Type
-	if !isServiceIPSet(service) {
-		svcLabels[v1.IsHeadlessService] = ""
-	} else {
-		delete(svcLabels, v1.IsHeadlessService)
-	}
 
 	// override endpoint slices reserved labels
 	svcLabels[discovery.LabelServiceName] = service.Name
 	svcLabels[discovery.LabelManagedBy] = controllerName
+	svcLabels[v1.IsHeadlessService] = "true"
 
 	return svcLabels, updated
 }
