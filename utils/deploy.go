@@ -8,7 +8,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/mattbaird/jsonpatch"
-	"github.com/multi-cluster-network/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 // current is deployed resource, modified is changed resource.

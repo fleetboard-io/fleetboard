@@ -41,9 +41,9 @@ import (
 	alpha1 "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"github.com/dixudx/yacht"
-	"github.com/multi-cluster-network/nauti/pkg/constants"
-	"github.com/multi-cluster-network/nauti/pkg/known"
-	"github.com/multi-cluster-network/nauti/utils"
+	"github.com/nauti-io/nauti/pkg/constants"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 )
 
 func init() {

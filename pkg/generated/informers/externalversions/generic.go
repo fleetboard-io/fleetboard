@@ -20,7 +20,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
+	v1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )

@@ -3,19 +3,19 @@ package main
 import (
 	"flag"
 
-	"github.com/kelseyhightower/envconfig"
-	syncerConfig "github.com/multi-cluster-network/nauti/pkg/config"
-	"github.com/multi-cluster-network/nauti/pkg/controller"
-
-	octopusClientset "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
-	"github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions"
-	kubeinformers "github.com/multi-cluster-network/nauti/pkg/generated/informers/externalversions"
-	"github.com/multi-cluster-network/nauti/pkg/known"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	"github.com/kelseyhightower/envconfig"
+	syncerConfig "github.com/nauti-io/nauti/pkg/config"
+	"github.com/nauti-io/nauti/pkg/controller"
+	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	"github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
+	kubeinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 var (

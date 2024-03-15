@@ -25,7 +25,7 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/ovs"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/multi-cluster-network/nauti/pkg/api"
+	"github.com/nauti-io/nauti/pkg/api"
 )
 
 type PodController struct {

@@ -20,7 +20,7 @@ package versioned
 import (
 	"fmt"
 
-	octopusv1alpha1 "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
+	octopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"

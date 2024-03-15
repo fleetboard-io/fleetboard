@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/multi-cluster-network/nauti/pkg/api"
+	"github.com/nauti-io/nauti/pkg/api"
 	"github.com/ovn-org/libovsdb/ovsdb"
 	"k8s.io/klog/v2"
 

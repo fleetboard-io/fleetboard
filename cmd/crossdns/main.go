@@ -12,7 +12,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/ready"
 	_ "github.com/coredns/coredns/plugin/trace"
 	_ "github.com/coredns/coredns/plugin/whoami"
-	_ "github.com/multi-cluster-network/nauti/pkg/plugin"
+	_ "github.com/nauti-io/nauti/pkg/plugin"
 )
 
 var directives = []string{

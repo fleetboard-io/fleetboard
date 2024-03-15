@@ -1,4 +1,4 @@
-module github.com/multi-cluster-network/nauti
+module github.com/nauti-io/nauti
 
 go 1.21
 

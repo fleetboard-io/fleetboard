@@ -18,8 +18,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

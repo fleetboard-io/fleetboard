@@ -26,7 +26,7 @@ echo $SCRIPT_ROOT
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 bash "${CODEGEN_PKG}"/generate-groups.sh "deepcopy,client,informer,lister" \
-  github.com/multi-cluster-network/nauti/pkg/generated github.com/multi-cluster-network/nauti/pkg/apis \
+  github.com/nauti-io/nauti/pkg/generated github.com/nauti-io/nauti/pkg/apis \
   octopus.io:v1alpha1 \
   --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../.." \
   --go-header-file "${SCRIPT_ROOT}"/hack/boilerplate.go.txt

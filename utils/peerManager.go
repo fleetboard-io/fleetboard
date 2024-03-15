@@ -3,13 +3,14 @@ package utils
 import (
 	"context"
 
-	"github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
-	clientset "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+
+	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	clientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 )
 
 // ApplyEndPointSliceWithRetry create or update existed slices.

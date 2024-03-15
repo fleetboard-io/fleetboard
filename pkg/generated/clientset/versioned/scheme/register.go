@@ -18,7 +18,7 @@ limitations under the License.
 package scheme
 
 import (
-	octopusv1alpha1 "github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
+	octopusv1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

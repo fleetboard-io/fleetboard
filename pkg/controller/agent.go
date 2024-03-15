@@ -20,10 +20,10 @@ import (
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
-	"github.com/multi-cluster-network/nauti/pkg/config"
-	"github.com/multi-cluster-network/nauti/pkg/constants"
-	"github.com/multi-cluster-network/nauti/pkg/controller/mcs"
-	"github.com/multi-cluster-network/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/config"
+	"github.com/nauti-io/nauti/pkg/constants"
+	"github.com/nauti-io/nauti/pkg/controller/mcs"
+	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
 )
 

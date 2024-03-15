@@ -18,8 +18,8 @@ import (
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
 	"github.com/dixudx/yacht"
-	"github.com/multi-cluster-network/nauti/pkg/known"
-	"github.com/multi-cluster-network/nauti/utils"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 )
 
 type EpsController struct {
