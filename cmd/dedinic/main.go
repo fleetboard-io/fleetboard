@@ -9,7 +9,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/klog/v2"
 
-	"github.com/multi-cluster-network/nauti/pkg/dedinic"
+	"github.com/nauti-io/nauti/pkg/dedinic"
 )
 
 func main() {

@@ -11,9 +11,9 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/pointer"
 
-	"github.com/multi-cluster-network/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
-	"github.com/multi-cluster-network/nauti/utils"
+	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	"github.com/nauti-io/nauti/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )

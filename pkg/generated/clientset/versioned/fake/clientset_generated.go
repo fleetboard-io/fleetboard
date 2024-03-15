@@ -18,9 +18,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned"
-	octopusv1alpha1 "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
-	fakeoctopusv1alpha1 "github.com/multi-cluster-network/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1/fake"
+	clientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	octopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
+	fakeoctopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

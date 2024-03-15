@@ -6,16 +6,17 @@ import (
 	"os"
 	"time"
 
-	"github.com/multi-cluster-network/nauti/pkg/api"
-	"github.com/multi-cluster-network/nauti/pkg/controller/pod"
-	"github.com/multi-cluster-network/nauti/pkg/subnet"
-	"github.com/multi-cluster-network/nauti/pkg/util"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	"github.com/nauti-io/nauti/pkg/api"
+	"github.com/nauti-io/nauti/pkg/controller/pod"
+	"github.com/nauti-io/nauti/pkg/subnet"
+	"github.com/nauti-io/nauti/pkg/util"
 )
 
 var (
