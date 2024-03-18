@@ -55,12 +55,13 @@ func NewPeerController(spec Specification, w *wireguard, octopusFactory octopusi
 			if tempObj != nil {
 				newPeer := tempObj.(*v1alpha1app.Peer)
 				// hub connect with nohub, nohub connect with hub.
-				//if !spec.IsHub && !newPeer.Spec.IsHub || spec.IsHub && newPeer.Spec.IsHub {
-				if spec.IsHub == newPeer.Spec.IsHub {
-					return false, nil
+				// make sure there is only ONE Hub.
+				if newPeer.Spec.IsHub || (len(newPeer.Spec.Endpoint) != 0 && newPeer.Spec.IsPublic) {
+					return !spec.IsHub, nil
 				}
+				return spec.IsHub, nil
 			}
-			return true, nil
+			return false, nil
 		})
 	_, err := peerInformer.Informer().AddEventHandler(yachtController.DefaultResourceEventHandlerFuncs())
 	if err != nil {

@@ -1,4 +1,4 @@
-{{- if .Values.cluster.hub -}}
+{{- if .Values.cluster.ispublic -}}
 apiVersion: v1
 kind: Service
 metadata:
