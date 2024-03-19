@@ -34,12 +34,11 @@ spec:
           env:
             - name: OCTOPUS_CLUSTERID
               value: {{ .Values.cluster.clusterID }}
-            {{- if not .Values.cluster.hub }}
             - name: OCTOPUS_HUBURL
               value: {{ .Values.hub.hubURL }}
             - name: OCTOPUS_LOCALNAMESPACE
               value: {{ .Values.cluster.localnamespace }}
-            {{- else }}
+            {{- if .Values.cluster.ispublic }}
             - name: OCTOPUS_ENDPOINT
               value: {{ .Values.tunnel.endpoint }}
             {{- end }}

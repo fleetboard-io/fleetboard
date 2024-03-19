@@ -23,6 +23,9 @@ type PeerSpec struct {
 	Port      int      `json:"port"`
 	PublicKey string   `json:"public_key"` // wire-guard public key
 	IsHub     bool     `json:"ishub"`
+	// the peer will be public and will be connected directly by other cluster.
+	// isPublic is true only works when `endpoint` is not empty.
+	IsPublic bool `json:"isPublic"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -9,11 +9,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: octopus-local-rolebinding
-  {{- if .Values.cluster.hub }}
-  namespace: {{ .Values.cluster.sharenamespace }}
-  {{- else }}
   namespace: {{ .Values.cluster.localnamespace }}
-  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -22,19 +18,6 @@ subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
     namespace: octopus-system
-
-{{- if .Values.cluster.hub }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: {{ .Values.cluster.sharenamespace }}
-  name: octopus-local-role
-rules:
-  - apiGroups: ["octopus.io"]
-    resources: ["peers"]
-    verbs: ["*"]
-{{ else }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -45,4 +28,3 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "watch", "list"]
-{{ end }}
