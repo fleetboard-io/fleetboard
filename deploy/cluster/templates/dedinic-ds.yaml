@@ -15,6 +15,12 @@ spec:
         component: network
         type: infra
     spec:
+      initContainers:
+        - name: wait_for_ipam_ready
+          image: busybox:1.28
+          command:
+            - sleep
+            - "10s"
       containers:
         - name: ep-controller
           command:
