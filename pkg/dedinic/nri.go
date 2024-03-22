@@ -64,7 +64,12 @@ func (p *CNIPlugin) Configure(config, runtime, version string) (stub.EventMask, 
 }
 
 func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
-	//dump("Synchronize", "pods", pods, "containers", containers)
+	for _, pod := range pods {
+		err := addPodToCNIQueue(pod)
+		if err != nil {
+			klog.Errorf("put pod: %v into cni queue failed: %v", pod, err)
+		}
+	}
 	return nil, nil
 }
 
@@ -74,25 +79,7 @@ func (p *CNIPlugin) Shutdown() {
 
 func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {
 	klog.Infof("[RunPodSandbox]: the pod is %s/%s", pod.Namespace, pod.Name)
-	nsPath := GetNSPathFromPod(pod)
-	if nsPath == "" {
-		klog.Info("the namespace path is hostnetwork ")
-		return
-	}
-	klog.Infof("the namespace path is: %s ", nsPath)
-	klog.V(5).Infof("the pod annotation is: %s ", pod.Annotations)
-
-	podRequest := &request.CniRequest{
-		CniType:      "kube-ovn",
-		PodName:      pod.Name,
-		PodNamespace: pod.Namespace,
-		ContainerID:  pod.GetId(),
-		NetNs:        nsPath,
-		IfName:       "eth-ovn",
-		Provider:     "ovn",
-	}
-	DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
-	return
+	return addPodToCNIQueue(pod)
 }
 
 func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
@@ -134,4 +121,26 @@ func GetNSPathFromPod(pod *api.PodSandbox) (nsPath string) {
 		}
 	}
 	return
+}
+
+func addPodToCNIQueue(pod *api.PodSandbox) error {
+	nsPath := GetNSPathFromPod(pod)
+	if nsPath == "" {
+		klog.V(5).Info("the namespace path is hostnetwork ")
+		return nil
+	}
+	klog.V(5).Infof("the namespace path is: %s ", nsPath)
+	klog.V(5).Infof("the pod annotation is: %s ", pod.Annotations)
+
+	podRequest := &request.CniRequest{
+		CniType:      "kube-ovn",
+		PodName:      pod.Name,
+		PodNamespace: pod.Namespace,
+		ContainerID:  pod.GetId(),
+		NetNs:        nsPath,
+		IfName:       "eth-ovn",
+		Provider:     "ovn",
+	}
+	DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
+	return nil
 }
