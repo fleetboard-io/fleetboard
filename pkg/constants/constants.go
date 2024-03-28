@@ -1,16 +1,13 @@
 package constants
 
 const (
-	LabelValueManagedBy   = "mcs.nauti.io"
-	OriginName            = "origin-name"
-	OriginNamespace       = "origin-namespace"
-	LabelSourceNamespace  = "submariner-io/originatingNamespace"
-	LabelSourceCluster    = "syncer.nri.io/sourceCluster"
-	LabelSourceName       = "syncer.io/sourceName"
-	LabelOriginNameSpace  = "syncer.io/sourceNamespace"
-	MCSLabelServiceName   = "multicluster.kubernetes.io/service-name"
-	MCSLabelSourceCluster = "multicluster.kubernetes.io/source-cluster"
-	KubernetesServiceName = "kubernetes.io/service-name"
+	LabelValueManagedBy  = "mcs.nauti.io"
+	OriginName           = "origin-name"
+	OriginNamespace      = "origin-namespace"
+	LabelSourceNamespace = "submariner-io/originatingNamespace"
+	LabelSourceCluster   = "syncer.nauti.io/sourceCluster"
+	LabelSourceName      = "syncer.nauti.io/sourceName"
+	LabelOriginNameSpace = "syncer.nauti.io/sourceNamespace"
 )
 
 const (

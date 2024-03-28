@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         app: {{ .Chart.Name }}
-        cnf/clusternet.io: "true"
+        nauti.io/cnf: "true"
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       containers:

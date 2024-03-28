@@ -26,6 +26,7 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/nauti-io/nauti/pkg/api"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 type PodController struct {
@@ -86,10 +87,6 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 			return false, nil
 		}
 
-		//if isPodAlive(tempObj) && tempObj.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate,
-		//	"ovn")] == "true" {
-		//	return false, nil
-		//}
 		return true, nil
 	})
 	_, err = podInformer.Informer().AddEventHandler(podAddController.DefaultResourceEventHandlerFuncs())
@@ -157,14 +154,12 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	}
 
 	cachedPod := pod.DeepCopy()
-	//if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] != "true" {
 	if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
 		klog.Errorf("failed to reconcile pod nets %v", err)
 		//err := c.recycleResources(key)
 		d := 2 * time.Second
 		return &d, err
 	}
-	//}
 
 	return nil, nil
 }
@@ -205,12 +200,6 @@ func (c *PodController) syncKubeOvnNet(pod *v1.Pod) error {
 			return err
 		}
 	}
-	//for annotationKey := range pod.Annotations {
-	//	if strings.HasPrefix(annotationKey, "ovn") {
-	//		delete(pod.Annotations, annotationKey)
-	//	}
-	//}
-
 	return nil
 }
 
@@ -221,28 +210,25 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	// Avoid create lsp for already running pod in ovn-nb when controller restart
 
 	// set default config.
-	v4IP, v6IP, mac, err := c.acquireAddress(pod, podNet)
+	ipStr, _, mac, err := c.acquireAddress(pod, podNet)
 	if err != nil {
 		klog.Error(err)
 		return err
 	}
-	ipStr := util.GetStringIP(v4IP, v6IP)
-	pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, "ovn")] = ipStr
+	pod.Annotations[fmt.Sprintf(known.IPAddressAnnotationTemplate, known.NautiPrefix)] = ipStr
 	if mac == "" {
-		delete(pod.Annotations, fmt.Sprintf(util.MacAddressAnnotationTemplate, "ovn"))
+		delete(pod.Annotations, fmt.Sprintf(known.MacAddressAnnotationTemplate, known.NautiPrefix))
 	} else {
-		pod.Annotations[fmt.Sprintf(util.MacAddressAnnotationTemplate, "ovn")] = mac
+		pod.Annotations[fmt.Sprintf(known.MacAddressAnnotationTemplate, known.NautiPrefix)] = mac
 	}
-	pod.Annotations[fmt.Sprintf(util.CidrAnnotationTemplate, "ovn")] = podNet.CIDRBlock
-	pod.Annotations[fmt.Sprintf(util.GatewayAnnotationTemplate, "ovn")] = podNet.Gateway
-	pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, "ovn")] = podNet.Name
-	if pod.Annotations[fmt.Sprintf(util.PodNicAnnotationTemplate, "ovn")] == "" {
-		pod.Annotations[fmt.Sprintf(util.PodNicAnnotationTemplate, "ovn")] = "veth-pair"
-	}
-	pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] = "true"
+	pod.Annotations[fmt.Sprintf(known.CidrAnnotationTemplate, known.NautiPrefix)] = podNet.CIDRBlock
+	pod.Annotations[fmt.Sprintf(known.GatewayAnnotationTemplate, known.NautiPrefix)] = podNet.Gateway
+	pod.Annotations[fmt.Sprintf(known.LogicalSwitchAnnotationTemplate, known.NautiPrefix)] = podNet.Name
+	pod.Annotations[fmt.Sprintf(known.PodNicAnnotationTemplate, known.NautiPrefix)] = "veth-pair"
+	pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] = "true"
 
 	// cnf pod need no route to gateway pod.
-	if !strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true") {
+	if !strings.HasSuffix(pod.Labels[known.CNFLabel], "true") {
 		routes := []request.Route{
 			{
 				Destination: podNet.GlobalCIDR,
@@ -253,7 +239,7 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 		if err != nil {
 			klog.Errorf("Marshal error: %v", err)
 		}
-		pod.Annotations[fmt.Sprintf(util.RoutesAnnotationTemplate, "ovn")] = string(routeBytes)
+		pod.Annotations[fmt.Sprintf(known.RoutesAnnotationTemplate, known.NautiPrefix)] = string(routeBytes)
 	}
 
 	if err := util.ValidatePodCidr(podNet.CIDRBlock, ipStr); err != nil {
@@ -293,12 +279,12 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 	var macStr *string
 	var ipStr string
-	isCNFPod := strings.HasSuffix(pod.Labels["cnf/clusternet.io"], "true")
+	isCNFPod := strings.HasSuffix(pod.Labels[known.CNFLabel], "true")
 	needRandomAddress := true
 
 	klog.Infof("pod annotations are %v", pod.Annotations)
 
-	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
+	if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] == "true" {
 		needRandomAddress = false
 	}
 
@@ -323,7 +309,7 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	if isCNFPod {
 		ipStr = podNet.Gateway
 	} else {
-		ipStr = pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, "ovn")]
+		ipStr = pod.Annotations[fmt.Sprintf(known.IPAddressAnnotationTemplate, known.NautiPrefix)]
 	}
 
 	if v4IP, v6IP, mac, err = c.ipam.GetStaticAddress(key, portName, ipStr, macStr, podNet.Name, true); err != nil {

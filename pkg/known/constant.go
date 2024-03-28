@@ -4,8 +4,7 @@ import "time"
 
 // These are internal finalizer values must be qualified name.
 const (
-	AppFinalizer            string = "apps.clusternet.io/finalizer"
-	FeedProtectionFinalizer string = "apps.clusternet.io/feed-protection"
+	AppFinalizer string = "apps.nauti.io/finalizer"
 )
 
 // fields should be ignored when compared
@@ -23,18 +22,24 @@ const (
 const (
 	// DefaultResync means the default resync time
 	DefaultResync = time.Hour * 12
-
-	// DefaultRetryPeriod means the default retry period
-	DefaultRetryPeriod = 5 * time.Second
-
-	// NoResyncPeriod indicates that informer resync should be delayed as long as possible
-	NoResyncPeriod = 0 * time.Second
-
-	// DefaultThreadiness defines default number of threads
-	DefaultThreadiness = 10
 )
 
 const (
 	HubSecretName          = "hub-syncer"
 	ClusterAPIServerURLKey = "apiserver-advertise-url"
+)
+
+// IPAM annotation const.
+const (
+	NautiPrefix                     = "nauti"
+	AllocatedAnnotationTemplate     = "%s.io/allocated"
+	RoutesAnnotationTemplate        = "%s.io/routes"
+	MacAddressAnnotationTemplate    = "%s.io/mac_address"
+	IPAddressAnnotationTemplate     = "%s.io/ip_address"
+	CidrAnnotationTemplate          = "%s.io/cidr"
+	GatewayAnnotationTemplate       = "%s.io/gateway"
+	LogicalSwitchAnnotationTemplate = "%s.io/logical_switch"
+	PodNicAnnotationTemplate        = "%s.io/pod_nic_type"
+
+	CNFLabel = "nauti.io/cnf"
 )
