@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
@@ -14,9 +16,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
+	"github.com/dixudx/yacht"
 	"github.com/miekg/dns"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/pkg/errors"
 )
 
 type CrossDNS struct {
@@ -25,6 +26,7 @@ type CrossDNS struct {
 	Zones                []string
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 	epsSynced            cache.InformerSynced
+	yachtController      *yacht.Controller
 }
 
 type DNSRecord struct {
