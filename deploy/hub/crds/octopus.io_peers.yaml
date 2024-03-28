@@ -49,6 +49,11 @@ spec:
                 type: string
               endpoint:
                 type: string
+              isPublic:
+                description: the peer will be public and will be connected directly
+                  by other cluster. isPublic is true only works when `endpoint` is
+                  not empty.
+                type: boolean
               ishub:
                 type: boolean
               port:

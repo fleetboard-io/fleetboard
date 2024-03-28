@@ -130,6 +130,7 @@ func (w *wireguard) Init() error {
 			Endpoint:  w.spec.Endpoint,
 			IsHub:     w.spec.IsHub,
 			Port:      UDPPort,
+			IsPublic:  len(w.spec.Endpoint) != 0,
 			PublicKey: w.keys.publicKey.String(),
 		},
 	}

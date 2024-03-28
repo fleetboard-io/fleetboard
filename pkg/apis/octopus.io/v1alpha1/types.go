@@ -25,6 +25,7 @@ type PeerSpec struct {
 	IsHub     bool     `json:"ishub"`
 	// the peer will be public and will be connected directly by other cluster.
 	// isPublic is true only works when `endpoint` is not empty.
+	// +optional
 	IsPublic bool `json:"isPublic"`
 }
 

@@ -43,6 +43,7 @@ func ApplyPeerWithRetry(client clientset.Interface, peer *v1alpha1.Peer) error {
 			curObj.Spec.Endpoint = peer.Spec.Endpoint
 			curObj.Spec.PublicKey = peer.Spec.PublicKey
 			curObj.Spec.ClusterID = peer.Spec.ClusterID
+			curObj.Spec.IsPublic = peer.Spec.IsPublic
 			curObj.Spec.Port = peer.Spec.Port
 			_, lastError = client.OctopusV1alpha1().Peers(peer.GetNamespace()).Update(context.TODO(), curObj, metav1.UpdateOptions{})
 		}

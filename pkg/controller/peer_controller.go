@@ -56,10 +56,13 @@ func NewPeerController(spec Specification, w *wireguard, octopusFactory octopusi
 				newPeer := tempObj.(*v1alpha1app.Peer)
 				// hub connect with nohub, nohub connect with hub.
 				// make sure there is only ONE Hub.
+				// TODO should we create tunnel for public child cluster in hub?
 				if newPeer.Spec.IsHub || (len(newPeer.Spec.Endpoint) != 0 && newPeer.Spec.IsPublic) {
 					return !spec.IsHub, nil
+				} else {
+					// child cluster without public ip
+					return spec.IsHub || len(spec.Endpoint) != 0, nil
 				}
-				return spec.IsHub, nil
 			}
 			return false, nil
 		})
