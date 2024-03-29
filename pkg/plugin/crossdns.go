@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/pkg/errors"
 	v1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
@@ -17,6 +16,8 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/dixudx/yacht"
 	"github.com/miekg/dns"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/pkg/errors"
 )
 
 type CrossDNS struct {
@@ -79,16 +80,16 @@ func (c *CrossDNS) getDNSRecord(ctx context.Context, zone string, state *request
 		srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
 			labels.SelectorFromSet(
 				labels.Set{
-					"services.clusternet.io/multi-cluster-service-LocalNamespace": pReq.namespace,
-					"services.clusternet.io/multi-cluster-service-name":           pReq.service,
-					"services.clusternet.io/multi-cluster-cluster-ID":             pReq.cluster,
+					known.LabelServiceNameSpace: pReq.namespace,
+					known.LabelServiceName:      pReq.service,
+					known.LabelClusterID:        pReq.cluster,
 				}))
 	} else {
 		srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
 			labels.SelectorFromSet(
 				labels.Set{
-					"services.clusternet.io/multi-cluster-service-LocalNamespace": pReq.namespace,
-					"services.clusternet.io/multi-cluster-service-name":           pReq.service,
+					known.LabelServiceNameSpace: pReq.namespace,
+					known.LabelServiceName:      pReq.service,
 				}))
 	}
 
@@ -131,7 +132,7 @@ func (c CrossDNS) getAllRecordsFromEndpointslice(slices []*v1.EndpointSlice) []D
 		for _, endpoint := range eps.Endpoints {
 			record := DNSRecord{
 				IP:          endpoint.Addresses[0],
-				ClusterName: eps.GetLabels()["services.clusternet.io/multi-cluster-cluster-ID/clusterID"],
+				ClusterName: eps.GetLabels()[known.LabelClusterID],
 			}
 			records = append(records, record)
 		}

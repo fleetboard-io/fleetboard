@@ -41,7 +41,6 @@ import (
 	alpha1 "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"github.com/dixudx/yacht"
-	"github.com/nauti-io/nauti/pkg/constants"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/nauti-io/nauti/utils"
 )
@@ -172,7 +171,7 @@ func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Du
 	// src endpoint slice with label of service export name is same to service name.
 	srcLabelMap := labels.Set{
 		discoveryv1.LabelServiceName: se.Name,
-		discoveryv1.LabelManagedBy:   constants.LabelValueManagedBy,
+		discoveryv1.LabelManagedBy:   known.LabelValueManagedBy,
 	}
 	// dst endpoint slice with label of derived service name combined with namespace and service export name
 	dstLabelMap := labels.Set{discoveryv1.LabelServiceName: utils.DerivedName(c.localClusterID, namespace, seName)}
