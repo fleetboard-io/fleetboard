@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nauti-io/nauti/pkg/known"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/dixudx/yacht"
 	v1alpha1app "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/constants"
 	octopusinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/vishvananda/netlink"
@@ -107,7 +107,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		if c.tunnel.RemovePeer(&oldKey) != nil {
 			return &failedPeriod, err
 		}
-		if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, constants.Delete); err != nil {
+		if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Delete); err != nil {
 			klog.Infof("delete route failed for %v", cachedPeer)
 			return &failedPeriod, err
 		}
@@ -121,7 +121,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 	klog.Infof("peer %s has been synced successfully", peerName)
 
 	// add route for target peer
-	if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, constants.Add); err != nil {
+	if err := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Add); err != nil {
 		klog.Infof("add route failed for %v", cachedPeer)
 		return &failedPeriod, err
 	}
@@ -146,7 +146,7 @@ func (p *PeerController) Start(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func configHostRoutingRules(CIDRs []string, operation constants.RouteOperation) error {
+func configHostRoutingRules(CIDRs []string, operation known.RouteOperation) error {
 	var ifaceIndex int
 	if wg, err := net.InterfaceByName(DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index
@@ -168,7 +168,7 @@ func configHostRoutingRules(CIDRs []string, operation constants.RouteOperation) 
 			Table:     0,
 		}
 		route.Scope = unix.RT_SCOPE_LINK
-		if operation == constants.Add {
+		if operation == known.Add {
 			err = netlink.RouteAdd(&route)
 			if err != nil && !os.IsExist(err) {
 				return err
