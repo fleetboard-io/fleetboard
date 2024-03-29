@@ -57,12 +57,12 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 			continue
 		}
 
-		//if err := util.ValidatePodNetwork(pod.Annotations); err != nil {
-		//	klog.Errorf("validate pod %s/%s failed, %v", podRequest.PodNamespace, podRequest.PodName, err)
-		//	// wait controller assign an address
-		//	time.Sleep(1 * time.Second)
-		//	continue
-		//}
+		if err := util.ValidatePodNetwork(pod.Annotations); err != nil {
+			klog.Errorf("validate pod %s/%s failed, %v", podRequest.PodNamespace, podRequest.PodName, err)
+			// wait controller assign an address
+			time.Sleep(1 * time.Second)
+			continue
+		}
 		ip = pod.Annotations[fmt.Sprintf(known.IPAddressAnnotationTemplate, podRequest.Provider)]
 		cidr = pod.Annotations[fmt.Sprintf(known.CidrAnnotationTemplate, podRequest.Provider)]
 		gw = pod.Annotations[fmt.Sprintf(known.GatewayAnnotationTemplate, podRequest.Provider)]
