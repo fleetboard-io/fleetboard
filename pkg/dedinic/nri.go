@@ -5,11 +5,11 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/kubeovn/kube-ovn/pkg/request"
+	"k8s.io/klog/v2"
+
 	"github.com/nauti-io/nauti/pkg/known"
 )
 

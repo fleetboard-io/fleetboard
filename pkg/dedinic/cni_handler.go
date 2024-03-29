@@ -16,8 +16,8 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/ovs"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/vishvananda/netlink"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 type cniHandler struct {

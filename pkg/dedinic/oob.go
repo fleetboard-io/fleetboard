@@ -13,11 +13,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kubeovn/kube-ovn/pkg/request"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/inotify"
 
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/nauti-io/nauti/pkg/known"
 )
 
