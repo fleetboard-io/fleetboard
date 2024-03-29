@@ -13,20 +13,6 @@ metadata:
   name: nauti:dedinic-cni
 rules:
   - apiGroups:
-      - "kubeovn.io"
-    resources:
-      - subnets
-      - provider-networks
-      - ovn-eips
-      - ovn-eips/status
-      - ips
-    verbs:
-      - get
-      - list
-      - patch
-      - update
-      - watch
-  - apiGroups:
       - ""
     resources:
       - pods
@@ -77,7 +63,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: nauti:dedinic-cni
+  name: nauti:dedinic-app
 rules:
   - apiGroups:
       - ""
@@ -117,7 +103,7 @@ kind: ClusterRoleBinding
 metadata:
   name: dedinic-app
 roleRef:
-  name: nauti:dedinic-cni
+  name: nauti:dedinic-app
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:

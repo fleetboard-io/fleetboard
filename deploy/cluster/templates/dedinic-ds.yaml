@@ -41,7 +41,6 @@ spec:
         - args:
             - --v=5
             - --encap-checksum=true
-            - --service-cluster-ip-range=10.96.0.0/12
             - --iface=
             - --dpdk-tunnel-iface=br-phy
             - --network-type=geneve
@@ -50,7 +49,6 @@ spec:
             - --alsologtostderr=true
             - --log_file=/var/log/dedinic/dedinic-cni.log
             - --log_file_max_size=0
-            - --enable-metrics=true
             - --kubelet-dir=/var/lib/kubelet
             - --enable-tproxy=false
             - --ovs-vsctl-concurrency=100
