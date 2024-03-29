@@ -13,10 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/inotify"
+
+	"github.com/kubeovn/kube-ovn/pkg/request"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 type EventType int
@@ -241,7 +243,7 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 						ContainerID:  string(pod.GetUID()),
 						NetNs:        netns,
 						IfName:       "eth-ovn",
-						Provider:     "ovn",
+						Provider:     known.NautiPrefix,
 					}
 					DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
 				} else {

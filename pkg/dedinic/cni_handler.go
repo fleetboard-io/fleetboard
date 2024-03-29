@@ -3,18 +3,21 @@ package dedinic
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/request"
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/vishvananda/netlink"
+	"net"
+	"strings"
+	"time"
+
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
-	"net"
-	"strings"
-	"time"
+
+	"github.com/containernetworking/plugins/pkg/ns"
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/kubeovn/kube-ovn/pkg/request"
+	"github.com/kubeovn/kube-ovn/pkg/util"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/vishvananda/netlink"
 )
 
 type cniHandler struct {
@@ -50,7 +53,7 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 			klog.Error(errMsg)
 			return errMsg
 		}
-		if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, podRequest.Provider)] != "true" {
+		if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, podRequest.Provider)] != "true" {
 			klog.Infof("wait address for pod %s/%s provider %s", podRequest.PodNamespace, podRequest.PodName, podRequest.Provider)
 			time.Sleep(1 * time.Second)
 			continue
@@ -62,14 +65,14 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		ip = pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, podRequest.Provider)]
-		cidr = pod.Annotations[fmt.Sprintf(util.CidrAnnotationTemplate, podRequest.Provider)]
-		gw = pod.Annotations[fmt.Sprintf(util.GatewayAnnotationTemplate, podRequest.Provider)]
-		subnet = pod.Annotations[fmt.Sprintf(util.LogicalSwitchAnnotationTemplate, podRequest.Provider)]
+		ip = pod.Annotations[fmt.Sprintf(known.IPAddressAnnotationTemplate, podRequest.Provider)]
+		cidr = pod.Annotations[fmt.Sprintf(known.CidrAnnotationTemplate, podRequest.Provider)]
+		gw = pod.Annotations[fmt.Sprintf(known.GatewayAnnotationTemplate, podRequest.Provider)]
+		subnet = pod.Annotations[fmt.Sprintf(known.LogicalSwitchAnnotationTemplate, podRequest.Provider)]
 
 		ipAddr = util.GetIPAddrWithMask(ip, cidr)
 		oldPodName = podRequest.PodName
-		if s := pod.Annotations[fmt.Sprintf(util.RoutesAnnotationTemplate, podRequest.Provider)]; s != "" {
+		if s := pod.Annotations[fmt.Sprintf(known.RoutesAnnotationTemplate, podRequest.Provider)]; s != "" {
 			if err = json.Unmarshal([]byte(s), &routes); err != nil {
 				errMsg := fmt.Errorf("invalid routes for pod %s/%s: %v", pod.Namespace, pod.Name, err)
 				klog.Error(errMsg)
@@ -91,22 +94,22 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 		break
 	}
 
-	if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, podRequest.Provider)] != "true" {
+	if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, podRequest.Provider)] != "true" {
 		err := fmt.Errorf("no address allocated to pod %s/%s provider %s, please see kube-ovn-controller logs to find errors", pod.Namespace, pod.Name, podRequest.Provider)
 		klog.Error(err)
 		return err
 	}
 
-	if strings.HasSuffix(podRequest.Provider, util.OvnProvider) && subnet != "" {
+	if strings.HasSuffix(podRequest.Provider, known.NautiPrefix) && subnet != "" {
 		detectIPConflict := false
 		var mtu int
 		//mtu = ch.Config.MTU
 
 		routes = append(podRequest.Routes, routes...)
-		macAddr = pod.Annotations[fmt.Sprintf(util.MacAddressAnnotationTemplate, podRequest.Provider)]
+		macAddr = pod.Annotations[fmt.Sprintf(known.MacAddressAnnotationTemplate, podRequest.Provider)]
 		klog.Infof("create container interface %s mac %s, ip %s, cidr %s, gw %s, custom routes %v", ifName, macAddr, ipAddr, cidr, gw, routes)
 		podNicName = ifName
-		err = ch.configureNic(podRequest.PodName, podRequest.PodNamespace, podRequest.Provider, podRequest.NetNs, podRequest.ContainerID, podRequest.VfDriver, ifName, macAddr, mtu, ipAddr, gw, isDefaultRoute, detectIPConflict, routes, podRequest.DNS.Nameservers, podRequest.DNS.Search, ingress, egress, podRequest.DeviceID, nicType, latency, limit, loss, jitter, gatewayCheckMode, u2oInterconnectionIP, oldPodName)
+		err = ch.configureNic(podRequest.PodName, podRequest.PodNamespace, "ovn", podRequest.NetNs, podRequest.ContainerID, podRequest.VfDriver, ifName, macAddr, mtu, ipAddr, gw, isDefaultRoute, detectIPConflict, routes, podRequest.DNS.Nameservers, podRequest.DNS.Search, ingress, egress, podRequest.DeviceID, nicType, latency, limit, loss, jitter, gatewayCheckMode, u2oInterconnectionIP, oldPodName)
 		if err != nil {
 			errMsg := fmt.Errorf("configure nic failed %v", err)
 			klog.Error(errMsg)
@@ -146,7 +149,7 @@ func (ch cniHandler) configureNic(podName, podNamespace, provider, netns, contai
 	// Add veth pair host end to ovs port
 	output, err := ovs.Exec(ovs.MayExist, "add-port", "br-int", hostNicName, "--",
 		"set", "interface", hostNicName, fmt.Sprintf("external_ids:iface-id=%s", ifaceID),
-		fmt.Sprintf("external_ids:vendor=%s", util.CniTypeName),
+		fmt.Sprintf("external_ids:vendor=%s", CniTypeName),
 		fmt.Sprintf("external_ids:pod_name=%s", podName),
 		fmt.Sprintf("external_ids:pod_namespace=%s", podNamespace),
 		fmt.Sprintf("external_ids:ip=%s", ipStr),
@@ -226,15 +229,11 @@ func (ch cniHandler) handleDel(podRequest *request.CniRequest) error {
 
 	klog.Infof("del port request: %v", podRequest)
 
-	if pod.Annotations != nil && (podRequest.Provider == util.OvnProvider || podRequest.CniType == util.CniTypeName) {
+	if pod.Annotations != nil && (podRequest.Provider == known.NautiPrefix || podRequest.CniType == CniTypeName) {
 
 		var nicType string
 
-		nicType = pod.Annotations[fmt.Sprintf(util.PodNicAnnotationTemplate, podRequest.Provider)]
-		vmName := pod.Annotations[fmt.Sprintf(util.VMTemplate, podRequest.Provider)]
-		if vmName != "" {
-			podRequest.PodName = vmName
-		}
+		nicType = pod.Annotations[fmt.Sprintf(known.PodNicAnnotationTemplate, podRequest.Provider)]
 
 		err = ch.deleteNic(podRequest.PodName, podRequest.PodNamespace, podRequest.ContainerID, podRequest.NetNs, podRequest.DeviceID, podRequest.IfName, nicType, podRequest.Provider)
 		if err != nil {
@@ -251,7 +250,7 @@ func (ch cniHandler) deleteNic(podName, podNamespace, containerID, netns, device
 	var nicName string
 	hostNicName, containerNicName := generateNicName(containerID, ifName)
 
-	if nicType == util.InternalType {
+	if nicType == InternalType {
 		nicName = containerNicName
 	} else {
 		nicName = hostNicName

@@ -3,12 +3,13 @@ package pod
 import (
 	"fmt"
 
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
-	"github.com/kubeovn/kube-ovn/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
+
+	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 // getAllExistingPodAllocatedIPs return all IPs from pods annotation.
@@ -21,9 +22,9 @@ func getAllExistingPodAllocatedIPs(podLister v1lister.PodLister) (map[string]str
 	}
 
 	for _, pod := range pods {
-		if pod.Annotations[fmt.Sprintf(util.AllocatedAnnotationTemplate, "ovn")] == "true" {
+		if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] == "true" {
 			// get ip from annotation.
-			ipStr := pod.Annotations[fmt.Sprintf(util.IPAddressAnnotationTemplate, "ovn")]
+			ipStr := pod.Annotations[fmt.Sprintf(known.IPAddressAnnotationTemplate, known.NautiPrefix)]
 			portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 			existingIPs[ipStr] = portName
 		}

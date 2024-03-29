@@ -21,7 +21,6 @@ import (
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"github.com/nauti-io/nauti/pkg/config"
-	"github.com/nauti-io/nauti/pkg/constants"
 	"github.com/nauti-io/nauti/pkg/controller/mcs"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
@@ -103,14 +102,14 @@ func (a *Syncer) newServiceImport(name, namespace string) *mcsv1a1.ServiceImport
 		ObjectMeta: metav1.ObjectMeta{
 			Name: a.getObjectNameWithClusterID(name, namespace),
 			Annotations: map[string]string{
-				constants.OriginName:      name,
-				constants.OriginNamespace: namespace,
+				known.OriginName:      name,
+				known.OriginNamespace: namespace,
 			},
 			Labels: map[string]string{
-				constants.LabelSourceName:      name,
-				constants.LabelSourceNamespace: namespace,
-				constants.LabelSourceCluster:   a.ClusterID,
-				constants.LabelOriginNameSpace: namespace,
+				known.LabelSourceName:      name,
+				known.LabelSourceNamespace: namespace,
+				known.LabelSourceCluster:   a.ClusterID,
+				known.LabelOriginNameSpace: namespace,
 			},
 		},
 	}
@@ -135,14 +134,14 @@ func generateSliceName(clusterName, namespace, name string) string {
 	hasher := md5.New()
 	hasher.Write([]byte(clusterName))
 	var namespacePart, namePart string
-	if len(namespace) > constants.MaxNamespaceLength {
-		namespacePart = namespace[0:constants.MaxNamespaceLength]
+	if len(namespace) > known.MaxNamespaceLength {
+		namespacePart = namespace[0:known.MaxNamespaceLength]
 	} else {
 		namespacePart = namespace
 	}
 
-	if len(name) > constants.MaxNameLength {
-		namePart = name[0:constants.MaxNameLength]
+	if len(name) > known.MaxNameLength {
+		namePart = name[0:known.MaxNameLength]
 	} else {
 		namePart = name
 	}
