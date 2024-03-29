@@ -31,7 +31,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: PARALLEL_IP_ANNOTATION
-              value: "ovn.kubernetes.io/ip_address"
+              value: "nauti.io/ip_address"
           image: {{ .Values.epControllerImage }}
           imagePullPolicy: Always
           resources:

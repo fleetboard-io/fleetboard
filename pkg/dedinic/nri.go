@@ -9,6 +9,8 @@ import (
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"k8s.io/klog/v2"
+
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 type CNIPlugin struct {
@@ -139,7 +141,7 @@ func addPodToCNIQueue(pod *api.PodSandbox) error {
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
 		IfName:       "eth-ovn",
-		Provider:     "ovn",
+		Provider:     known.NautiPrefix,
 	}
 	DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
 	return nil

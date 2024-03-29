@@ -10,7 +10,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: system:dedinic-cni
+  name: nauti:dedinic-cni
 rules:
   - apiGroups:
       - "kubeovn.io"
@@ -77,7 +77,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: system:dedinic-app
+  name: nauti:dedinic-cni
 rules:
   - apiGroups:
       - ""
@@ -103,7 +103,7 @@ kind: ClusterRoleBinding
 metadata:
   name: dedinic-cni
 roleRef:
-  name: system:dedinic-cni
+  name: nauti:dedinic-cni
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:
@@ -117,7 +117,7 @@ kind: ClusterRoleBinding
 metadata:
   name: dedinic-app
 roleRef:
-  name: system:dedinic-app
+  name: nauti:dedinic-cni
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:
