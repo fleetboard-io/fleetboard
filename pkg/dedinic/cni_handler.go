@@ -107,7 +107,7 @@ func (ch cniHandler) handleAdd(podRequest *request.CniRequest) error {
 		macAddr = pod.Annotations[fmt.Sprintf(known.MacAddressAnnotationTemplate, podRequest.Provider)]
 		klog.Infof("create container interface %s mac %s, ip %s, cidr %s, gw %s, custom routes %v", ifName, macAddr, ipAddr, cidr, gw, routes)
 		podNicName = ifName
-		err = ch.configureNic(podRequest.PodName, podRequest.PodNamespace, podRequest.Provider, podRequest.NetNs, podRequest.ContainerID, podRequest.VfDriver, ifName, macAddr, mtu, ipAddr, gw, isDefaultRoute, detectIPConflict, routes, podRequest.DNS.Nameservers, podRequest.DNS.Search, ingress, egress, podRequest.DeviceID, nicType, latency, limit, loss, jitter, gatewayCheckMode, u2oInterconnectionIP, oldPodName)
+		err = ch.configureNic(podRequest.PodName, podRequest.PodNamespace, "ovn", podRequest.NetNs, podRequest.ContainerID, podRequest.VfDriver, ifName, macAddr, mtu, ipAddr, gw, isDefaultRoute, detectIPConflict, routes, podRequest.DNS.Nameservers, podRequest.DNS.Search, ingress, egress, podRequest.DeviceID, nicType, latency, limit, loss, jitter, gatewayCheckMode, u2oInterconnectionIP, oldPodName)
 		if err != nil {
 			errMsg := fmt.Errorf("configure nic failed %v", err)
 			klog.Error(errMsg)
