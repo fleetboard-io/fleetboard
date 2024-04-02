@@ -1,7 +1,7 @@
-## ovn-builder
+# Nauti
 
-`ovn-builder` connects kubernetes clusters by a new build parallel network securely.
-`ovn-builder` has no limits of cluster IP CIDR or CNI types of kubernetes clusters and also
+`Nauti` connects kubernetes clusters by a new build parallel network securely, it requires no public IP for 
+child cluster and has no limits of cluster IP CIDR or CNI types of kubernetes clusters and also
 provide service discovery ability.
 
 It consists of several parts for networking between clusters:
