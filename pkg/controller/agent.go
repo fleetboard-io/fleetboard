@@ -55,7 +55,7 @@ func New(spec *known.AgentSpecification, syncerConf known.SyncerConfig, kubeClie
 		return nil, err
 	}
 
-	hubKubeConfig, err := config.GetHubConfig(kubeClientSet, spec.HubURL, spec.LocalNamespace)
+	hubKubeConfig, err := config.GetHubConfig(kubeClientSet, spec.HubURL, spec.HubSecretNamespace, spec.HubSecretName)
 	hubK8sClient := kubernetes.NewForConfigOrDie(hubKubeConfig)
 	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync, kubeinformers.WithNamespace(spec.ShareNamespace))
 	epsController, err := mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace, hubInformerFactory.Discovery().V1().EndpointSlices(),

@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{ .Values.cluster.localnamespace }}
+  name: {{ .Values.cluster.sharenamespace }}
 ---
 apiVersion: apps/v1
 kind: Deployment

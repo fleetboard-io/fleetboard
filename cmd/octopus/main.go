@@ -50,7 +50,8 @@ func main() {
 
 	k8sClient, err := kubernetes.NewForConfig(restConfig)
 	if !agentSpec.IsHub {
-		hubKubeConfig, err = syncerConfig.GetHubConfig(k8sClient, agentSpec.HubURL, agentSpec.LocalNamespace)
+		hubKubeConfig, err = syncerConfig.GetHubConfig(k8sClient, agentSpec.HubURL, agentSpec.HubSecretNamespace,
+			agentSpec.HubSecretName)
 	} else {
 		hubKubeConfig = restConfig
 	}

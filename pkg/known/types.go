@@ -36,8 +36,10 @@ type SyncerConfig struct {
 }
 
 type AgentSpecification struct {
-	ClusterID      string
-	LocalNamespace string
-	ShareNamespace string
-	HubURL         string
+	ClusterID          string
+	HubSecretNamespace string
+	HubSecretName      string
+	LocalNamespace     string
+	ShareNamespace     string
+	HubURL             string
 }

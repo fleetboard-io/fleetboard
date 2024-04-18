@@ -22,6 +22,9 @@ cluster:
 
 hub:
   hubURL: https://121.41.31.123:6443
+  # hub's secret location
+  hubSecretNamespace: syncer-operator
+  hubSecretName: hub-syncer
   ca: please_enter_or_use_exiting_secret
   token: please_enter_or_use_exiting_secret
 

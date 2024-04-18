@@ -36,8 +36,10 @@ spec:
               value: {{ .Values.cluster.clusterID }}
             - name: OCTOPUS_HUBURL
               value: {{ .Values.hub.hubURL }}
-            - name: OCTOPUS_LOCALNAMESPACE
-              value: {{ .Values.cluster.localnamespace }}
+            - name: OCTOPUS_HUBSECRETNAMESPACE
+              value: {{ .Values.hub.hubSecretNamespace }}
+            - name: OCTOPUS_HUBSECRETNAME
+              value: {{ .Values.hub.hubSecretName }}
             {{- if .Values.cluster.ispublic }}
             - name: OCTOPUS_ENDPOINT
               value: {{ .Values.tunnel.endpoint }}
