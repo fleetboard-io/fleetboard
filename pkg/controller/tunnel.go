@@ -19,13 +19,14 @@ import (
 )
 
 type Specification struct {
-	ClusterID      string
-	LocalNamespace string
-	ShareNamespace string
-	HubURL         string
-	CIDR           []string
-	IsHub          bool
-	Endpoint       string
+	ClusterID          string
+	HubSecretNamespace string
+	HubSecretName      string
+	ShareNamespace     string
+	HubURL             string
+	CIDR               []string
+	IsHub              bool
+	Endpoint           string
 }
 
 type managedKeys struct {

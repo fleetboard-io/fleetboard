@@ -16,7 +16,7 @@ spec:
         type: infra
     spec:
       initContainers:
-        - name: wait_for_ipam_ready
+        - name: wait-for-ipam-ready
           image: busybox:1.28
           command:
             - sleep

@@ -47,6 +47,10 @@ spec:
               value: {{ .Values.cluster.localnamespace }}
             - name: SYNCER_SHARENAMESPACE
               value: {{ .Values.cluster.sharenamespace }}
+            - name: SYNCER_HUBSECRETNAMESPACE
+              value: {{ .Values.hub.hubSecretNamespace }}
+            - name: SYNCER_HUBSECRETNAME
+              value: {{ .Values.hub.hubSecretName }}
       serviceAccountName: syncer
 ---
 apiVersion: v1
@@ -56,5 +60,5 @@ metadata:
   namespace: syncer-operator
 data:
   apiserver-advertise-url: {{ .Values.hub.hubURL | b64enc }}
-  ca.crt: {{ .Values.hub.ca }}
-  token: {{ .Values.hub.token }}
+  ca.crt: {{ .Values.hub.ca | b64enc }}
+  token: {{ .Values.hub.token | b64enc }}
