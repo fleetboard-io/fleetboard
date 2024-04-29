@@ -9,7 +9,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -60,25 +59,18 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 	podAddController := yacht.NewController("pod").
 		WithCacheSynced(podInformer.Informer().HasSynced).
 		WithHandlerFunc(podController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
-		//var tempObj *v1.Pod
 		var oldPod *v1.Pod
 		var newPod *v1.Pod
-
-		// create pod.
 		if oldObj == nil {
 			newPod = newObj.(*v1.Pod)
-			// ignore host network pod
 			if newPod.Spec.HostNetwork {
 				return false, nil
 			}
 			if newPod.Annotations == nil {
 				return true, nil
 			}
-			//tempObj = newPod
 		} else if newObj == nil {
 			oldPod = oldObj.(*v1.Pod)
-			// delete pod
-			//tempObj = oldPod
 			if oldPod.Spec.HostNetwork {
 				return false, nil
 			}
@@ -190,7 +182,6 @@ func (c *PodController) syncKubeOvnNet(pod *v1.Pod) error {
 	}
 
 	for _, portNeedDel := range portsNeedToDel {
-
 		if subnet, ok := c.ipam.Subnets[subnetUsedByPort[portNeedDel]]; ok {
 			subnet.ReleaseAddressWithNicName(podName, portNeedDel)
 		}
@@ -225,10 +216,10 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 	pod.Annotations[fmt.Sprintf(known.GatewayAnnotationTemplate, known.NautiPrefix)] = podNet.Gateway
 	pod.Annotations[fmt.Sprintf(known.LogicalSwitchAnnotationTemplate, known.NautiPrefix)] = podNet.Name
 	pod.Annotations[fmt.Sprintf(known.PodNicAnnotationTemplate, known.NautiPrefix)] = "veth-pair"
-	pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] = "true"
+	pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] = known.NautiTrue
 
 	// cnf pod need no route to gateway pod.
-	if !strings.HasSuffix(pod.Labels[known.CNFLabel], "true") {
+	if !strings.HasSuffix(pod.Labels[known.CNFLabel], known.NautiTrue) {
 		routes := []request.Route{
 			{
 				Destination: podNet.GlobalCIDR,
@@ -242,17 +233,17 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 		pod.Annotations[fmt.Sprintf(known.RoutesAnnotationTemplate, known.NautiPrefix)] = string(routeBytes)
 	}
 
-	if err := util.ValidatePodCidr(podNet.CIDRBlock, ipStr); err != nil {
-		klog.Errorf("validate pod %s/%s failed: %v", pod.Namespace, pod.Name, err)
-		return err
+	if crdrErr := util.ValidatePodCidr(podNet.CIDRBlock, ipStr); crdrErr != nil {
+		klog.Errorf("validate pod %s/%s failed: %v", pod.Namespace, pod.Name, crdrErr)
+		return crdrErr
 	}
 
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 
-	if err := c.nbClient.CreateLogicalSwitchPort(podNet.Name, portName, ipStr, mac, pod.Name, pod.Namespace,
-		false, "", "", false, nil, ""); err != nil {
-		klog.Errorf("%v", err)
-		return err
+	if lsErr := c.nbClient.CreateLogicalSwitchPort(podNet.Name, portName, ipStr, mac, pod.Name, pod.Namespace,
+		false, "", "", false, nil, ""); lsErr != nil {
+		klog.Errorf("%v", lsErr)
+		return lsErr
 	}
 
 	patch, err := util.GenerateMergePatchPayload(cachedPod, pod)
@@ -264,7 +255,7 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 		types.MergePatchType, patch, metav1.PatchOptions{}, "")
 	if err != nil {
 		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
-		if k8serrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return nil
 		}
 		return err
@@ -279,12 +270,12 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 	portName := fmt.Sprintf("%s.%s", pod.Name, pod.Namespace)
 	var macStr *string
 	var ipStr string
-	isCNFPod := strings.HasSuffix(pod.Labels[known.CNFLabel], "true")
+	isCNFPod := strings.HasSuffix(pod.Labels[known.CNFLabel], known.NautiTrue)
 	needRandomAddress := true
 
 	klog.Infof("pod annotations are %v", pod.Annotations)
 
-	if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] == "true" {
+	if pod.Annotations[fmt.Sprintf(known.AllocatedAnnotationTemplate, known.NautiPrefix)] == known.NautiTrue {
 		needRandomAddress = false
 	}
 
@@ -323,7 +314,6 @@ func (c *PodController) acquireAddress(pod *v1.Pod, podNet *api.SubnetSpec) (str
 }
 
 func (c *PodController) recycleResources(key string) error {
-
 	ports, err := c.nbClient.ListNormalLogicalSwitchPorts(true, map[string]string{"pod": key})
 	if err != nil {
 		klog.Errorf("failed to list lsps of pod '%s', %v", key, err)

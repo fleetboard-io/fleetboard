@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: dedinic-cni
-  namespace: octopus-system
+  namespace: nauti-system
 spec:
   revisionHistoryLimit: 10
   selector:

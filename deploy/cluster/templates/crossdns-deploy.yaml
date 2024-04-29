@@ -5,7 +5,7 @@ metadata:
     app: crossdns
     component: crossdns
   name: crossdns
-  namespace: octopus-system
+  namespace: nauti-system
 data:
   Corefile: |
     {{ .Values.cluster.zone }}:53 {
@@ -22,7 +22,7 @@ metadata:
     app: crossdns
     component: crossdns
   name: crossdns
-  namespace: octopus-system
+  namespace: nauti-system
 spec:
   clusterIP:
   {{- range (lookup "v1" "Service" "kube-system" "").items }}
@@ -45,7 +45,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: crossdns
-  namespace: octopus-system
+  namespace: nauti-system
   labels:
     app: crossdns
 spec:
@@ -68,8 +68,7 @@ spec:
           - mountPath: /etc/coredns
             name: config-volume
             readOnly: true
-      serviceAccount: syncer
-      serviceAccountName: syncer
+      serviceAccountName: {{ .Values.serviceAccount.name }}
       volumes:
         - configMap:
             defaultMode: 420

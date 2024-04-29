@@ -3,17 +3,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Values.serviceAccount.name }}
-  namespace: octopus-system
+  namespace: nauti-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: octopus-local-rolebinding
-  {{- if .Values.cluster.hub }}
   namespace: {{ .Values.cluster.sharenamespace }}
-  {{- else }}
-  namespace: {{ .Values.cluster.localnamespace }}
-  {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -21,9 +17,8 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
-    namespace: octopus-system
+    namespace: nauti-system
 
-{{- if .Values.cluster.hub }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -37,18 +32,6 @@ rules:
   - apiGroups: [ "discovery.k8s.io" ]
     resources: [ "endpointslices" ]
     verbs: [ "*" ]
-{{ else }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: {{ .Values.cluster.localnamespace }}
-  name: octopus-local-role
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "watch", "list"]
-{{ end }}
 
 {{- if ge (.Capabilities.KubeVersion.Minor|int) 24 }}
 ---
@@ -56,8 +39,54 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: {{ .Values.serviceAccount.name }}
-  namespace: octopus-system
+  namespace: nauti-system
   annotations:
     kubernetes.io/service-account.name: {{ .Values.serviceAccount.name | quote }}
 type: kubernetes.io/service-account-token
 {{- end }}
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  # Name MUST be of form "bootstrap-token-<token id>"
+  name: bootstrap-token-re51os
+  namespace: kube-system
+# Type MUST be 'bootstrap.kubernetes.io/token'
+type: bootstrap.kubernetes.io/token
+stringData:
+  description: "The bootstrap token used by nauti network first connection."
+  # Token ID and secret. Required.
+  token-id: re51os
+  token-secret: 131tn13kek2iaqoz
+  # Expiration. Optional.
+  expiration: 2035-05-10T03:22:11Z
+  # Allowed usages.
+  usage-bootstrap-authentication: "true"
+  usage-bootstrap-signing: "true"
+  # Extra groups to authenticate the token as. Must start with "system:bootstrappers:"
+  auth-extra-groups: system:bootstrappers:nauti:register-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nauti:system:bootstrapping
+  namespace: nauti-system
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "secrets" ]
+    verbs: [ "list" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nauti:system:bootstrapping
+  namespace: nauti-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nauti:system:bootstrapping
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: system:bootstrappers:nauti:register-token

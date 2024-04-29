@@ -51,7 +51,7 @@ func removeUnexsitLogicalPort(nbClient *ovs.OVNNbClient, exsitPods map[string]st
 		if _, ok := portToIPs[port.Name]; !ok {
 			if err := nbClient.DeleteLogicalSwitchPort(port.Name); err != nil {
 				klog.Errorf("failed to delete lsp %s, %v", port.Name, err)
-				//return err
+				// return err
 				// don't mind, if delete failed, also worked well.
 			}
 		}

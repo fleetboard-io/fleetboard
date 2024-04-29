@@ -34,7 +34,8 @@ import (
 func ApplyEndPointSliceWithRetry(client kubernetes.Interface, slice *discoveryv1.EndpointSlice) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
 		var lastError error
-		_, lastError = client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).Create(context.TODO(), slice, metav1.CreateOptions{})
+		_, lastError = client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).
+			Create(context.TODO(), slice, metav1.CreateOptions{})
 		if lastError == nil {
 			return nil
 		}
@@ -42,7 +43,8 @@ func ApplyEndPointSliceWithRetry(client kubernetes.Interface, slice *discoveryv1
 			return lastError
 		}
 
-		curObj, err := client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).Get(context.TODO(), slice.GetName(), metav1.GetOptions{})
+		curObj, err := client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).
+			Get(context.TODO(), slice.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -53,7 +55,8 @@ func ApplyEndPointSliceWithRetry(client kubernetes.Interface, slice *discoveryv1
 			curObj.Ports = slice.Ports
 			curObj.Endpoints = slice.Endpoints
 			curObj.AddressType = slice.AddressType
-			_, lastError = client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).Update(context.TODO(), curObj, metav1.UpdateOptions{})
+			_, lastError = client.DiscoveryV1().EndpointSlices(slice.GetNamespace()).
+				Update(context.TODO(), curObj, metav1.UpdateOptions{})
 			if lastError == nil {
 				return nil
 			}
@@ -94,8 +97,10 @@ func RemoveNonexistentEndpointslice(
 	if err == nil {
 		for _, item := range targetEndpointSliceList.Items {
 			if !srcEndpointSliceMap[item.Name] {
-				if err = targetClient.DiscoveryV1().EndpointSlices(targetNamespace).Delete(context.TODO(), item.Name, metav1.DeleteOptions{}); err != nil {
-					utilruntime.HandleError(fmt.Errorf("the endpointclise '%s/%s' in target namespace deleted failed", item.Namespace, item.Name))
+				if err = targetClient.DiscoveryV1().EndpointSlices(targetNamespace).
+					Delete(context.TODO(), item.Name, metav1.DeleteOptions{}); err != nil {
+					utilruntime.HandleError(fmt.Errorf("the endpointclise"+
+						" '%s/%s' in target namespace deleted failed", item.Namespace, item.Name))
 					return nil, err
 				}
 			}

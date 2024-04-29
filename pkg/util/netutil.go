@@ -5,8 +5,8 @@ import (
 	"net"
 )
 
-// GetIndexIpFromCIDR return index ip in the cidr, index start from 1 not 0, because 0 is not a valid ip.
-func GetIndexIpFromCIDR(cidr string, index int) (string, error) {
+// GetIndexIPFromCIDR return index ip in the cidr, index start from 1 not 0, because 0 is not a valid ip.
+func GetIndexIPFromCIDR(cidr string, index int) (string, error) {
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return "", err
@@ -24,10 +24,10 @@ func GetIndexIpFromCIDR(cidr string, index int) (string, error) {
 	return ipA.String(), nil
 }
 
-func inc(ip_a net.IP) {
-	for j := len(ip_a) - 1; j >= 0; j-- {
-		ip_a[j]++
-		if ip_a[j] > 0 {
+func inc(ipA net.IP) {
+	for j := len(ipA) - 1; j >= 0; j-- {
+		ipA[j]++
+		if ipA[j] > 0 {
 			break
 		}
 	}

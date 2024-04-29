@@ -22,11 +22,7 @@ cluster:
 
 hub:
   hubURL: https://121.41.31.123:6443
-  # hub's secret location
-  hubSecretNamespace: syncer-operator
-  hubSecretName: hub-syncer
-  ca: please_enter_or_use_exiting_secret
-  token: please_enter_or_use_exiting_secret
+  bootstraptoken: re51os.131tn13kek2iaqoz
 
 tunnel:
   cidr: 10.113.0.0/16

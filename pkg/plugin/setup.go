@@ -93,7 +93,7 @@ func CrossDNSParse(c *caddy.Controller) (*CrossDNS, error) {
 				cd.Fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
 				if c.Val() != "}" {
-					return nil, c.Errf("unknown property '%s'", c.Val()) // nolint:wrapcheck // No need to wrap this.
+					return nil, c.Errf("unknown property '%s'", c.Val())
 				}
 			}
 		}
@@ -102,7 +102,9 @@ func CrossDNSParse(c *caddy.Controller) (*CrossDNS, error) {
 }
 
 func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&kubeconfig, "kubeconfig", "",
+		"Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&masterURL, "master", "",
-		"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+		"The address of the Kubernetes API server."+
+			" Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }

@@ -32,7 +32,7 @@ type PeerController struct {
 	tunnel         *wireguard
 }
 
-func NewPeerController(spec Specification, w *wireguard, octopusFactory octopusinformers.SharedInformerFactory) (*PeerController, error) {
+func NewPeerController(spec known.Specification, w *wireguard, octopusFactory octopusinformers.SharedInformerFactory) (*PeerController, error) {
 	peerController := &PeerController{
 		peerLister:     octopusFactory.Octopus().V1alpha1().Peers().Lister(),
 		myClusterID:    spec.ClusterID,

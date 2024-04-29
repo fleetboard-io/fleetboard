@@ -48,8 +48,8 @@ const (
 )
 
 const (
-	HubSecretName          = "hub-syncer"
-	ClusterAPIServerURLKey = "apiserver-advertise-url"
+	HubSecretName        = "octopus"
+	NautiSystemNamespace = "nauti-system"
 )
 
 // IPAM annotation const.
@@ -63,6 +63,7 @@ const (
 	GatewayAnnotationTemplate       = "%s.io/gateway"
 	LogicalSwitchAnnotationTemplate = "%s.io/logical_switch"
 	PodNicAnnotationTemplate        = "%s.io/pod_nic_type"
+	NautiTrue                       = "true"
 
 	CNFLabel = "nauti.io/cnf"
 )

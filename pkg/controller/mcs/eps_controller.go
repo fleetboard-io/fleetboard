@@ -24,9 +24,6 @@ import (
 
 type EpsController struct {
 	yachtController *yacht.Controller
-
-	//local msc client
-	srcNamespace string
 	// specific namespace.
 	srcEndpointSlicesLister discoverylisterv1.EndpointSliceLister
 
@@ -35,8 +32,9 @@ type EpsController struct {
 	k8sInformerFactory kubeinformers.SharedInformerFactory
 }
 
-func NewEpsController(clusteID, targetNamespace string, epsInformer discoveryinformerv1.EndpointSliceInformer, kubeClientSet kubernetes.Interface,
-	k8sInformerFactory kubeinformers.SharedInformerFactory, seController *ServiceExportController, mcsSet *mcsclientset.Clientset) (*EpsController, error) {
+func NewEpsController(clusteID, targetNamespace string, epsInformer discoveryinformerv1.EndpointSliceInformer,
+	kubeClientSet kubernetes.Interface, k8sInformerFactory kubeinformers.SharedInformerFactory,
+	seController *ServiceExportController, mcsSet *mcsclientset.Clientset) (*EpsController, error) {
 	epsController := &EpsController{
 		srcEndpointSlicesLister: epsInformer.Lister(),
 		targetK8sClient:         kubeClientSet,
@@ -61,7 +59,8 @@ func NewEpsController(clusteID, targetNamespace string, epsInformer discoveryinf
 				slice := tempObj.(*discoveryv1.EndpointSlice)
 				seNamespace := slice.Labels[known.LabelServiceNameSpace]
 				if serviceName, ok := slice.Labels[known.LabelServiceName]; ok {
-					if se, err := mcsSet.MulticlusterV1alpha1().ServiceExports(seNamespace).Get(context.TODO(), serviceName, metav1.GetOptions{}); err == nil {
+					if se, err := mcsSet.MulticlusterV1alpha1().ServiceExports(seNamespace).
+						Get(context.TODO(), serviceName, metav1.GetOptions{}); err == nil {
 						seController.YachtController.Enqueue(se)
 					}
 				}
@@ -97,7 +96,8 @@ func (c *EpsController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	cachedEps, err := c.srcEndpointSlicesLister.EndpointSlices(namespace).Get(epsName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			utilruntime.HandleError(fmt.Errorf("endpointslice '%s' in hub work queue no longer exists, try to delete in this cluster.", key))
+			utilruntime.HandleError(fmt.Errorf("endpointslice '%s' in hub work queue no longer exists,"+
+				" try to delete in this cluster", key))
 			hubNotExist = true
 		} else {
 			return nil, err
@@ -108,7 +108,8 @@ func (c *EpsController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 
 	// recycle corresponding endpoint slice.
 	if epsTerminating {
-		if err = c.targetK8sClient.DiscoveryV1().EndpointSlices(c.targetNamespace).Delete(ctx, epsName, metav1.DeleteOptions{}); err != nil {
+		if err = c.targetK8sClient.DiscoveryV1().EndpointSlices(c.targetNamespace).
+			Delete(ctx, epsName, metav1.DeleteOptions{}); err != nil {
 			// try next time, make sure we clear endpoint slice
 			d := time.Second
 			return &d, err

@@ -20,7 +20,6 @@ import (
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
-	"github.com/nauti-io/nauti/pkg/config"
 	"github.com/nauti-io/nauti/pkg/controller/mcs"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
@@ -42,10 +41,15 @@ type Syncer struct {
 	EpsController           *mcs.EpsController
 }
 
-func New(spec *known.AgentSpecification, syncerConf known.SyncerConfig, kubeClientSet kubernetes.Interface, mcsClientSet *mcsclientset.Clientset) (*Syncer, error) {
+// New create a syncer client, it only works in cluster level
+func New(spec *known.Specification, syncerConf known.SyncerConfig, kubeConfig *rest.Config) (*Syncer, error) {
 	if errs := validations.IsDNS1123Label(spec.ClusterID); len(errs) > 0 {
 		return nil, errors.Errorf("%s is not a valid ClusterID %v", spec.ClusterID, errs)
 	}
+
+	kubeClientSet := kubernetes.NewForConfigOrDie(syncerConf.LocalRestConfig)
+	mcsClientSet := mcsclientset.NewForConfigOrDie(syncerConf.LocalRestConfig)
+
 	// creates the informer factory
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, known.DefaultResync)
 	mcsInformerFactory := mcsInformers.NewSharedInformerFactory(mcsClientSet, known.DefaultResync)
@@ -55,8 +59,7 @@ func New(spec *known.AgentSpecification, syncerConf known.SyncerConfig, kubeClie
 		return nil, err
 	}
 
-	hubKubeConfig, err := config.GetHubConfig(kubeClientSet, spec.HubURL, spec.HubSecretNamespace, spec.HubSecretName)
-	hubK8sClient := kubernetes.NewForConfigOrDie(hubKubeConfig)
+	hubK8sClient := kubernetes.NewForConfigOrDie(kubeConfig)
 	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync, kubeinformers.WithNamespace(spec.ShareNamespace))
 	epsController, err := mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace, hubInformerFactory.Discovery().V1().EndpointSlices(),
 		kubeClientSet, hubInformerFactory, serviceExportController, mcsClientSet)
@@ -70,7 +73,7 @@ func New(spec *known.AgentSpecification, syncerConf known.SyncerConfig, kubeClie
 		KubeClientSet:           kubeClientSet,
 		KubeInformerFactory:     kubeInformerFactory,
 		ServiceExportController: serviceExportController,
-		HubKubeConfig:           hubKubeConfig,
+		HubKubeConfig:           kubeConfig,
 		EpsController:           epsController,
 	}
 

@@ -25,13 +25,15 @@ func InitDefaultLogicSwitch(defaultSubnet *api.SubnetSpec) (*ovs.OVNNbClient, er
 		return nil, err
 	}
 	// create or update logical switch
-	if err := OVNNbClient.CreateLogicalSwitch(defaultSubnet.Name, "", defaultSubnet.CIDRBlock, defaultSubnet.Gateway, false, false); err != nil {
-		klog.Errorf("create logical switch %s: %v", defaultSubnet.Name, err)
-		return nil, err
+	if lsErr := OVNNbClient.CreateLogicalSwitch(defaultSubnet.Name, "",
+		defaultSubnet.CIDRBlock, defaultSubnet.Gateway, false, false); lsErr != nil {
+		klog.Errorf("create logical switch %s: %v", defaultSubnet.Name, lsErr)
+		return nil, lsErr
 	}
 	// disable broadcast.
 	multicastSnoopFlag := map[string]string{"mcast_snoop": "true", "mcast_querier": "false"}
-	err = OVNNbClient.LogicalSwitchUpdateOtherConfig(defaultSubnet.Name, ovsdb.MutateOperationDelete, multicastSnoopFlag)
+	err = OVNNbClient.LogicalSwitchUpdateOtherConfig(defaultSubnet.Name,
+		ovsdb.MutateOperationDelete, multicastSnoopFlag)
 	if err != nil {
 		klog.Errorf("disable logical switch multicast snoop  %s: %v", defaultSubnet.Name, err)
 		return nil, err

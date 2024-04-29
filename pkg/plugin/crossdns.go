@@ -14,7 +14,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
-	"github.com/dixudx/yacht"
 	"github.com/miekg/dns"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
@@ -26,7 +25,6 @@ type CrossDNS struct {
 	Zones                []string
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 	epsSynced            cache.InformerSynced
-	yachtController      *yacht.Controller
 }
 
 type DNSRecord struct {
@@ -42,14 +40,14 @@ func (c CrossDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	zone := plugin.Zones(c.Zones).Matches(qname)
 	if zone == "" {
 		klog.Infof("Request does not match configured zones %v", c.Zones)
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r) // nolint:wrapcheck // Let the caller wrap it.
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r)
 	}
 
-	klog.Info("Request received for %q", qname)
+	klog.Infof("Request received for %q", qname)
 	if state.QType() != dns.TypeA && state.QType() != dns.TypeAAAA && state.QType() != dns.TypeSRV {
 		msg := fmt.Sprintf("Query of type %d is not supported", state.QType())
 		klog.Info(msg)
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r) // nolint:wrapcheck // Let the caller wrap it.
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r)
 	}
 	zone = qname[len(qname)-len(zone):] // maintain case of original query
 	state.Zone = zone
@@ -58,14 +56,14 @@ func (c CrossDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 	if pErr != nil || pReq.podOrSvc != Svc {
 		// We only support svc type queries i.e. *.svc.*
-		klog.Info("Request type %q is not a 'svc' type query - err was %v", pReq.podOrSvc, pErr)
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r) // nolint:wrapcheck // Let the caller wrap it.
+		klog.Infof("Request type %q is not a 'svc' type query - err was %v", pReq.podOrSvc, pErr)
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, state.W, r)
 	}
 
 	return c.getDNSRecord(ctx, zone, state, w, r, pReq)
 }
 
-func (c *CrossDNS) getDNSRecord(ctx context.Context, zone string, state *request.Request, w dns.ResponseWriter,
+func (c *CrossDNS) getDNSRecord(ctx context.Context, _ string, state *request.Request, w dns.ResponseWriter,
 	r *dns.Msg, pReq *recordRequest,
 ) (int, error) {
 	// wait for endpoint slice synced.

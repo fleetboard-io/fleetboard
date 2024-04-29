@@ -73,7 +73,7 @@ func TestHosts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetIndexIpFromCIDR(tt.args.cidr, tt.args.index)
+			got, err := GetIndexIPFromCIDR(tt.args.cidr, tt.args.index)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSecondIpFromCIDR() error = %v, wantErr %v", err, tt.wantErr)
 				return

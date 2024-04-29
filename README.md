@@ -9,8 +9,7 @@ It consists of several parts for networking between clusters:
 - ovnmaster it builds an `ovs` for in-cluster traffic manage which is parallel with native cluster CNI and IPAM 
   for second network interface
 - nri-controller add second network interface when pod created.
-- syncer sync multi cluster services related resource across clusters
-- octopus manages secure tunnels between hub and clusters
+- octopus manages secure tunnels between hub and clusters, sync multi cluster services related resource across clusters
 - crossdns provides DNS discovery of Services across clusters.
 
 ## Architecture
@@ -74,39 +73,34 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   mcs     http://122.96.144.180:30088/charts/mcs
   $ helm search repo mcs
   NAME                    CHART VERSION   APP VERSION     DESCRIPTION
-  mcs/octopus             0.1.0           1.16.0          A Helm chart for Tunnel across clusters.
-  mcs/octopus-agent       0.1.0           1.0.0           A Helm chart for Tunnel across clusters.
-  $ helm install octopus mcs/octopus --namespace octopus-system  --create-namespace \
+  mcs/nauti             0.1.0           1.16.0          A Helm chart for Tunnel across clusters.
+  mcs/nauti-agent       0.1.0           1.0.0           A Helm chart for Tunnel across clusters.
+  $ helm install nauti mcs/nauti --namespace nauti-system  --create-namespace \
   --set tunnel.endpoint=xx.xx.xx.xx --set tunnel.cidr=10.112.0.0/12
   NAME: kube-ovn
   LAST DEPLOYED: Fri Mar 31 12:43:43 2024
-  NAMESPACE: octopus-system
+  NAMESPACE: nauti-system
   STATUS: deployed
   REVISION: 1
   TEST SUITE: None
   
-  Thank you for installing octopus.
-  Your release is named octopus.
+  Thank you for installing nauti.
+  Your release is named nauti.
 
-  Continue to install octopus-agent on clusters, with ca and token:
-  export HUB_CA=$(kubectl -n octopus-system get secrets \
-  -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data['ca\.crt']}")
-
-  export HUB_TOKEN=$(kubectl -n octopus-system  get secrets \
-    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data.token}")
-  And install octopus-agent in cluster by:
+  Continue to install nauti-agent on clusters, with bootstrap token: re51os.131tn13kek2iaqoz
+  And install nauti-agent in cluster by:
   
-  helm install octopus-agent mcs/octopus-agent --namespace octopus-system  --create-namespace \
-  --set hub.hubURL=https://xx.xx.xx.xx:6443 --set hub.ca=$HUB_CA --set hub.token=$HUB_TOKEN
+  helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace \
+  --set hub.hubURL=https://xx.xx.xx.xx:6443 --set hub.
    --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
   ```
   After the installation, some install guide scripts will print in standard output. Get HUB_CA and HUB_TOKEN in
   `Hub cluster`.
   ```shell
-  export HUB_CA=$(kubectl -n octopus-system get secrets \
+  export HUB_CA=$(kubectl -n nauti-system get secrets \
   -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data['ca\.crt']}")
 
-  export HUB_TOKEN=$(kubectl -n octopus-system  get secrets \
+  export HUB_TOKEN=$(kubectl -n nauti-system  get secrets \
     -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data.token}")
   ```
 
@@ -151,7 +145,7 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   $ helm repo add  mcs http://122.96.144.180:30088/charts/mcs
   "mcs" has been added to your repositories
   
-  $ helm install octopus-agent mcs/octopus-agent --namespace octopus-system  --create-namespace   \
+  $ helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace   \
   --set hub.hubURL=https://xx.xx.xx.xx:6443   --set tunnel.globalcidr=10.112.0.0/12 --set hub.ca=$HUB_CA \
   --set hub.token=$HUB_TOKEN --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster0
   ```
@@ -201,9 +195,9 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   ```
 ## Clear All
   ```shell
-  $ helm uninstall octopus -n octopus-system
+  $ helm uninstall nauti -n nauti-system
   $ kubectl delete -f local-pv.yaml
-  $ kubectl delete ns octopus-system
+  $ kubectl delete ns nauti-system
   $ for ns in $(kubectl get ns -o name |cut -c 11-); do
       echo "annotating pods in  ns:$ns"
       kubectl annotate pod --all ovn.kubernetes.io/cidr- -n "$ns"

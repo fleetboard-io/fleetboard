@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Chart.Name }}
-  namespace: octopus-system
+  namespace: nauti-system
   labels:
     app: {{ .Chart.Name }}
 spec:
@@ -36,16 +36,16 @@ spec:
               value: {{ .Values.cluster.clusterID }}
             - name: OCTOPUS_HUBURL
               value: {{ .Values.hub.hubURL }}
-            - name: OCTOPUS_HUBSECRETNAMESPACE
-              value: {{ .Values.hub.hubSecretNamespace }}
-            - name: OCTOPUS_HUBSECRETNAME
-              value: {{ .Values.hub.hubSecretName }}
+            - name: OCTOPUS_BOOTSTRAPTOKEN
+              value: {{ .Values.hub.bootstraptoken }}
             {{- if .Values.cluster.ispublic }}
             - name: OCTOPUS_ENDPOINT
               value: {{ .Values.tunnel.endpoint }}
             {{- end }}
             - name: OCTOPUS_SHARENAMESPACE
               value: {{ .Values.cluster.sharenamespace }}
+            - name: OCTOPUS_LOCALNAMESPACE
+              value: {{ .Values.cluster.localnamespace }}
             - name: OCTOPUS_CIDR
               value: {{ .Values.tunnel.cidr }}
             - name: OCTOPUS_ISHUB

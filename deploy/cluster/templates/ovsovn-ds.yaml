@@ -3,7 +3,7 @@ kind: DaemonSet
 apiVersion: apps/v1
 metadata:
   name: ovs-ovn
-  namespace: octopus-system
+  namespace: nauti-system
   annotations:
     kubernetes.io/description: |
       This daemon set launches the openvswitch daemon.

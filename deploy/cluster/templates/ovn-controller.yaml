@@ -2,7 +2,7 @@ kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: ipam-controller
-  namespace: octopus-system
+  namespace: nauti-system
 spec:
   replicas: 1
   selector:

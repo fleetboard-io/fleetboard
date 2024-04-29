@@ -3,7 +3,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: ovn-sb
-  namespace: octopus-system
+  namespace: nauti-system
 spec:
   clusterIP:
   {{- range (lookup "v1" "Service" "kube-system" "").items }}

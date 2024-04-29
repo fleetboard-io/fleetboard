@@ -460,7 +460,8 @@ func (c *Controller) onEndpointSliceUpdate(logger klog.Logger, prevObj, obj inte
 		c.queueServiceForEndpointSlice(prevEndpointSlice)
 		return
 	}
-	if c.reconciler.ManagedByChanged(prevEndpointSlice, endpointSlice) || (c.reconciler.ManagedByController(endpointSlice) && c.endpointSliceTracker.ShouldSync(endpointSlice)) {
+	if c.reconciler.ManagedByChanged(prevEndpointSlice, endpointSlice) ||
+		(c.reconciler.ManagedByController(endpointSlice) && c.endpointSliceTracker.ShouldSync(endpointSlice)) {
 		c.queueServiceForEndpointSlice(endpointSlice)
 	}
 }
@@ -470,7 +471,8 @@ func (c *Controller) onEndpointSliceUpdate(logger klog.Logger, prevObj, obj inte
 // endpointSliceTracker.
 func (c *Controller) onEndpointSliceDelete(obj interface{}) {
 	endpointSlice := getEndpointSliceFromDeleteAction(obj)
-	if endpointSlice != nil && c.reconciler.ManagedByController(endpointSlice) && c.endpointSliceTracker.Has(endpointSlice) {
+	if endpointSlice != nil && c.reconciler.ManagedByController(endpointSlice) &&
+		c.endpointSliceTracker.Has(endpointSlice) {
 		// This returns false if we didn't expect the EndpointSlice to be
 		// deleted. If that is the case, we queue the Service for another sync.
 		if !c.endpointSliceTracker.HandleDeletion(endpointSlice) {
@@ -525,7 +527,7 @@ func (c *Controller) deletePod(obj interface{}) {
 	}
 }
 
-func (c *Controller) addNode(logger klog.Logger, obj interface{}) {
+func (c *Controller) addNode(logger klog.Logger, _ interface{}) {
 	c.checkNodeTopologyDistribution(logger)
 }
 
@@ -541,7 +543,7 @@ func (c *Controller) updateNode(logger klog.Logger, old, cur interface{}) {
 	}
 }
 
-func (c *Controller) deleteNode(logger klog.Logger, obj interface{}) {
+func (c *Controller) deleteNode(logger klog.Logger, _ interface{}) {
 	c.checkNodeTopologyDistribution(logger)
 }
 
