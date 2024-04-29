@@ -11,11 +11,11 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+lint:
+	golangci-lint run -c .golangci.yaml --timeout=10m
+
 ovnmaster:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/ovnmaster/ovnmaster cmd/ovnmaster/main.go
-
-syncer:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/syncer/syncer cmd/syncer/main.go
 
 crossdns:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o cmd/crossdns/crossdns cmd/crossdns/main.go

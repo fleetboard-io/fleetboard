@@ -1,19 +1,3 @@
-/*
-Copyright 2022 The Clusternet Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package mcs
 
 import (
@@ -30,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	discoveryinformerv1 "k8s.io/client-go/informers/discovery/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
@@ -40,7 +23,6 @@ import (
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
-	mcsv1alpha1 "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions/apis/v1alpha1"
 	alpha1 "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"github.com/dixudx/yacht"
@@ -53,53 +35,12 @@ func init() {
 }
 
 type ServiceImportController struct {
-	mcsClientset          *mcsclientset.Clientset
-	localk8sClient        kubernetes.Interface
-	serviceImportLister   alpha1.ServiceImportLister
-	endpointSlicesLister  discoverylisterv1.EndpointSliceLister
-	serviceImportInformer mcsv1alpha1.ServiceImportInformer
-	endpointSliceInformer discoveryinformerv1.EndpointSliceInformer
-	mcsInformerFactory    mcsInformers.SharedInformerFactory
-	yachtController       *yacht.Controller
-}
-
-func NewServiceImportController(kubeclient kubernetes.Interface, epsInformer discoveryinformerv1.EndpointSliceInformer, mcsClientset *mcsclientset.Clientset,
-	mcsInformerFactory mcsInformers.SharedInformerFactory) (*ServiceImportController, error) {
-	siInformer := mcsInformerFactory.Multicluster().V1alpha1().ServiceImports()
-	sic := &ServiceImportController{
-		mcsClientset:          mcsClientset,
-		localk8sClient:        kubeclient,
-		serviceImportInformer: siInformer,
-		serviceImportLister:   siInformer.Lister(),
-		endpointSlicesLister:  epsInformer.Lister(),
-		endpointSliceInformer: epsInformer,
-		mcsInformerFactory:    mcsInformerFactory,
-	}
-
-	// add event handler for ServiceImport
-	yachtcontroller := yacht.NewController("serviceimport").
-		WithCacheSynced(siInformer.Informer().HasSynced, epsInformer.Informer().HasSynced).
-		WithHandlerFunc(sic.Handle).
-		WithEnqueueFilterFunc(preFilter)
-	_, err := siInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
-	if err != nil {
-		klog.Fatalf("failed to add event handler for serviceimport: %w", err)
-		return nil, err
-	}
-	_, err = epsInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			if si, err2 := sic.getServiceImportFromEndpointSlice(obj); err2 == nil {
-				yachtcontroller.Enqueue(si)
-			}
-			return false
-		},
-	})
-	if err != nil {
-		klog.Fatalf("failed to add event handler for serviceimport: %w", err)
-		return nil, err
-	}
-	sic.yachtController = yachtcontroller
-	return sic, nil
+	mcsClientset         *mcsclientset.Clientset
+	localk8sClient       kubernetes.Interface
+	serviceImportLister  alpha1.ServiceImportLister
+	endpointSlicesLister discoverylisterv1.EndpointSliceLister
+	mcsInformerFactory   mcsInformers.SharedInformerFactory
+	yachtController      *yacht.Controller
 }
 
 func (c *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
@@ -175,7 +116,8 @@ func (c *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Du
 			defer wg.Done()
 			if err = utils.ApplyEndPointSliceWithRetry(c.localk8sClient, slice); err != nil {
 				errCh <- err
-				klog.Infof("slice %s sync err from %s to %s for: %v", slice.Name, slice.Namespace, namespace, err)
+				klog.Infof("slice %s sync err from %s to %s for: %v",
+					slice.Name, slice.Namespace, namespace, err)
 			}
 		}(newSlice)
 	}
@@ -211,29 +153,34 @@ func (c *ServiceImportController) applyServiceFromServiceImport(svcImport *v1alp
 		},
 	}
 
-	derivedService, err := c.localk8sClient.CoreV1().Services(svcImport.Namespace).Get(context.TODO(), newService.Name, metav1.GetOptions{})
+	derivedService, err := c.localk8sClient.CoreV1().Services(svcImport.Namespace).
+		Get(context.TODO(), newService.Name, metav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return err
 		}
 
-		derivedService, err = c.localk8sClient.CoreV1().Services(svcImport.Namespace).Create(context.TODO(), newService, metav1.CreateOptions{})
+		derivedService, err = c.localk8sClient.CoreV1().Services(svcImport.Namespace).
+			Create(context.TODO(), newService, metav1.CreateOptions{})
 		if err != nil {
-			klog.Errorf("Create delicate service(%s/%s) failed, for: %v", newService.Namespace, newService.Name, err)
+			klog.Errorf("Create delicate service(%s/%s) failed, for: %v",
+				newService.Namespace, newService.Name, err)
 			return err
 		}
 	}
 
 	if !reflect.DeepEqual(derivedService.Spec.Ports, newService.Spec.Ports) {
 		derivedService.Spec.Ports = newService.Spec.Ports
-		if derivedService, err = c.localk8sClient.CoreV1().Services(svcImport.Namespace).Update(context.TODO(), derivedService, metav1.UpdateOptions{}); err != nil {
+		if derivedService, err = c.localk8sClient.CoreV1().Services(svcImport.Namespace).
+			Update(context.TODO(), derivedService, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("Update derived service(%s/%s) spec failed, for %v", derivedService.Namespace, derivedService.Name, err)
 			return err
 		}
 	}
 
 	if err = c.updateServiceStatus(svcImport, derivedService); err != nil {
-		klog.Errorf("Update derived service(%s/%s) status failed, for %v", newService.Namespace, newService.Name, err)
+		klog.Errorf("Update derived service(%s/%s) status failed, for %v",
+			newService.Namespace, newService.Name, err)
 		return err
 	}
 
@@ -241,7 +188,8 @@ func (c *ServiceImportController) applyServiceFromServiceImport(svcImport *v1alp
 }
 
 // updateServiceStatus update ServiceStatus with retry.
-func (c *ServiceImportController) updateServiceStatus(svcImport *v1alpha1.ServiceImport, derivedService *corev1.Service) error {
+func (c *ServiceImportController) updateServiceStatus(svcImport *v1alpha1.ServiceImport,
+	derivedService *corev1.Service) error {
 	klog.V(5).Infof("try to update Service %q status", derivedService.Name)
 	// update loadbalanacer status with provided clusterset IPs
 	var ingress []corev1.LoadBalancerIngress
@@ -257,7 +205,8 @@ func (c *ServiceImportController) updateServiceStatus(svcImport *v1alpha1.Servic
 				Ingress: ingress,
 			},
 		}
-		_, err := c.localk8sClient.CoreV1().Services(derivedService.Namespace).UpdateStatus(context.TODO(), derivedService, metav1.UpdateOptions{})
+		_, err := c.localk8sClient.CoreV1().Services(derivedService.Namespace).
+			UpdateStatus(context.TODO(), derivedService, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}
@@ -269,8 +218,8 @@ func (c *ServiceImportController) updateServiceStatus(svcImport *v1alpha1.Servic
 			derivedService = updated.DeepCopy()
 			return nil
 		}
-		utilruntime.HandleError(fmt.Errorf("error getting updated Service %q from lister: %v", derivedService.Name,
-			err2))
+		utilruntime.HandleError(fmt.Errorf("error getting updated Service %q from lister: %v",
+			derivedService.Name, err2))
 		return err2
 	})
 }
@@ -285,11 +234,12 @@ func (c *ServiceImportController) recycleServiceImport(ctx context.Context, si *
 	rawServiceName := si.Labels[known.LabelServiceName]
 	rawServiceNamespace := si.Labels[known.LabelServiceNameSpace]
 	// 1. recycle endpoint slices.
-	if err := c.localk8sClient.DiscoveryV1().EndpointSlices(si.Namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(labels.Set{
-			known.LabelServiceName:      rawServiceName,
-			known.LabelServiceNameSpace: rawServiceNamespace}).String(),
-	}); err != nil {
+	if err := c.localk8sClient.DiscoveryV1().EndpointSlices(si.Namespace).
+		DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(labels.Set{
+				known.LabelServiceName:      rawServiceName,
+				known.LabelServiceNameSpace: rawServiceNamespace}).String(),
+		}); err != nil {
 		// try next time, make sure we clear all related endpoint slices
 		return err
 	}
@@ -305,23 +255,6 @@ func (c *ServiceImportController) recycleServiceImport(ctx context.Context, si *
 	_, err = c.mcsClientset.MulticlusterV1alpha1().ServiceImports(si.Namespace).Update(context.TODO(),
 		si, metav1.UpdateOptions{})
 	return err
-}
-
-// getServiceImportFromEndpointSlice get ServiceImport from endpointSlice labels, get the first if more than one.
-func (c *ServiceImportController) getServiceImportFromEndpointSlice(obj interface{}) (*v1alpha1.ServiceImport, error) {
-	slice := obj.(*discoveryv1.EndpointSlice)
-	//rawServiceName, serviceExist := slice.Labels[known.LabelServiceName]
-	//rawServiceNamespace, serviceNamespaceExsit := slice.Labels[known.LabelServiceNameSpace]
-	////if serviceExist && serviceNamespaceExsit {
-	////	if siList, err := c.serviceImportLister.ServiceImports(subNamespace).List(
-	////		labels.SelectorFromSet(labels.Set{
-	////			known.LabelServiceName:      rawServiceName,
-	////			known.LabelServiceNameSpace: rawServiceNamespace,
-	////		})); err == nil && len(siList) > 0 {
-	////		return siList[0], nil
-	////	}
-	////}
-	return nil, fmt.Errorf("can't resolve service import from this slice %s/%s", slice.Namespace, slice.Name)
 }
 
 // forkEndpointSlice construct a new endpoint slice from source slice.

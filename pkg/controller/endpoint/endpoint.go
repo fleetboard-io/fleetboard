@@ -200,7 +200,7 @@ func (e *Controller) addPod(obj interface{}) {
 	klog.Infof("Add pod: %v", pod.Name)
 	services, err := endpointsliceutil.GetPodServiceMemberships(e.serviceLister, pod)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to get pod %s/%s's service memberships: %v", pod.Namespace, pod.Name, err))
+		utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v", pod.Namespace, pod.Name, err))
 		return
 	}
 	for key := range services {
@@ -289,7 +289,7 @@ func (e *Controller) deletePod(obj interface{}) {
 func (e *Controller) onServiceUpdate(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
 	}
 	e.queue.Add(key)
@@ -367,7 +367,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		return err
 	}
 	defer func() {
-		logger.V(4).Info("Finished syncing service endpoints", "service", klog.KRef(namespace, name), "startTime", time.Since(startTime))
+		logger.V(4).Info("Finished syncing service endpoints",
+			"service", klog.KRef(namespace, name), "startTime", time.Since(startTime))
 	}()
 
 	service, err := e.serviceLister.Services(namespace).Get(name)
@@ -381,7 +382,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		// service is deleted. However, if we're down at the time when
 		// the service is deleted, we will miss that deletion, so this
 		// doesn't completely solve the problem. See #6877.
-		err = e.client.CoreV1().Endpoints(namespace).Delete(ctx, fmt.Sprintf("dedinic-%v", name), metav1.DeleteOptions{})
+		err = e.client.CoreV1().Endpoints(namespace).Delete(ctx,
+			fmt.Sprintf("dedinic-%v", name), metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}
@@ -401,7 +403,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		return nil
 	}
 
-	logger.V(5).Info("About to update endpoints for service", "service", klog.KRef(namespace, name))
+	logger.V(5).Info("About to update endpoints for service", "service",
+		klog.KRef(namespace, name))
 	endpointsNamespaceName := types.NamespacedName{
 		Name:      fmt.Sprintf("dedinic-%v", service.Name),
 		Namespace: service.Namespace,
@@ -425,7 +428,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 
 	for _, pod := range pods {
 		if !endpointsliceutil.ShouldPodBeInEndpoints(pod, service.Spec.PublishNotReadyAddresses) {
-			logger.V(5).Info("Pod is not included on endpoints for Service", "pod", klog.KObj(pod), "service", klog.KObj(service))
+			logger.V(5).Info("Pod is not included on endpoints for Service", "pod",
+				klog.KObj(pod), "service", klog.KObj(service))
 			continue
 		}
 
@@ -433,7 +437,9 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		if err != nil {
 			// this will happen, if the cluster runs with some nodes configured as dual stack and some as not
 			// such as the case of an upgrade..
-			logger.V(2).Info("Failed to find endpoint for service with ClusterIP on pod with error", "service", klog.KObj(service), "clusterIP", service.Spec.ClusterIP, "pod", klog.KObj(pod), "error", err)
+			logger.V(2).Info("Failed to find endpoint for service with ClusterIP on pod with error",
+				"service", klog.KObj(service), "clusterIP", service.Spec.ClusterIP,
+				"pod", klog.KObj(pod), "error", err)
 			continue
 		}
 
@@ -445,7 +451,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		// Allow headless service not to have ports.
 		if len(service.Spec.Ports) == 0 {
 			if service.Spec.ClusterIP == api.ClusterIPNone {
-				subsets, totalReadyEps, totalNotReadyEps = addEndpointSubset(logger, subsets, pod, epa, nil, service.Spec.PublishNotReadyAddresses)
+				subsets, totalReadyEps, totalNotReadyEps = addEndpointSubset(logger, subsets, pod, epa,
+					nil, service.Spec.PublishNotReadyAddresses)
 				// No need to repack subsets for headless service without ports.
 			}
 		} else {
@@ -453,22 +460,25 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 				servicePort := &service.Spec.Ports[i]
 				portNum, err := podutil.FindPort(pod, servicePort)
 				if err != nil {
-					logger.V(4).Info("Failed to find port for service", "service", klog.KObj(service), "error", err)
+					logger.V(4).Info("Failed to find port for service", "service",
+						klog.KObj(service), "error", err)
 					continue
 				}
 				epp := endpointPortFromServicePort(servicePort, portNum)
 
 				var readyEps, notReadyEps int
-				subsets, readyEps, notReadyEps = addEndpointSubset(logger, subsets, pod, epa, epp, service.Spec.PublishNotReadyAddresses)
-				totalReadyEps = totalReadyEps + readyEps
-				totalNotReadyEps = totalNotReadyEps + notReadyEps
+				subsets, readyEps, notReadyEps = addEndpointSubset(logger, subsets, pod, epa, epp,
+					service.Spec.PublishNotReadyAddresses)
+				totalReadyEps += readyEps
+				totalNotReadyEps += notReadyEps
 			}
 		}
 	}
 	subsets = endpoints.RepackSubsets(subsets)
 
 	// See if there's actually an update here.
-	currentEndpoints, err := e.endpointsLister.Endpoints(endpointsNamespaceName.Namespace).Get(endpointsNamespaceName.Name)
+	currentEndpoints, err := e.endpointsLister.Endpoints(endpointsNamespaceName.Namespace).
+		Get(endpointsNamespaceName.Name)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return err
@@ -498,7 +508,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		endpointSubsetsEqualIgnoreResourceVersion(currentEndpoints.Subsets, subsets) &&
 		apiequality.Semantic.DeepEqual(compareLabels, service.Labels) &&
 		capacityAnnotationSetCorrectly(currentEndpoints.Annotations, currentEndpoints.Subsets) {
-		logger.V(5).Info("endpoints are equal, skipping update", "service", klog.KObj(service))
+		logger.V(5).Info("endpoints are equal, skipping update",
+			"service", klog.KObj(service))
 		return nil
 	}
 	newEndpoints := currentEndpoints.DeepCopy()
@@ -531,7 +542,8 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		newEndpoints.Labels = utillabels.CloneAndRemoveLabel(newEndpoints.Labels, v1.IsHeadlessService)
 	}
 
-	logger.V(4).Info("Update endpoints", "service", klog.KObj(service), "readyEndpoints", totalReadyEps, "notreadyEndpoints", totalNotReadyEps)
+	logger.V(4).Info("Update endpoints", "service", klog.KObj(service),
+		"readyEndpoints", totalReadyEps, "notreadyEndpoints", totalNotReadyEps)
 	if createEndpoints {
 		// No previous endpoints, create them
 		_, err = e.client.CoreV1().Endpoints(service.Namespace).Create(ctx, newEndpoints, metav1.CreateOptions{})
@@ -555,9 +567,11 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		}
 
 		if createEndpoints {
-			e.eventRecorder.Eventf(newEndpoints, v1.EventTypeWarning, "FailedToCreateEndpoint", "Failed to create endpoint for service %v/%v: %v", service.Namespace, service.Name, err)
+			e.eventRecorder.Eventf(newEndpoints, v1.EventTypeWarning, "FailedToCreateEndpoint",
+				"Failed to create endpoint for service %v/%v: %v", service.Namespace, service.Name, err)
 		} else {
-			e.eventRecorder.Eventf(newEndpoints, v1.EventTypeWarning, "FailedToUpdateEndpoint", "Failed to update endpoint %v/%v: %v", service.Namespace, service.Name, err)
+			e.eventRecorder.Eventf(newEndpoints, v1.EventTypeWarning, "FailedToUpdateEndpoint",
+				"Failed to update endpoint %v/%v: %v", service.Namespace, service.Name, err)
 		}
 
 		return err
@@ -574,7 +588,9 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 func (e *Controller) checkLeftoverEndpoints() {
 	list, err := e.endpointsLister.List(labels.Everything())
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to list endpoints (%v); orphaned endpoints will not be cleaned up. (They're pretty harmless, but you can restart this component if you want another attempt made.)", err))
+		utilruntime.HandleError(fmt.Errorf("unable to list endpoints (%v);"+
+			" orphaned endpoints will not be cleaned up. (They're pretty harmless,"+
+			" but you can restart this component if you want another attempt made.)", err))
 		return
 	}
 	for _, ep := range list {

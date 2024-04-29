@@ -13,21 +13,11 @@ import (
 
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/nauti-io/nauti/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
-
-type Specification struct {
-	ClusterID          string
-	HubSecretNamespace string
-	HubSecretName      string
-	ShareNamespace     string
-	HubURL             string
-	CIDR               []string
-	IsHub              bool
-	Endpoint           string
-}
 
 type managedKeys struct {
 	psk        wgtypes.Key
@@ -39,14 +29,14 @@ type wireguard struct {
 	connections   map[string]*v1alpha1.Peer // clusterID -> remote ep connection
 	mutex         sync.Mutex
 	link          netlink.Link // your link
-	spec          *Specification
+	spec          *known.Specification
 	client        *wgctrl.Client
 	keys          *managedKeys
 	StopCh        <-chan struct{}
 	octopusClient *versioned.Clientset
 }
 
-func NewTunnel(octopusClient *versioned.Clientset, spec *Specification, done <-chan struct{}) (*wireguard, error) {
+func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, done <-chan struct{}) (*wireguard, error) {
 	var err error
 
 	w := &wireguard{

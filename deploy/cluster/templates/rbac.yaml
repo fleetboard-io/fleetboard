@@ -3,28 +3,17 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Values.serviceAccount.name }}
-  namespace: octopus-system
+  namespace: nauti-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
-  name: octopus-local-rolebinding
-  namespace: {{ .Values.hub.hubSecretNamespace }}
+  name: nauti:controller-manager
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: octopus-local-role
+  kind: ClusterRole
+  name: cluster-admin
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
-    namespace: octopus-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: {{ .Values.hub.hubSecretNamespace }}
-  name: octopus-local-role
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "watch", "list"]
+    namespace: nauti-system

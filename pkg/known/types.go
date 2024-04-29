@@ -35,11 +35,15 @@ type SyncerConfig struct {
 	RemoteNamespace string
 }
 
-type AgentSpecification struct {
+type Specification struct {
 	ClusterID          string
+	BootStrapToken     string
 	HubSecretNamespace string
 	HubSecretName      string
-	LocalNamespace     string
 	ShareNamespace     string
+	LocalNamespace     string
 	HubURL             string
+	CIDR               []string
+	IsHub              bool
+	Endpoint           string
 }

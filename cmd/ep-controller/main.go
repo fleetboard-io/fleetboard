@@ -31,7 +31,8 @@ var (
 
 func main() {
 	klog.InitFlags(nil)
-	flag.StringVar(&kubeconfig, "kubeconfig", filepath.Join(os.Getenv("HOME"), ".kube", "config"), "absolute path to the kubeconfig file")
+	flag.StringVar(&kubeconfig, "kubeconfig",
+		filepath.Join(os.Getenv("HOME"), ".kube", "config"), "absolute path to the kubeconfig file")
 	flag.Parse()
 
 	NAMESPACE = os.Getenv("NAMESPACE")

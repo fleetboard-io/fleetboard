@@ -38,11 +38,11 @@ func main() {
 	//
 	CIDR := os.Getenv("CIDR")
 	globalCIDR := os.Getenv("GLOBAL_CIDR")
-	gateway, err := util.GetIndexIpFromCIDR(CIDR, 1)
+	gateway, err := util.GetIndexIPFromCIDR(CIDR, 1)
 	if err != nil {
 		klog.Fatalf("invalid gateway of cidr", err.Error())
 	}
-	cnfPodIP, err := util.GetIndexIpFromCIDR(CIDR, 2)
+	cnfPodIP, err := util.GetIndexIPFromCIDR(CIDR, 2)
 	if err != nil {
 		klog.Fatalf("invalid second ip of cidr", err.Error())
 	}

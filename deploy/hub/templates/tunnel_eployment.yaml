@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Chart.Name }}
-  namespace: octopus-system
+  namespace: nauti-system
   labels:
     app: {{ .Chart.Name }}
 spec:

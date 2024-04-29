@@ -150,10 +150,11 @@ func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Du
 
 	// recycle corresponding endpoint slice in parent cluster.
 	if seTerminating {
-		if err = c.parentk8sClient.DiscoveryV1().EndpointSlices(c.operatorNamespace).DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
-			LabelSelector: labels.SelectorFromSet(labels.Set{
-				discoveryv1.LabelServiceName: utils.DerivedName(c.localClusterID, namespace, seName)}).String(),
-		}); err != nil {
+		if err = c.parentk8sClient.DiscoveryV1().EndpointSlices(c.operatorNamespace).
+			DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: labels.SelectorFromSet(labels.Set{
+					discoveryv1.LabelServiceName: utils.DerivedName(c.localClusterID, namespace, seName)}).String(),
+			}); err != nil {
 			// try next time, make sure we clear endpoint slice
 			d := time.Second
 			return &d, err
@@ -214,7 +215,8 @@ func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Du
 	return nil, nil
 }
 
-func (c *ServiceExportController) Run(ctx context.Context, parentDedicatedKubeConfig *rest.Config, delicatedNamespace string) error {
+func (c *ServiceExportController) Run(ctx context.Context, parentDedicatedKubeConfig *rest.Config,
+	delicatedNamespace string) error {
 	c.mcsInformerFactory.Start(ctx.Done())
 	// set parent cluster related filed.
 	c.operatorNamespace = delicatedNamespace
@@ -237,7 +239,8 @@ func (c *ServiceExportController) getServiceExportFromEndpointSlice(obj interfac
 }
 
 // constructEndpointSlice construct a new endpoint slice from local slice.
-func constructEndpointSlice(slice *discoveryv1.EndpointSlice, se *v1alpha1.ServiceExport, namespace, clusterID string) *discoveryv1.EndpointSlice {
+func constructEndpointSlice(slice *discoveryv1.EndpointSlice, se *v1alpha1.ServiceExport,
+	namespace, clusterID string) *discoveryv1.EndpointSlice {
 	// mutate slice fields before upload to parent cluster.
 	newSlice := &discoveryv1.EndpointSlice{}
 	newSlice.AddressType = slice.AddressType
