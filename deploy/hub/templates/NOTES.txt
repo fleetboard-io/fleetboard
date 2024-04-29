@@ -2,23 +2,8 @@ Thank you for installing {{ .Chart.Name }}.
 
 Your release is named {{ .Release.Name }}.
 
-Continue to install nauti-agent on clusters, with ca and token:
-{{- if ge (.Capabilities.KubeVersion.Minor|int) 24 }}
-  export HUB_CA=$(kubectl -n nauti-system get secrets \
-  -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data['ca\.crt']}")
-
-  export HUB_TOKEN=$(kubectl -n nauti-system  get secrets \
-    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data.token}")
-{{- else }}
-  export HUB_SECRET_NAME=$(kubectl get sa --namespace nauti-system {{ .Values.serviceAccount.name }} \
-  -o jsonpath="{.secrets[0].name}")
-
-  export HUB_CA=$(kubectl get secret --namespace nauti-system  $HUB_SECRET_NAME -o jsonpath="{.data['ca\.crt']}")
-
-  export HUB_TOKEN=$(kubectl get secret --namespace nauti-system  $HUB_SECRET_NAME -o jsonpath="{.data.token}")
-{{- end }}
-And install nauti-agent in cluster by:
+Continue to install nauti-agent on clusters, and install nauti-agent in cluster by:
 
   helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace \
   --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 \
-  --set hub.ca=$HUB_CA --set hub.token=$HUB_TOKEN --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
+  --set tunnel.globalcidr=20.112.0.0/12 --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
