@@ -76,8 +76,8 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   mcs/nauti             0.1.0           1.16.0          A Helm chart for Tunnel across clusters.
   mcs/nauti-agent       0.1.0           1.0.0           A Helm chart for Tunnel across clusters.
   $ helm install nauti mcs/nauti --namespace nauti-system  --create-namespace \
-  --set tunnel.endpoint=xx.xx.xx.xx --set tunnel.cidr=10.112.0.0/12
-  NAME: kube-ovn
+  --set tunnel.endpoint=10.115.217.212 --set tunnel.cidr=10.112.0.0/12
+  NAME: nauti
   LAST DEPLOYED: Fri Mar 31 12:43:43 2024
   NAMESPACE: nauti-system
   STATUS: deployed
@@ -90,18 +90,9 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   Continue to install nauti-agent on clusters, with bootstrap token: re51os.131tn13kek2iaqoz
   And install nauti-agent in cluster by:
   
-  helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace \
-  --set hub.hubURL=https://xx.xx.xx.xx:6443 --set hub.
-   --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
-  ```
-  After the installation, some install guide scripts will print in standard output. Get HUB_CA and HUB_TOKEN in
-  `Hub cluster`.
-  ```shell
-  export HUB_CA=$(kubectl -n nauti-system get secrets \
-  -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data['ca\.crt']}")
-
-  export HUB_TOKEN=$(kubectl -n nauti-system  get secrets \
-    -o jsonpath="{.items[?(@.metadata.annotations['kubernetes\.io/service-account\.name']=='octopus')].data.token}")
+helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
+--set hub.hubURL=https://10.115.217.212:6443 --set tunnel.globalcidr=20.112.0.0/12 --set tunnel.cidr=20.114.0.0/16 \
+ --set cluster.clusterID=cluster1
   ```
 
 
@@ -134,20 +125,15 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   ``` shell
   $ kubectl create -f local-pv.yaml
   ```
-  Setup environment variables we will need later for joining clusters.
-  ```shell
-    $ export HUB_CA=$HUB_CA # the HUB CA get from Hub cluster.
-    $ export HUB_TOKEN=$HUB_TOKENN # the HUB TOKEN get from Hub cluster.
-  ```
 
   Joining a cluster, make sure clusterID and tunnel.cidr is unique. We don't require cluster has a public IP.
   ```shell
   $ helm repo add  mcs http://122.96.144.180:30088/charts/mcs
   "mcs" has been added to your repositories
   
-  $ helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace   \
-  --set hub.hubURL=https://xx.xx.xx.xx:6443   --set tunnel.globalcidr=10.112.0.0/12 --set hub.ca=$HUB_CA \
-  --set hub.token=$HUB_TOKEN --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster0
+  $ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
+   --set hub.hubURL=https://10.115.217.212:6443 --set tunnel.globalcidr=20.112.0.0/12 \
+   --set tunnel.cidr=20.114.0.0/16 --set cluster.clusterID=cluster1
   ```
   Add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
   ```yaml
