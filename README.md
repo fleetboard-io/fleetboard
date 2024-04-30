@@ -186,14 +186,14 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
   $ kubectl delete ns nauti-system
   $ for ns in $(kubectl get ns -o name |cut -c 11-); do
       echo "annotating pods in  ns:$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/cidr- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/gateway- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/ip_address- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/logical_switch- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/mac_address- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/allocated- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/pod_nic_type- -n "$ns"
-      kubectl annotate pod --all ovn.kubernetes.io/routes- -n "$ns"
+      kubectl annotate pod --all nauti.io/cidr- -n "$ns"
+      kubectl annotate pod --all nauti.io/gateway- -n "$ns"
+      kubectl annotate pod --all nauti.io/ip_address- -n "$ns"
+      kubectl annotate pod --all nauti.io/logical_switch- -n "$ns"
+      kubectl annotate pod --all nauti.io/mac_address- -n "$ns"
+      kubectl annotate pod --all nauti.io/allocated- -n "$ns"
+      kubectl annotate pod --all nauti.io/pod_nic_type- -n "$ns"
+      kubectl annotate pod --all nauti.io/routes- -n "$ns"
     done
   ```
 
