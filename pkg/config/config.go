@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/nauti-io/nauti/utils"
 )
@@ -100,4 +101,53 @@ func storeHubClusterCredentials(kubeClientSet kubernetes.Interface, secret corev
 		}
 		klog.ErrorDepth(5, fmt.Sprintf("failed to store parent cluster credentials: %v", err))
 	}, 15*time.Second, 0.4, true)
+}
+
+// WaitGetGlobalNetworkInfo will wait util we get valid global cidr and my cidr config
+func WaitGetGlobalNetworkInfo(client kubernetes.Interface, spec *known.Specification) (string, string) {
+	secretCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	secretName := known.HubSecretName
+	namespace := known.NautiSystemNamespace
+	var globalCIDR, clusterCIDR string
+	wait.JitterUntilWithContext(secretCtx, func(ctx context.Context) {
+		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("failed to get hub cluster secret, wait next loop: %v\n", err)
+			return
+		}
+		if parentKubeConfig, configErr := utils.GenerateKubeConfigFromToken(
+			spec.HubURL,
+			string(secret.Data[corev1.ServiceAccountTokenKey]),
+			secret.Data[corev1.ServiceAccountRootCAKey],
+		); configErr != nil {
+			fmt.Printf("failed to get hub config from hub secret, loop next %v\n", configErr)
+			return
+		} else {
+			if octopusClient, oClientError := octopusClientset.NewForConfig(parentKubeConfig); oClientError == nil {
+				peerList, listErr := octopusClient.OctopusV1alpha1().Peers(spec.ShareNamespace).
+					List(ctx, metav1.ListOptions{})
+				if listErr != nil {
+					fmt.Printf("failed to list peers from hub cluster, loop next %v\n", configErr)
+					return
+				}
+				for _, peer := range peerList.Items {
+					switch peer.Name {
+					case "hub":
+						globalCIDR = peer.Spec.PodCIDR[0]
+					case spec.ClusterID:
+						clusterCIDR = peer.Spec.PodCIDR[0]
+					}
+				}
+				if len(globalCIDR) != 0 && len(clusterCIDR) != 0 {
+					// stop only when global cidr and cluster cidr is not empty
+					cancel()
+				}
+			} else {
+				fmt.Printf("failed to construct octopu sclient from parent config, loop next %v\n", configErr)
+				return
+			}
+		}
+	}, 10*time.Second, 0.3, false)
+	return globalCIDR, clusterCIDR
 }

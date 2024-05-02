@@ -29,7 +29,9 @@ spec:
                    {{ concat (slice (splitList "." .spec.clusterIP) 0 3 ) (list $last_part) | join "."}}
                 {{- end }}
                 {{- end }}
-            - name: CIDR
-              value: {{ .Values.tunnel.cidr }}
-            - name: GLOBAL_CIDR
-              value: {{ .Values.tunnel.globalcidr }}
+            - name: IPAM_HUBURL
+              value: {{ .Values.hub.hubURL }}
+            - name: IPAM_CLUSTERID
+              value: {{ .Values.cluster.clusterID }}
+            - name: IPAM_SHARENAMESPACE
+              value: {{ .Values.cluster.sharenamespace }}

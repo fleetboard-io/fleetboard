@@ -91,3 +91,27 @@ rules:
       - get
       - list
   {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nauti:system:ovn
+  namespace: nauti-system
+rules:
+  - apiGroups: [ "" ]
+    resources: [ "secrets" ]
+    verbs: [ "list", "get" ]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nauti:system:bootstrapping
+  namespace: nauti-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nauti:system:ovn
+subjects:
+  - kind: ServiceAccount
+    name: ovn
+    namespace: nauti-system

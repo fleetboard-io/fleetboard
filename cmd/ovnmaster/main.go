@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"os"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -13,8 +12,11 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/nauti-io/nauti/pkg/api"
+	"github.com/nauti-io/nauti/pkg/config"
 	"github.com/nauti-io/nauti/pkg/controller/pod"
+	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/nauti-io/nauti/pkg/subnet"
 	"github.com/nauti-io/nauti/pkg/util"
 )
@@ -25,19 +27,24 @@ var (
 )
 
 func main() {
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	ctx := signals.SetupSignalHandler()
 	klog.InitFlags(nil)
 
 	flag.Parse()
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeConfig)
+	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
 
-	//
-	CIDR := os.Getenv("CIDR")
-	globalCIDR := os.Getenv("GLOBAL_CIDR")
+	agentSpec := known.Specification{}
+	if err = envconfig.Process("IPAM", &agentSpec); err != nil {
+		klog.Infof("got config info %v", agentSpec)
+		klog.Fatal(err)
+	}
+	// wait happens
+	CIDR, globalCIDR := config.WaitGetGlobalNetworkInfo(kubeClientSet, &agentSpec)
 	gateway, err := util.GetIndexIPFromCIDR(CIDR, 1)
 	if err != nil {
 		klog.Fatalf("invalid gateway of cidr", err.Error())
@@ -57,7 +64,6 @@ func main() {
 		Provider:   "default",
 	}
 
-	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building clientset: %s", err.Error())
 	}
