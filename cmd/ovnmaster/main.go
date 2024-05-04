@@ -44,7 +44,7 @@ func main() {
 		klog.Fatal(err)
 	}
 	// wait happens
-	CIDR, globalCIDR := config.WaitGetGlobalNetworkInfo(kubeClientSet, &agentSpec)
+	globalCIDR, CIDR := config.WaitGetGlobalNetworkInfo(kubeClientSet, &agentSpec)
 	gateway, err := util.GetIndexIPFromCIDR(CIDR, 1)
 	if err != nil {
 		klog.Fatalf("invalid gateway of cidr", err.Error())
