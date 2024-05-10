@@ -11,7 +11,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-lint:
+lint: golangci-lint
 	golangci-lint run -c .golangci.yaml --timeout=10m
 
 ovnmaster:
@@ -55,3 +55,21 @@ images:
 	docker build -f ./build/ep-controller.Dockerfile ./ -t docker.io/airren/ep-controller:latest
 	docker push docker.io/airren/dedinic:v1.13.0-debug
 	docker push docker.io/airren/ep-controller:latest
+
+# find or download golangci-lint
+# download golangci-lint if necessary
+golangci-lint:
+ifeq (, $(shell which golangci-lint))
+	@{ \
+	set -e ;\
+	export GO111MODULE=on; \
+	GOLANG_LINT_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GOLANG_LINT_TMP_DIR ;\
+	go mod init tmp ;\
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2 ;\
+	rm -rf $$GOLANG_LINT_TMP_DIR ;\
+	}
+GOLANG_LINT=$(shell go env GOPATH)/bin/golangci-lint
+else
+GOLANG_LINT=$(shell which golangci-lint)
+endif
