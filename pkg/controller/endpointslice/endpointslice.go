@@ -264,7 +264,8 @@ func (c *Controller) Run(ctx context.Context, workers int) {
 	logger.Info("Starting endpoint slice controller")
 	defer logger.Info("Shutting down endpoint slice controller")
 
-	if !cache.WaitForNamedCacheSync("endpoint_slice", ctx.Done(), c.podsSynced, c.servicesSynced, c.endpointSlicesSynced, c.nodesSynced) {
+	if !cache.WaitForNamedCacheSync("endpoint_slice", ctx.Done(), c.podsSynced, c.servicesSynced,
+		c.endpointSlicesSynced, c.nodesSynced) {
 		return
 	}
 
@@ -455,7 +456,8 @@ func (c *Controller) onEndpointSliceUpdate(logger klog.Logger, prevObj, obj inte
 	svcName := endpointSlice.Labels[discovery.LabelServiceName]
 	prevSvcName := prevEndpointSlice.Labels[discovery.LabelServiceName]
 	if svcName != prevSvcName {
-		logger.Info("label changed", "label", discovery.LabelServiceName, "oldService", prevSvcName, "newService", svcName, "endpointslice", klog.KObj(endpointSlice))
+		logger.Info("label changed", "label", discovery.LabelServiceName, "oldService",
+			prevSvcName, "newService", svcName, "endpointslice", klog.KObj(endpointSlice))
 		c.queueServiceForEndpointSlice(endpointSlice)
 		c.queueServiceForEndpointSlice(prevEndpointSlice)
 		return

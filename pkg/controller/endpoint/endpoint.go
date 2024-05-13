@@ -74,7 +74,8 @@ const (
 
 // NewEndpointController returns a new *Controller.
 func NewEndpointController(podInformer coreinformers.PodInformer, serviceInformer coreinformers.ServiceInformer,
-	endpointsInformer coreinformers.EndpointsInformer, client clientset.Interface, endpointUpdatesBatchPeriod time.Duration) *Controller {
+	endpointsInformer coreinformers.EndpointsInformer, client clientset.Interface,
+	endpointUpdatesBatchPeriod time.Duration) *Controller {
 	broadcaster := record.NewBroadcaster()
 	recorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "endpoint-controller"})
 
@@ -433,13 +434,13 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 			continue
 		}
 
-		ep, err := podToEndpointAddressForService(service, pod)
-		if err != nil {
+		ep, errTranslate := podToEndpointAddressForService(service, pod)
+		if errTranslate != nil {
 			// this will happen, if the cluster runs with some nodes configured as dual stack and some as not
 			// such as the case of an upgrade..
 			logger.V(2).Info("Failed to find endpoint for service with ClusterIP on pod with error",
 				"service", klog.KObj(service), "clusterIP", service.Spec.ClusterIP,
-				"pod", klog.KObj(pod), "error", err)
+				"pod", klog.KObj(pod), "error", errTranslate)
 			continue
 		}
 
@@ -458,10 +459,10 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		} else {
 			for i := range service.Spec.Ports {
 				servicePort := &service.Spec.Ports[i]
-				portNum, err := podutil.FindPort(pod, servicePort)
-				if err != nil {
+				portNum, errFindPort := podutil.FindPort(pod, servicePort)
+				if errFindPort != nil {
 					logger.V(4).Info("Failed to find port for service", "service",
-						klog.KObj(service), "error", err)
+						klog.KObj(service), "error", errFindPort)
 					continue
 				}
 				epp := endpointPortFromServicePort(servicePort, portNum)

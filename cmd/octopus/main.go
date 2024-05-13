@@ -70,17 +70,17 @@ func main() {
 		hubKubeConfig, err = syncerConfig.GetHubConfig(k8sClient, &agentSpec)
 
 		// syncer only work as cluster level
-		if agent, err := controller.New(&agentSpec, known.SyncerConfig{
+		if agent, errSyncerController := controller.New(&agentSpec, known.SyncerConfig{
 			LocalRestConfig: restConfig,
 			LocalClient:     localClient,
 			LocalNamespace:  agentSpec.LocalNamespace,
 			LocalClusterID:  agentSpec.ClusterID,
-		}, hubKubeConfig); err != nil {
-			klog.Fatalf("Failed to create syncer agent: %v", err)
+		}, hubKubeConfig); errSyncerController != nil {
+			klog.Fatalf("Failed to create syncer agent: %v", errSyncerController)
 		} else {
 			go func() {
 				if syncerStartErr := agent.Start(ctx); syncerStartErr != nil {
-					klog.Fatalf("Failed to start syncer agent: %v", err)
+					klog.Fatalf("Failed to start syncer agent: %v", errSyncerController)
 				}
 			}()
 		}

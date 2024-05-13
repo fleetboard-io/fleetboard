@@ -136,7 +136,9 @@ func WaitGetGlobalNetworkInfo(client kubernetes.Interface, spec *known.Specifica
 					case "hub":
 						globalCIDR = peer.Spec.PodCIDR[0]
 					case spec.ClusterID:
-						clusterCIDR = peer.Spec.PodCIDR[0]
+						if len(peer.Spec.PodCIDR) != 0 {
+							clusterCIDR = peer.Spec.PodCIDR[0]
+						}
 					}
 				}
 				if len(globalCIDR) != 0 && len(clusterCIDR) != 0 {

@@ -140,12 +140,11 @@ func (c *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Du
 
 // applyServiceFromServiceImport create derived service and update the service status.
 func (c *ServiceImportController) applyServiceFromServiceImport(svcImport *v1alpha1.ServiceImport) error {
-	rawServiceName, _ := svcImport.Labels[known.LabelServiceName]
-	rawServiceNamespace, _ := svcImport.Labels[known.LabelServiceNameSpace]
 	newService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: svcImport.Namespace,
-			Name:      utils.DerivedName("", rawServiceNamespace, rawServiceName),
+			Name: utils.DerivedName("", svcImport.Labels[known.LabelServiceNameSpace],
+				svcImport.Labels[known.LabelServiceName]),
 		},
 		Spec: corev1.ServiceSpec{
 			Type:  corev1.ServiceTypeClusterIP,
@@ -173,7 +172,8 @@ func (c *ServiceImportController) applyServiceFromServiceImport(svcImport *v1alp
 		derivedService.Spec.Ports = newService.Spec.Ports
 		if derivedService, err = c.localk8sClient.CoreV1().Services(svcImport.Namespace).
 			Update(context.TODO(), derivedService, metav1.UpdateOptions{}); err != nil {
-			klog.Errorf("Update derived service(%s/%s) spec failed, for %v", derivedService.Namespace, derivedService.Name, err)
+			klog.Errorf("Update derived service(%s/%s) spec failed, for %v",
+				derivedService.Namespace, derivedService.Name, err)
 			return err
 		}
 	}
@@ -284,28 +284,4 @@ func servicePorts(svcImport *v1alpha1.ServiceImport) []corev1.ServicePort {
 		}
 	}
 	return ports
-}
-
-// preFilter filter ServiceImport if has no label known.LabelServiceName and known.LabelServiceNameSpace
-func preFilter(oldObj, newObj interface{}) (bool, error) {
-	var si *v1alpha1.ServiceImport
-	if newObj == nil {
-		// Delete
-		si = oldObj.(*v1alpha1.ServiceImport)
-	} else {
-		// Add or Update
-		si = newObj.(*v1alpha1.ServiceImport)
-	}
-
-	if si.Spec.Type != v1alpha1.ClusterSetIP {
-		return false, nil
-	}
-	_, serviceExist := si.Labels[known.LabelServiceName]
-	_, serviceNamespaceExist := si.Labels[known.LabelServiceNameSpace]
-
-	if !serviceExist || !serviceNamespaceExist {
-		return false, nil
-	}
-
-	return true, nil
 }

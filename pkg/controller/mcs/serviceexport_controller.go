@@ -51,8 +51,7 @@ func init() {
 
 type ServiceExportController struct {
 	YachtController *yacht.Controller
-
-	//local msc client
+	// local msc client
 	localClusterID     string
 	mcsClientset       *mcsclientset.Clientset
 	parentk8sClient    kubernetes.Interface
@@ -63,7 +62,9 @@ type ServiceExportController struct {
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 }
 
-func NewServiceExportController(clusteID string, epsInformer discoveryinformerv1.EndpointSliceInformer, mcsClientset *mcsclientset.Clientset, mcsInformerFactory mcsInformers.SharedInformerFactory) (*ServiceExportController, error) {
+func NewServiceExportController(clusteID string, epsInformer discoveryinformerv1.EndpointSliceInformer,
+	mcsClientset *mcsclientset.Clientset,
+	mcsInformerFactory mcsInformers.SharedInformerFactory) (*ServiceExportController, error) {
 	seInformer := mcsInformerFactory.Multicluster().V1alpha1().ServiceExports()
 	sec := &ServiceExportController{
 		localClusterID:       clusteID,

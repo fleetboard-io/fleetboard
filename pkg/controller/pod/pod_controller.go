@@ -61,7 +61,9 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 		WithHandlerFunc(podController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
 		var oldPod *v1.Pod
 		var newPod *v1.Pod
-		if oldObj == nil {
+
+		switch {
+		case oldObj == nil:
 			newPod = newObj.(*v1.Pod)
 			if newPod.Spec.HostNetwork {
 				return false, nil
@@ -69,16 +71,14 @@ func NewPodController(podInformer v1informer.PodInformer, kubeClientSet kubernet
 			if newPod.Annotations == nil {
 				return true, nil
 			}
-		} else if newObj == nil {
+		case newObj == nil:
 			oldPod = oldObj.(*v1.Pod)
 			if oldPod.Spec.HostNetwork {
 				return false, nil
 			}
-		} else {
-			// ignore update pod
+		default:
 			return false, nil
 		}
-
 		return true, nil
 	})
 	_, err = podInformer.Informer().AddEventHandler(podAddController.DefaultResourceEventHandlerFuncs())
@@ -127,10 +127,10 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	// pod is been deleting
 	if podNotExist || !isPodAlive(pod) {
 		// recycle related resources.
-		err := c.recycleResources(key)
-		if err != nil {
+		errRecycle := c.recycleResources(key)
+		if errRecycle != nil {
 			d := 2 * time.Second
-			return &d, err
+			return &d, errRecycle
 		}
 		return nil, nil
 	}
@@ -148,7 +148,6 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	cachedPod := pod.DeepCopy()
 	if err := c.reconcileAllocateSubnets(cachedPod, pod); err != nil {
 		klog.Errorf("failed to reconcile pod nets %v", err)
-		//err := c.recycleResources(key)
 		d := 2 * time.Second
 		return &d, err
 	}
@@ -226,9 +225,9 @@ func (c *PodController) reconcileAllocateSubnets(cachedPod, pod *v1.Pod) error {
 				Gateway:     podNet.Gateway,
 			},
 		}
-		routeBytes, err := json.Marshal(routes)
-		if err != nil {
-			klog.Errorf("Marshal error: %v", err)
+		routeBytes, errMarshal := json.Marshal(routes)
+		if errMarshal != nil {
+			klog.Errorf("Marshal error: %v", errMarshal)
 		}
 		pod.Annotations[fmt.Sprintf(known.RoutesAnnotationTemplate, known.NautiPrefix)] = string(routeBytes)
 	}
