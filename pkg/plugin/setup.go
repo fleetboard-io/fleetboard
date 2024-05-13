@@ -37,7 +37,7 @@ func setup(c *caddy.Controller) error {
 
 	cd, err := CrossDNSParse(c)
 	if err != nil {
-		return plugin.Error("crossdns", err) // nolint:wrapcheck // No need to wrap this.
+		return plugin.Error("crossdns", err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -72,7 +72,7 @@ func CrossDNSParse(c *caddy.Controller) (*CrossDNS, error) {
 	})
 
 	if err != nil {
-		klog.Fatalf("failed to add event handler for serviceimport: %w", err)
+		klog.Fatalf("failed to add event handler for service import: %v", err)
 		return nil, err
 	}
 

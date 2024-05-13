@@ -25,7 +25,7 @@ hub:
   bootstraptoken: re51os.131tn13kek2iaqoz
 
 tunnel:
-  cidr: 10.113.0.0/16
+  cidr: ""
   globalcidr: 10.112.0.0/12
 
 serviceAccount:

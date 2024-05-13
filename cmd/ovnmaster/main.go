@@ -33,9 +33,12 @@ func main() {
 
 	flag.Parse()
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeConfig)
+	if err != nil {
+		klog.Fatalf("Error building kube config: %s", err.Error())
+	}
 	kubeClientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		klog.Fatalf("Error building kubeconfig: %s", err.Error())
+		klog.Fatalf("Error building kube clint: %s", err.Error())
 	}
 
 	agentSpec := known.Specification{}
@@ -47,11 +50,11 @@ func main() {
 	globalCIDR, CIDR := config.WaitGetGlobalNetworkInfo(kubeClientSet, &agentSpec)
 	gateway, err := util.GetIndexIPFromCIDR(CIDR, 1)
 	if err != nil {
-		klog.Fatalf("invalid gateway of cidr", err.Error())
+		klog.Fatalf("invalid gateway of cidr %v ", err.Error())
 	}
 	cnfPodIP, err := util.GetIndexIPFromCIDR(CIDR, 2)
 	if err != nil {
-		klog.Fatalf("invalid second ip of cidr", err.Error())
+		klog.Fatalf("invalid second ip of cidr %v ", err.Error())
 	}
 	// config it.
 	defaultSubnet := &api.SubnetSpec{

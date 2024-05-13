@@ -84,3 +84,56 @@ func TestHosts(t *testing.T) {
 		})
 	}
 }
+
+func Test_findAvailableCIDR(t *testing.T) {
+	type args struct {
+		networkCIDR   string
+		existingPeers []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "name1",
+			args: args{
+				networkCIDR:   "20.112.0.0/12",
+				existingPeers: []string{"20.112.0.0/16", "20.112.16.0/16", "20.112.32.0/16"},
+			},
+			want:    "20.113.0.0/16",
+			wantErr: false,
+		},
+		{
+			name: "name1",
+			args: args{
+				networkCIDR:   "20.112.0.0/12",
+				existingPeers: []string{"20.113.0.0/16", "20.112.16.0/16", "20.115.32.0/16"},
+			},
+			want:    "20.114.0.0/16",
+			wantErr: false,
+		},
+		{
+			name: "name1",
+			args: args{
+				networkCIDR:   "20.112.0.0/12",
+				existingPeers: []string{"20.112.0.0/16", "20.113.16.0/16", "20.114.32.0/16"},
+			},
+			want:    "20.115.0.0/16",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("FindAvailableCIDR() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
