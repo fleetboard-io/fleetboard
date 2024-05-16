@@ -108,21 +108,25 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 		workerLoopPeriod: time.Second,
 	}
 
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.onServiceUpdate,
 		UpdateFunc: func(old, cur interface{}) {
 			c.onServiceUpdate(cur)
 		},
 		DeleteFunc: c.onServiceDelete,
-	})
+	}); err != nil {
+		return nil
+	}
 	c.serviceLister = serviceInformer.Lister()
 	c.servicesSynced = serviceInformer.Informer().HasSynced
 
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		UpdateFunc: c.updatePod,
 		DeleteFunc: c.deletePod,
-	})
+	}); err != nil {
+		return nil
+	}
 	c.podLister = podInformer.Lister()
 	c.podsSynced = podInformer.Informer().HasSynced
 
@@ -130,13 +134,15 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 	c.nodesSynced = nodeInformer.Informer().HasSynced
 
 	logger := klog.FromContext(ctx)
-	endpointSliceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := endpointSliceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: c.onEndpointSliceAdd,
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.onEndpointSliceUpdate(logger, oldObj, newObj)
 		},
 		DeleteFunc: c.onEndpointSliceDelete,
-	})
+	}); err != nil {
+		return nil
+	}
 
 	c.endpointSliceLister = endpointSliceInformer.Lister()
 	c.endpointSlicesSynced = endpointSliceInformer.Informer().HasSynced
@@ -152,7 +158,7 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 	c.endpointUpdatesBatchPeriod = endpointUpdatesBatchPeriod
 
 	if utilfeature.DefaultFeatureGate.Enabled(features.TopologyAwareHints) {
-		nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		if _, err := nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				c.addNode(logger, obj)
 			},
@@ -162,7 +168,9 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 			DeleteFunc: func(obj interface{}) {
 				c.deleteNode(logger, obj)
 			},
-		})
+		}); err != nil {
+			return nil
+		}
 
 		c.topologyCache = topologycache.NewTopologyCache()
 	}
@@ -407,7 +415,7 @@ func (c *Controller) syncService(logger klog.Logger, key string) error {
 func (c *Controller) onServiceUpdate(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
 	}
 
@@ -418,7 +426,7 @@ func (c *Controller) onServiceUpdate(obj interface{}) {
 func (c *Controller) onServiceDelete(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
 	}
 
@@ -431,7 +439,7 @@ func (c *Controller) onServiceDelete(obj interface{}) {
 func (c *Controller) onEndpointSliceAdd(obj interface{}) {
 	endpointSlice := obj.(*discovery.EndpointSlice)
 	if endpointSlice == nil {
-		utilruntime.HandleError(fmt.Errorf("Invalid EndpointSlice provided to onEndpointSliceAdd()"))
+		utilruntime.HandleError(fmt.Errorf("invalid EndpointSlice provided to onEndpointSliceAdd()"))
 		return
 	}
 	if c.reconciler.ManagedByController(endpointSlice) && c.endpointSliceTracker.ShouldSync(endpointSlice) {
@@ -447,7 +455,7 @@ func (c *Controller) onEndpointSliceUpdate(logger klog.Logger, prevObj, obj inte
 	prevEndpointSlice := prevObj.(*discovery.EndpointSlice)
 	endpointSlice := obj.(*discovery.EndpointSlice)
 	if endpointSlice == nil || prevEndpointSlice == nil {
-		utilruntime.HandleError(fmt.Errorf("Invalid EndpointSlice provided to onEndpointSliceUpdate()"))
+		utilruntime.HandleError(fmt.Errorf("invalid EndpointSlice provided to onEndpointSliceUpdate()"))
 		return
 	}
 	// EndpointSlice generation does not change when labels change. Although the
@@ -488,7 +496,7 @@ func (c *Controller) onEndpointSliceDelete(obj interface{}) {
 func (c *Controller) queueServiceForEndpointSlice(endpointSlice *discovery.EndpointSlice) {
 	key, err := endpointslicerec.ServiceControllerKey(endpointSlice)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for EndpointSlice %+v: %v", endpointSlice, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for endpointSlice %v: %v", endpointSlice, err))
 		return
 	}
 
@@ -505,7 +513,7 @@ func (c *Controller) addPod(obj interface{}) {
 	pod := obj.(*v1.Pod)
 	services, err := endpointsliceutil.GetPodServiceMemberships(c.serviceLister, pod)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Unable to get pod %s/%s's service memberships: %v", pod.Namespace, pod.Name, err))
+		utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v", pod.Namespace, pod.Name, err))
 		return
 	}
 	for key := range services {
@@ -602,12 +610,12 @@ func getEndpointSliceFromDeleteAction(obj interface{}) *discovery.EndpointSlice 
 	// If we reached here it means the pod was deleted but its final state is unrecorded.
 	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 	if !ok {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get object from tombstone %#v", obj))
+		utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %#v", obj))
 		return nil
 	}
 	endpointSlice, ok := tombstone.Obj.(*discovery.EndpointSlice)
 	if !ok {
-		utilruntime.HandleError(fmt.Errorf("Tombstone contained object that is not a EndpointSlice: %#v", obj))
+		utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a EndpointSlice: %#v", obj))
 		return nil
 	}
 	return endpointSlice

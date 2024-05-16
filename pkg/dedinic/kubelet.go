@@ -1,6 +1,7 @@
 package dedinic
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var defaultAPIAuthTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+var defaultAPIAuthTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101
 
 type KubeletStub interface {
 	GetAllPods() (corev1.PodList, error)
@@ -39,7 +40,7 @@ func (k kubeletStub) GetAllPods() (corev1.PodList, error) {
 	podList := corev1.PodList{}
 
 	var bearer = "Bearer " + k.token
-	req, err := http.NewRequest("GET", urlStr.String(), nil)
+	req, err := http.NewRequestWithContext(context.TODO(), "GET", urlStr.String(), nil)
 	if err != nil {
 		klog.Errorf("Construct http request failed, %v", err)
 	}
@@ -80,7 +81,7 @@ func NewKubeletStub(addr string, port int, scheme string, timeout time.Duration)
 	client := &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402
 		},
 	}
 

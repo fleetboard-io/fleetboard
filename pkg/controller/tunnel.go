@@ -9,7 +9,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
@@ -25,7 +25,7 @@ type managedKeys struct {
 	publicKey  wgtypes.Key
 }
 
-type wireguard struct {
+type Wireguard struct {
 	connections   map[string]*v1alpha1.Peer // clusterID -> remote ep connection
 	mutex         sync.Mutex
 	link          netlink.Link // your link
@@ -36,10 +36,11 @@ type wireguard struct {
 	octopusClient *versioned.Clientset
 }
 
-func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, done <-chan struct{}) (*wireguard, error) {
+func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, done <-chan struct{},
+) (*Wireguard, error) {
 	var err error
 
-	w := &wireguard{
+	w := &Wireguard{
 		connections:   make(map[string]*v1alpha1.Peer),
 		StopCh:        done,
 		octopusClient: octopusClient,
@@ -63,8 +64,8 @@ func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, do
 	defer func() {
 		if err != nil {
 			if e := w.client.Close(); e != nil {
+				klog.Errorf("failed to close wgctrl client: %v", e)
 			}
-
 			w.client = nil
 		}
 	}()
@@ -77,7 +78,7 @@ func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, do
 	peerConfigs := make([]wgtypes.PeerConfig, 0)
 	cfg := wgtypes.Config{
 		PrivateKey:   &w.keys.privateKey,
-		ListenPort:   pointer.Int(UDPPort),
+		ListenPort:   ptr.To(UDPPort),
 		FirewallMark: nil,
 		ReplacePeers: true,
 		Peers:        peerConfigs,
@@ -90,7 +91,7 @@ func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, do
 	return w, err
 }
 
-func (w *wireguard) Init() error {
+func (w *Wireguard) Init() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -130,8 +131,8 @@ func (w *wireguard) Init() error {
 	return utils.ApplyPeerWithRetry(w.octopusClient, peer)
 }
 
-func (w *wireguard) Cleanup() error {
-	//return utils.DeletePeerWithRetry(w.octopusClient, w.spec.ClusterID, w.spec.ShareNamespace)
+func (w *Wireguard) Cleanup() error {
+	// return utils.DeletePeerWithRetry(w.octopusClient, w.spec.ClusterID, w.spec.ShareNamespace)
 	// it pretty hard to handle the case, when we update the deployment of the cnf pod, as to roll-update mechanism.
 	return nil
 }

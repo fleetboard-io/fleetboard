@@ -85,27 +85,36 @@ func NewEndpointController(podInformer coreinformers.PodInformer, serviceInforme
 		workerLoopPeriod: 60 * time.Second,
 	}
 
-	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: e.onServiceUpdate,
 		UpdateFunc: func(old, cur interface{}) {
 			e.onServiceUpdate(cur)
 		},
 		DeleteFunc: e.onServiceDelete,
-	})
+	}); err != nil {
+		klog.Errorf("failed to add event handler for service informer: %v", err)
+		return nil
+	}
 	e.serviceLister = serviceInformer.Lister()
 	e.servicesSynced = serviceInformer.Informer().HasSynced
 
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    e.addPod,
 		UpdateFunc: e.updatePod,
 		DeleteFunc: e.deletePod,
-	})
+	}); err != nil {
+		klog.Errorf("failed to add event handler for pod informer: %v", err)
+		return nil
+	}
 	e.podLister = podInformer.Lister()
 	e.podsSynced = podInformer.Informer().HasSynced
 
-	endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := endpointsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: e.onEndpointsDelete,
-	})
+	}); err != nil {
+		klog.Errorf("failed to add event handler for endpoints informer: %v", err)
+		return nil
+	}
 	e.endpointsLister = endpointsInformer.Lister()
 	e.endpointsSynced = endpointsInformer.Informer().HasSynced
 
@@ -280,10 +289,8 @@ func (e *Controller) updatePod(old, cur interface{}) {
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
 func (e *Controller) deletePod(obj interface{}) {
 	pod := endpointsliceutil.GetPodFromDeleteAction(obj)
-	klog.Infof("Del pod: %v", pod.Name)
-	if pod != nil {
-		e.addPod(pod)
-	}
+	klog.Infof("del pod: %v", &pod.Name)
+	e.addPod(pod)
 }
 
 // onServiceUpdate updates the Service Selector in the cache and queues the Service for processing.
@@ -300,7 +307,7 @@ func (e *Controller) onServiceUpdate(obj interface{}) {
 func (e *Controller) onServiceDelete(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
 	}
 	e.queue.Add(key)
@@ -309,7 +316,7 @@ func (e *Controller) onServiceDelete(obj interface{}) {
 func (e *Controller) onEndpointsDelete(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("Couldn't get key for object %+v: %v", obj, err))
+		utilruntime.HandleError(fmt.Errorf("couldn't get key for object %+v: %v", obj, err))
 		return
 	}
 	e.queue.Add(key)
@@ -543,15 +550,24 @@ func (e *Controller) syncService(ctx context.Context, key string) error {
 		newEndpoints.Labels = utillabels.CloneAndRemoveLabel(newEndpoints.Labels, v1.IsHeadlessService)
 	}
 
-	logger.V(4).Info("Update endpoints", "service", klog.KObj(service),
+	logger.V(4).Info("update endpoints", "service", klog.KObj(service),
 		"readyEndpoints", totalReadyEps, "notreadyEndpoints", totalNotReadyEps)
 	if createEndpoints {
 		// No previous endpoints, create them
 		_, err = e.client.CoreV1().Endpoints(service.Namespace).Create(ctx, newEndpoints, metav1.CreateOptions{})
+		if err != nil {
+			klog.Errorf("create failed: %v", err)
+		}
 		_, err = e.client.CoreV1().Endpoints(service.Namespace).Update(ctx, newEndpoints, metav1.UpdateOptions{})
+		if err != nil {
+			klog.Errorf("update failed: %v", err)
+		}
 	} else {
 		// Pre-existing
 		_, err = e.client.CoreV1().Endpoints(service.Namespace).Update(ctx, newEndpoints, metav1.UpdateOptions{})
+		if err != nil {
+			klog.Errorf("update failed: %v", err)
+		}
 	}
 	if err != nil {
 		if createEndpoints && errors.IsForbidden(err) {
@@ -605,7 +621,7 @@ func (e *Controller) checkLeftoverEndpoints() {
 		}
 		key, err := controller.KeyFunc(ep)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("Unable to get key for endpoint %#v", ep))
+			utilruntime.HandleError(fmt.Errorf("unable to get key for endpoint %#v", ep))
 			continue
 		}
 		e.queue.Add(key)
@@ -681,14 +697,14 @@ func truncateEndpoints(endpoints *v1.Endpoints) bool {
 	}
 
 	truncateReady := false
-	max := maxCapacity - totalReady
+	m := maxCapacity - totalReady
 	numTotal := totalNotReady
 	if totalReady > maxCapacity {
 		truncateReady = true
-		max = maxCapacity
+		m = maxCapacity
 		numTotal = totalReady
 	}
-	canBeAdded := max
+	canBeAdded := m
 
 	for i := range endpoints.Subsets {
 		subset := endpoints.Subsets[i]
@@ -701,7 +717,7 @@ func truncateEndpoints(endpoints *v1.Endpoints) bool {
 		// in this subset versus the total number of endpoints. The proportion of endpoints
 		// will be rounded up which most likely will lead to the last subset having less
 		// endpoints than the expected proportion.
-		toBeAdded := int(math.Ceil((float64(numInSubset) / float64(numTotal)) * float64(max)))
+		toBeAdded := int(math.Ceil((float64(numInSubset) / float64(numTotal)) * float64(m)))
 		// If there is not enough endpoints for the last subset, ensure only the number up
 		// to the capacity are added
 		if toBeAdded > canBeAdded {

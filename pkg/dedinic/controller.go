@@ -1,8 +1,9 @@
 package dedinic
 
 import (
-	"fmt"
-	"github.com/kubeovn/kube-ovn/pkg/ovs"
+	"os/exec"
+	"time"
+
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,8 +17,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	k8sexec "k8s.io/utils/exec"
-	"os/exec"
-	"time"
 )
 
 // Controller watch pod and namespace changes to update iptables, ipset and ovs qos
@@ -37,7 +36,8 @@ type Controller struct {
 }
 
 // NewController init a daemon controller
-func NewController(config *Configuration, stopCh <-chan struct{}, podInformerFactory, nodeInformerFactory informers.SharedInformerFactory) (*Controller, error) {
+func NewController(config *Configuration, stopCh <-chan struct{}, podInformerFactory,
+	nodeInformerFactory informers.SharedInformerFactory) (*Controller, error) {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: config.KubeClient.CoreV1().Events("")})
@@ -79,7 +79,6 @@ func (c *Controller) loopEncapIPCheck() {
 		return
 	}
 	klog.V(5).Infof("encapip check node: %s", node.Annotations)
-
 }
 
 // Run starts controller
@@ -87,35 +86,12 @@ func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.podQueue.ShutDown()
 
-	//go wait.Until(ovs.CleanLostInterface, time.Minute, stopCh)
+	// go wait.Until(ovs.CleanLostInterface, time.Minute, stopCh)
 	go wait.Until(recompute, 10*time.Minute, stopCh)
 	go wait.Until(rotateLog, 1*time.Hour, stopCh)
-	//go wait.Until(c.operateMod, 10*time.Second, stopCh)
-
-	//if err := c.setIPSet(); err != nil {
-	//	util.LogFatalAndExit(err, "failed to set ipsets")
-	//}
 
 	klog.Info("Started workers")
-	//go wait.Until(c.loopOvn0Check, 5*time.Second, stopCh)
-	//go wait.Until(c.loopOvnExt0Check, 5*time.Second, stopCh)
-	//go wait.Until(c.runAddOrUpdateProviderNetworkWorker, time.Second, stopCh)
-	//go wait.Until(c.runDeleteProviderNetworkWorker, time.Second, stopCh)
-	//go wait.Until(c.runSubnetWorker, time.Second, stopCh)
-	//go wait.Until(c.runPodWorker, time.Second, stopCh)
-	//go wait.Until(c.runGateway, 3*time.Second, stopCh)
 	go wait.Until(c.loopEncapIPCheck, 3*time.Second, stopCh)
-	//go wait.Until(c.ovnMetricsUpdate, 3*time.Second, stopCh)
-	//go wait.Until(func() {
-	//	if err := c.reconcileRouters(nil); err != nil {
-	//		klog.Errorf("failed to reconcile ovn0 routes: %v", err)
-	//	}
-	//}, 3*time.Second, stopCh)
-	//go wait.Until(func() {
-	//	if err := c.markAndCleanInternalPort(); err != nil {
-	//		klog.Errorf("gc ovs port error: %v", err)
-	//	}
-	//}, 5*time.Minute, stopCh)
 
 	<-stopCh
 	klog.Info("Shutting down workers")
@@ -142,29 +118,29 @@ func rotateLog() {
 	}
 }
 
-var lastNoPodOvsPort map[string]bool
+// var lastNoPodOvsPort map[string]bool
 
-func (c *Controller) markAndCleanInternalPort() error {
-	klog.V(4).Infof("start to gc ovs internal ports")
-	residualPorts := ovs.GetResidualInternalPorts()
-	if len(residualPorts) == 0 {
-		return nil
-	}
-
-	noPodOvsPort := map[string]bool{}
-	for _, portName := range residualPorts {
-		if !lastNoPodOvsPort[portName] {
-			noPodOvsPort[portName] = true
-		} else {
-			klog.Infof("gc ovs internal port %s", portName)
-			// Remove ovs port
-			output, err := ovs.Exec(ovs.IfExists, "--with-iface", "del-port", "br-int", portName)
-			if err != nil {
-				return fmt.Errorf("failed to delete ovs port %v, %q", err, output)
-			}
-		}
-	}
-	lastNoPodOvsPort = noPodOvsPort
-
-	return nil
-}
+// func (c *Controller) markAndCleanInternalPort() error {
+// 	klog.V(4).Infof("start to gc ovs internal ports")
+// 	residualPorts := ovs.GetResidualInternalPorts()
+// 	if len(residualPorts) == 0 {
+// 		return nil
+// 	}
+//
+// 	noPodOvsPort := map[string]bool{}
+// 	for _, portName := range residualPorts {
+// 		if !lastNoPodOvsPort[portName] {
+// 			noPodOvsPort[portName] = true
+// 		} else {
+// 			klog.Infof("gc ovs internal port %s", portName)
+// 			// Remove ovs port
+// 			output, err := ovs.Exec(ovs.IfExists, "--with-iface", "del-port", "br-int", portName)
+// 			if err != nil {
+// 				return fmt.Errorf("failed to delete ovs port %v, %q", err, output)
+// 			}
+// 		}
+// 	}
+// 	lastNoPodOvsPort = noPodOvsPort
+//
+// 	return nil
+// }

@@ -20,7 +20,7 @@ const (
 )
 
 // Create new wg link and assign addr from local subnets.
-func (w *wireguard) setWGLink() error {
+func (w *Wireguard) setWGLink() error {
 	// delete existing wg device if needed
 	if link, err := netlink.LinkByName(DefaultDeviceName); err == nil {
 		// delete existing device
@@ -46,7 +46,7 @@ func (w *wireguard) setWGLink() error {
 	return nil
 }
 
-func (w *wireguard) RemovePeer(key *wgtypes.Key) error {
+func (w *Wireguard) RemovePeer(key *wgtypes.Key) error {
 	klog.Infof("Removing WireGuard peer with key %s", key)
 
 	peerCfg := []wgtypes.PeerConfig{
@@ -68,7 +68,7 @@ func (w *wireguard) RemovePeer(key *wgtypes.Key) error {
 	return nil
 }
 
-func (w *wireguard) AddPeer(peer *v1alpha1.Peer) error {
+func (w *Wireguard) AddPeer(peer *v1alpha1.Peer) error {
 	var endpoint *net.UDPAddr
 	if w.spec.ClusterID == peer.Spec.ClusterID {
 		klog.Infof("Will not connect to self")
@@ -104,7 +104,7 @@ func (w *wireguard) AddPeer(peer *v1alpha1.Peer) error {
 	// Delete or update old peers for ClusterID.
 	oldCon, found := w.connections[peer.Spec.ClusterID]
 	if found {
-		if oldKey, err := wgtypes.ParseKey(oldCon.Spec.PublicKey); err == nil {
+		if oldKey, e := wgtypes.ParseKey(oldCon.Spec.PublicKey); e == nil {
 			// because every time we change the public key.
 			if oldKey.String() == remoteKey.String() {
 				// Existing connection, update status and skip.
@@ -147,7 +147,7 @@ func (w *wireguard) AddPeer(peer *v1alpha1.Peer) error {
 	return nil
 }
 
-func (w *wireguard) setKeyPair() error {
+func (w *Wireguard) setKeyPair() error {
 	var err error
 	// Generate local keys and set public key in BackendConfig.
 	var psk, priKey, pubKey wgtypes.Key
