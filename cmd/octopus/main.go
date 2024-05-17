@@ -17,7 +17,6 @@ import (
 	syncerConfig "github.com/nauti-io/nauti/pkg/config"
 	"github.com/nauti-io/nauti/pkg/controller"
 	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	"github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	kubeinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/known"
 )
@@ -28,7 +27,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&localKubeconfig, "kubeconfig", "", "Path to kubeconfig of local cluster. Only required if out-of-cluster.")
+	flag.StringVar(&localKubeconfig, "kubeconfig", "",
+		"Path to kubeconfig of local cluster. Only required if out-of-cluster.")
 	flag.StringVar(&localMasterURL, "master", "",
 		"The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
 }
@@ -68,6 +68,9 @@ func main() {
 		}
 		// wait until secret is ready.
 		hubKubeConfig, err = syncerConfig.GetHubConfig(k8sClient, &agentSpec)
+		if err != nil {
+			klog.Fatalf("get hub kubeconfig failed: %v", err)
+		}
 
 		// syncer only work as cluster level
 		if agent, errSyncerController := controller.New(&agentSpec, known.SyncerConfig{
@@ -102,8 +105,12 @@ func main() {
 		klog.Fatal(err)
 		return
 	}
-	hubInformerFactory := externalversions.NewSharedInformerFactoryWithOptions(oClient, known.DefaultResync, kubeinformers.WithNamespace(agentSpec.ShareNamespace))
+	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(oClient, known.DefaultResync,
+		kubeinformers.WithNamespace(agentSpec.ShareNamespace))
 	peerController, err := controller.NewPeerController(agentSpec, w, hubInformerFactory)
+	if err != nil {
+		klog.Fatalf("start peer controller failed: %v", err)
+	}
 	peerController.Start(ctx)
 	<-ctx.Done()
 

@@ -2,13 +2,11 @@ package controller
 
 import (
 	"context"
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	validations "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -16,7 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	mcsv1a1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
@@ -54,15 +51,23 @@ func New(spec *known.Specification, syncerConf known.SyncerConfig, kubeConfig *r
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, known.DefaultResync)
 	mcsInformerFactory := mcsInformers.NewSharedInformerFactory(mcsClientSet, known.DefaultResync)
 
-	serviceExportController, err := mcs.NewServiceExportController(spec.ClusterID, kubeInformerFactory.Discovery().V1().EndpointSlices(), mcsClientSet, mcsInformerFactory)
+	serviceExportController, err := mcs.NewServiceExportController(spec.ClusterID,
+		kubeInformerFactory.Discovery().V1().EndpointSlices(), mcsClientSet, mcsInformerFactory)
 	if err != nil {
 		return nil, err
 	}
 
 	hubK8sClient := kubernetes.NewForConfigOrDie(kubeConfig)
-	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync, kubeinformers.WithNamespace(spec.ShareNamespace))
-	epsController, err := mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace, hubInformerFactory.Discovery().V1().EndpointSlices(),
+	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync,
+		kubeinformers.WithNamespace(spec.ShareNamespace))
+
+	var epsController *mcs.EpsController
+	epsController, err = mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace,
+		hubInformerFactory.Discovery().V1().EndpointSlices(),
 		kubeClientSet, hubInformerFactory, serviceExportController, mcsClientSet)
+	if err != nil {
+		klog.Errorf("failed to create eps controller: %v", err)
+	}
 
 	syncerConf.LocalNamespace = spec.LocalNamespace
 	syncerConf.LocalClusterID = spec.ClusterID
@@ -100,41 +105,41 @@ func (a *Syncer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (a *Syncer) newServiceImport(name, namespace string) *mcsv1a1.ServiceImport {
-	return &mcsv1a1.ServiceImport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: a.getObjectNameWithClusterID(name, namespace),
-			Annotations: map[string]string{
-				known.OriginName:      name,
-				known.OriginNamespace: namespace,
-			},
-			Labels: map[string]string{
-				known.LabelSourceName:      name,
-				known.LabelSourceNamespace: namespace,
-				known.LabelSourceCluster:   a.ClusterID,
-				known.LabelOriginNameSpace: namespace,
-			},
-		},
-	}
-}
+// func (a *Syncer) newServiceImport(name, namespace string) *mcsv1a1.ServiceImport {
+// 	return &mcsv1a1.ServiceImport{
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name: a.getObjectNameWithClusterID(name, namespace),
+// 			Annotations: map[string]string{
+// 				known.OriginName:      name,
+// 				known.OriginNamespace: namespace,
+// 			},
+// 			Labels: map[string]string{
+// 				known.LabelSourceName:      name,
+// 				known.LabelSourceNamespace: namespace,
+// 				known.LabelSourceCluster:   a.ClusterID,
+// 				known.LabelOriginNameSpace: namespace,
+// 			},
+// 		},
+// 	}
+// }
 
-func (a *Syncer) getPortsForService(service *corev1.Service) []mcsv1a1.ServicePort {
-	mcsPorts := make([]mcsv1a1.ServicePort, 0, len(service.Spec.Ports))
-
-	for _, port := range service.Spec.Ports {
-		mcsPorts = append(mcsPorts, mcsv1a1.ServicePort{
-			Name:     port.Name,
-			Protocol: port.Protocol,
-			Port:     port.Port,
-		})
-	}
-
-	return mcsPorts
-}
+// func (a *Syncer) getPortsForService(service *corev1.Service) []mcsv1a1.ServicePort {
+// 	mcsPorts := make([]mcsv1a1.ServicePort, 0, len(service.Spec.Ports))
+//
+// 	for _, port := range service.Spec.Ports {
+// 		mcsPorts = append(mcsPorts, mcsv1a1.ServicePort{
+// 			Name:     port.Name,
+// 			Protocol: port.Protocol,
+// 			Port:     port.Port,
+// 		})
+// 	}
+//
+// 	return mcsPorts
+// }
 
 func generateSliceName(clusterName, namespace, name string) string {
 	clusterName = fmt.Sprintf("%s%s%s", clusterName, namespace, name)
-	hasher := md5.New()
+	hasher := sha256.New()
 	hasher.Write([]byte(clusterName))
 	var namespacePart, namePart string
 	if len(namespace) > known.MaxNamespaceLength {
@@ -154,6 +159,6 @@ func generateSliceName(clusterName, namespace, name string) string {
 	return fmt.Sprintf("%s-%s-%s", namespacePart, namePart, hashPart[8:24])
 }
 
-func (a *Syncer) getObjectNameWithClusterID(name, namespace string) string {
-	return generateSliceName(a.ClusterID, namespace, name)
-}
+// func (a *Syncer) getObjectNameWithClusterID(name, namespace string) string {
+// 	return generateSliceName(a.ClusterID, namespace, name)
+// }

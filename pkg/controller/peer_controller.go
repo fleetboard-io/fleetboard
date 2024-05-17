@@ -31,11 +31,11 @@ type PeerController struct {
 	// specific namespace.
 	peerLister     v1alpha1.PeerLister
 	octopusFactory octopusinformers.SharedInformerFactory
-	tunnel         *wireguard
+	tunnel         *Wireguard
 	spec           *known.Specification
 }
 
-func NewPeerController(spec known.Specification, w *wireguard,
+func NewPeerController(spec known.Specification, w *Wireguard,
 	octopusFactory octopusinformers.SharedInformerFactory) (*PeerController, error) {
 	peerController := &PeerController{
 		peerLister:     octopusFactory.Octopus().V1alpha1().Peers().Lister(),
@@ -55,7 +55,7 @@ func NewPeerController(spec known.Specification, w *wireguard,
 			} else {
 				tempObj = oldObj
 			}
-			//klog.Infof("we got a peer connection %v", tempObj)
+			// klog.Infof("we got a peer connection %v", tempObj)
 			if tempObj != nil {
 				newPeer := tempObj.(*v1alpha1app.Peer)
 				// hub connect with nohub, nohub connect with hub.
@@ -78,7 +78,7 @@ func NewPeerController(spec known.Specification, w *wireguard,
 	return peerController, nil
 }
 
-func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
+func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
 	failedPeriod := 2 * time.Second
 	key := obj.(string)
 	namespace, peerName, err := cache.SplitMetaNamespaceKey(key)
@@ -89,7 +89,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	noCIDR := false
 	hubNotExist := false
-	cachedPeer, err := c.peerLister.Peers(namespace).Get(peerName)
+	cachedPeer, err := p.peerLister.Peers(namespace).Get(peerName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("peer '%s' in hub work queue no longer exists,"+
@@ -109,7 +109,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			klog.Infof("can't find key for %s with key %s", peerName, cachedPeer.Spec.PublicKey)
 			return &failedPeriod, err
 		}
-		if c.tunnel.RemovePeer(&oldKey) != nil {
+		if p.tunnel.RemovePeer(&oldKey) != nil {
 			return &failedPeriod, err
 		}
 		if errRemoveRoute := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Delete); errRemoveRoute != nil {
@@ -120,7 +120,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		return nil, nil
 	}
 
-	if !c.spec.IsHub {
+	if !p.spec.IsHub {
 		// just cluster, only wait if the coming peer has no cidr.
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
@@ -130,7 +130,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			//  prepare data...
 			existingCIDR := make([]string, 0)
 			noCIDR = true
-			if peerList, errListPeer := c.peerLister.Peers(namespace).List(labels.Everything()); errListPeer != nil {
+			if peerList, errListPeer := p.peerLister.Peers(namespace).List(labels.Everything()); errListPeer != nil {
 				for _, item := range peerList {
 					if item.Name != "hub" && len(item.Spec.PodCIDR) != 0 {
 						existingCIDR = append(existingCIDR, item.Spec.PodCIDR[0])
@@ -139,7 +139,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			}
 			// cidr allocation here.
 			cachedPeer.Spec.PodCIDR = make([]string, 1)
-			cachedPeer.Spec.PodCIDR[0], err = util.FindAvailableCIDR(c.spec.CIDR[0], existingCIDR)
+			cachedPeer.Spec.PodCIDR[0], err = util.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR)
 			if err != nil {
 				klog.Infof("allocate peer cidr failed %v", err)
 				return &failedPeriod, err
@@ -147,7 +147,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		}
 	}
 
-	if errAddPeer := c.tunnel.AddPeer(cachedPeer); errAddPeer != nil {
+	if errAddPeer := p.tunnel.AddPeer(cachedPeer); errAddPeer != nil {
 		klog.Infof("add peer failed %v", cachedPeer)
 		return &failedPeriod, errAddPeer
 	}
@@ -161,7 +161,7 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	// 需要回写peer
 	if noCIDR {
-		_, err = c.tunnel.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
+		_, err = p.tunnel.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
 			cachedPeer, metav1.UpdateOptions{})
 		if err != nil {
 			return &failedPeriod, err
@@ -170,9 +170,9 @@ func (c *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 	return nil, nil
 }
 
-func (c *PeerController) Run(ctx context.Context) error {
-	c.octopusFactory.Start(ctx.Done())
-	c.yachtController.Run(ctx)
+func (p *PeerController) Run(ctx context.Context) error {
+	p.octopusFactory.Start(ctx.Done())
+	p.yachtController.Run(ctx)
 	return nil
 }
 
@@ -188,7 +188,7 @@ func (p *PeerController) Start(ctx context.Context) {
 	<-ctx.Done()
 }
 
-func configHostRoutingRules(CIDRs []string, operation known.RouteOperation) error {
+func configHostRoutingRules(cidrs []string, operation known.RouteOperation) error {
 	var ifaceIndex int
 	if wg, err := net.InterfaceByName(DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index
@@ -197,7 +197,7 @@ func configHostRoutingRules(CIDRs []string, operation known.RouteOperation) erro
 		return err
 	}
 
-	for _, cidr := range CIDRs {
+	for _, cidr := range cidrs {
 		_, dst, err := net.ParseCIDR(cidr)
 		if err != nil {
 			klog.Errorf("Can't parse cidr %s as route dst", cidr)

@@ -44,14 +44,14 @@ const (
 
 	ContainerAdded      = 0
 	ContainerDeleted    = 1
-	ContainerTaskIdDone = 2
+	ContainerTaskIDDone = 2
 )
 
 type OobImpl struct {
 	cgroupRootPath   string
 	podWatcher       *inotify.Watcher
 	containerWatcher *inotify.Watcher
-	taskIdWatcher    *inotify.Watcher
+	taskIDWatcher    *inotify.Watcher
 	podEvents        chan *PodEvent
 	containerEvents  chan *ContainerEvent
 	kubeletStub      KubeletStub
@@ -74,16 +74,16 @@ func InitOOb() {
 
 type PodEvent struct {
 	eventType  int
-	podId      string
+	podID      string
 	cgroupPath string
 }
 
 type ContainerEvent struct {
 	eventType   int
-	podId       string
-	containerId string
+	podID       string
+	containerID string
 	cgroupPath  string
-	netns       string
+	// netns       string
 }
 
 func NewOobServer(cgroupRootPath string) (*OobImpl, error) {
@@ -101,7 +101,7 @@ func NewOobServer(cgroupRootPath string) (*OobImpl, error) {
 		klog.Error("create container watcher failed", err)
 	}
 
-	taskIdWatcher, err := inotify.NewWatcher()
+	taskIDWatcher, err := inotify.NewWatcher()
 	if err != nil {
 		klog.Error("create taskId watcher failed", err)
 	}
@@ -110,7 +110,7 @@ func NewOobServer(cgroupRootPath string) (*OobImpl, error) {
 		cgroupRootPath:   cgroupRootPath,
 		podWatcher:       podWatcher,
 		containerWatcher: containerWatcher,
-		taskIdWatcher:    taskIdWatcher,
+		taskIDWatcher:    taskIDWatcher,
 		kubeletStub:      stub,
 		podEvents:        make(chan *PodEvent, 128),
 		containerEvents:  make(chan *ContainerEvent, 128),
@@ -155,7 +155,7 @@ func GetNetNs(ctx context.Context, cgroupPath string) string {
 			return ""
 		default:
 			file, err := os.Open(cgroupPath)
-			defer file.Close()
+			// defer file.Close()
 			if err != nil {
 				klog.Infof("no cgroup path now, %v %s", err, cgroupPath)
 				return ""
@@ -212,29 +212,30 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 		case event := <-o.podEvents:
 			switch event.eventType {
 			case PodAdded:
-				klog.Infof("PodAdded, %s", event.podId)
+				klog.Infof("PodAdded, %s", event.podID)
 				_, err := o.GetAllPods()
 				if err != nil {
 					klog.Errorf("Get all pods failed %v", err)
 				}
 			case PodDeleted:
-				klog.Infof("PodDeleted, %s", event.podId)
+				klog.Infof("PodDeleted, %s", event.podID)
 			}
 		case event := <-o.containerEvents:
 			switch event.eventType {
 			case ContainerAdded:
-				klog.Infof("ContainerAdded, %s %s", event.podId, event.containerId)
+				klog.Infof("ContainerAdded, %s %s", event.podID, event.containerID)
 			case ContainerDeleted:
-				klog.Infof("ContainerDeleted, %s %s", event.podId, event.containerId)
-			case ContainerTaskIdDone:
+				klog.Infof("ContainerDeleted, %s %s", event.podID, event.containerID)
+			case ContainerTaskIDDone:
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-				defer cancel()
+				// defer cancel()
 				_, err := o.GetAllPods()
 				if err != nil {
 					klog.Errorf("Get all pods failed %v", err)
 				}
 				netns := GetNetNs(ctx, event.cgroupPath)
-				if pod, ok := o.pods[event.podId]; ok {
+				cancel()
+				if pod, ok := o.pods[event.podID]; ok {
 					klog.Infof("add dedinic to the pod:%v", pod)
 					podRequest := &request.CniRequest{
 						CniType:      "kube-ovn",
@@ -247,10 +248,10 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 					}
 					DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
 				} else {
-					klog.Errorf("cant find the pod info: %v", event.podId)
+					klog.Errorf("cant find the pod info: %v", event.podID)
 				}
 				klog.Infof("netns is %s", netns)
-				klog.Infof("ContainerTaskIdDone, %s %s %s", event.podId, event.containerId, netns)
+				klog.Infof("ContainerTaskIDDone, %s %s %s", event.podID, event.containerID, netns)
 			}
 		case <-stoptCh:
 			return
@@ -301,7 +302,7 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 		case event := <-o.podWatcher.Event:
 			switch TypeOf(event) {
 			case DirCreated:
-				podId, err := ParsePodId(filepath.Base(event.Name))
+				podID, err := ParsePodID(filepath.Base(event.Name))
 				if err != nil {
 					klog.Errorf("failed to parse pod id from %s", event.Name)
 				}
@@ -309,9 +310,9 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 				if err != nil {
 					klog.Errorf("failed to watch path %s, err %v", event.Name, err)
 				}
-				o.podEvents <- newPodEvent(podId, PodAdded, event.Name)
+				o.podEvents <- newPodEvent(podID, PodAdded, event.Name)
 			case DirRemoved:
-				podId, err := ParsePodId(filepath.Base(event.Name))
+				podID, err := ParsePodID(filepath.Base(event.Name))
 				if err != nil {
 					klog.Errorf("failed to parse pod id from %s", event.Name)
 				}
@@ -319,7 +320,7 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 				if err != nil {
 					klog.Errorf("failed to remove watch path %s, err %v", event.Name, err)
 				}
-				o.podEvents <- newPodEvent(podId, PodDeleted, event.Name)
+				o.podEvents <- newPodEvent(podID, PodDeleted, event.Name)
 				klog.Infof("dir delete, %s", event.Name)
 			default:
 				klog.Infof("Unkown type")
@@ -329,76 +330,77 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 		case event := <-o.containerWatcher.Event:
 			switch TypeOf(event) {
 			case DirCreated:
-				containerId, err := ParseContainerId(filepath.Base(event.Name))
+				containerID, err := ParseContainerID(filepath.Base(event.Name))
 				if err != nil {
-					klog.Infof("get containerId failed")
+					klog.Infof("get containerID failed")
 					continue
 				}
-				podId, err := ParsePodId(filepath.Base(filepath.Dir(event.Name)))
+				podID, err := ParsePodID(filepath.Base(filepath.Dir(event.Name)))
 				if err != nil {
-					klog.Infof("get podId failed, %v", err)
+					klog.Infof("get podID failed, %v", err)
 					continue
 				}
-				err = o.taskIdWatcher.AddWatch(path.Join(event.Name, "cgroup.procs"), inotify.InCreate|inotify.InModify|inotify.InAllEvents)
+				err = o.taskIDWatcher.AddWatch(path.Join(event.Name, "cgroup.procs"),
+					inotify.InCreate|inotify.InModify|inotify.InAllEvents)
 				if err != nil {
 					klog.Errorf("failed to watch path %s, err %v", event.Name+"/cgroup.procs", err)
 				}
-				o.containerEvents <- newContainerEvent(podId, containerId, ContainerAdded, event.Name)
-				klog.Infof("dir create, %s", event.Name, podId, containerId)
+				o.containerEvents <- newContainerEvent(podID, containerID, ContainerAdded, event.Name)
+				klog.Infof("dir create: %v, %v, %v", event.Name, podID, containerID)
 			case DirRemoved:
-				containerId, err := ParseContainerId(filepath.Base(event.Name))
+				containerID, err := ParseContainerID(filepath.Base(event.Name))
 				if err != nil {
-					klog.Infof("get containerId failed")
+					klog.Infof("get containerID failed")
 					continue
 				}
-				podId, err := ParsePodId(filepath.Base(filepath.Dir(event.Name)))
+				podID, err := ParsePodID(filepath.Base(filepath.Dir(event.Name)))
 				if err != nil {
-					klog.Infof("get podId failed")
+					klog.Infof("get podID failed")
 					continue
 				}
-				o.containerEvents <- newContainerEvent(podId, containerId, ContainerDeleted, event.Name)
+				o.containerEvents <- newContainerEvent(podID, containerID, ContainerDeleted, event.Name)
 				klog.Infof("dir delete, %s", event.Name)
 			default:
 				klog.Infof("Unkown type")
 			}
-		case event := <-o.taskIdWatcher.Event:
+		case event := <-o.taskIDWatcher.Event:
 			switch TypeOf(event) {
 			case FileCreated:
 				klog.Infof("cgroup.procs file created %v", event)
 
 				containerDir := filepath.Dir(event.Name)
-				containerId, err := ParseContainerId(filepath.Base(containerDir))
+				containerID, err := ParseContainerID(filepath.Base(containerDir))
 				if err != nil {
-					klog.Infof("get containerId failed")
+					klog.Infof("get containerID failed")
 					continue
 				}
-				podId, err := ParsePodId(filepath.Base(filepath.Dir(containerDir)))
+				podID, err := ParsePodID(filepath.Base(filepath.Dir(containerDir)))
 				if err != nil {
-					klog.Infof("get podId failed, %v", err)
+					klog.Infof("get podID failed, %v", err)
 					continue
 				}
-				o.containerEvents <- newContainerEvent(podId, containerId, ContainerTaskIdDone, event.Name)
-				klog.Infof("dir create, %s", event.Name, podId, containerId)
+				o.containerEvents <- newContainerEvent(podID, containerID, ContainerTaskIDDone, event.Name)
+				klog.Infof("dir create: %v, %v, %v", event.Name, podID, containerID)
 			case FileUpdated:
 				klog.Infof("cgroup.procs file updated %v", event)
 
 				containerDir := filepath.Dir(event.Name)
-				containerId, err := ParseContainerId(filepath.Base(containerDir))
+				containerID, err := ParseContainerID(filepath.Base(containerDir))
 				if err != nil {
-					klog.Infof("get containerId failed")
+					klog.Infof("get containerID failed")
 					continue
 				}
-				podId, err := ParsePodId(filepath.Base(filepath.Dir(containerDir)))
+				podID, err := ParsePodID(filepath.Base(filepath.Dir(containerDir)))
 				if err != nil {
-					klog.Infof("get podId failed, %v", err)
+					klog.Infof("get podID failed, %v", err)
 					continue
 				}
-				o.containerEvents <- newContainerEvent(podId, containerId, ContainerTaskIdDone, event.Name)
-				err = o.taskIdWatcher.RemoveWatch(event.Name)
+				o.containerEvents <- newContainerEvent(podID, containerID, ContainerTaskIDDone, event.Name)
+				err = o.taskIDWatcher.RemoveWatch(event.Name)
 				if err != nil {
 					klog.Errorf("failed to remove watch path %s, err %v", event.Name, err)
 				}
-				klog.Infof("dir create, %s", event.Name, podId, containerId)
+				klog.Infof("dir create: %v, %v, %v", event.Name, podID, containerID)
 			}
 
 		case <-stopCh:
@@ -407,7 +409,7 @@ func (o *OobImpl) Run(stopCh <-chan struct{}) {
 	}
 }
 
-func ParsePodId(basename string) (string, error) {
+func ParsePodID(basename string) (string, error) {
 	patterns := []struct {
 		prefix string
 		suffix string
@@ -429,15 +431,14 @@ func ParsePodId(basename string) (string, error) {
 
 	for i := range patterns {
 		if strings.HasPrefix(basename, patterns[i].prefix) && strings.HasSuffix(basename, patterns[i].suffix) {
-			podIdStr := basename[len(patterns[i].prefix) : len(basename)-len(patterns[i].suffix)]
-			return strings.ReplaceAll(podIdStr, "_", "-"), nil
-
+			podIDStr := basename[len(patterns[i].prefix) : len(basename)-len(patterns[i].suffix)]
+			return strings.ReplaceAll(podIDStr, "_", "-"), nil
 		}
 	}
 	return "", fmt.Errorf("fail to parse pod id: %v", basename)
 }
 
-func ParseContainerId(basename string) (string, error) {
+func ParseContainerID(basename string) (string, error) {
 	patterns := []struct {
 		prefix string
 		suffix string
@@ -460,12 +461,12 @@ func ParseContainerId(basename string) (string, error) {
 	return "", fmt.Errorf("fail to parse container id: %v", basename)
 }
 
-func newPodEvent(podId string, eventType int, cgroupPath string) *PodEvent {
-	return &PodEvent{eventType: eventType, podId: podId, cgroupPath: cgroupPath}
+func newPodEvent(podID string, eventType int, cgroupPath string) *PodEvent {
+	return &PodEvent{eventType: eventType, podID: podID, cgroupPath: cgroupPath}
 }
 
-func newContainerEvent(podId string, containerId string, eventType int, cgroupPath string) *ContainerEvent {
-	return &ContainerEvent{podId: podId, containerId: containerId, eventType: eventType, cgroupPath: cgroupPath}
+func newContainerEvent(podID string, containerID string, eventType int, cgroupPath string) *ContainerEvent {
+	return &ContainerEvent{podID: podID, containerID: containerID, eventType: eventType, cgroupPath: cgroupPath}
 }
 
 func (o *OobImpl) GetAllPods() (corev1.PodList, error) {

@@ -3,6 +3,10 @@ package dedinic
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strings"
+
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/vishvananda/netlink"
 	corev1 "k8s.io/api/core/v1"
@@ -10,10 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
-	"net"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	"strings"
 )
 
 var (
@@ -43,7 +44,6 @@ type Configuration struct {
 var Conf *Configuration
 
 func InitConfig() error {
-
 	Conf = &Configuration{
 		tunnelIface:           "",
 		Iface:                 "",

@@ -76,7 +76,7 @@ func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Contai
 }
 
 func (p *CNIPlugin) Shutdown() {
-	//dump("Shutdown")
+	// dump("Shutdown")
 }
 
 func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {

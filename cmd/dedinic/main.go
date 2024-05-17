@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-
 	defer klog.Flush()
 
 	_ = dedinic.InitConfig()
@@ -38,7 +37,7 @@ func main() {
 
 	go dedinic.InitNRIPlugin(dedinic.Conf, ctl)
 
-	//todo if nri is invalid
+	// todo if nri is invalid
 	if _, err := os.Stat("/var/run/nri/nri.sock"); os.IsNotExist(err) {
 		klog.Infof("nri is not enabled, start with oob mode")
 		go dedinic.InitOOb()

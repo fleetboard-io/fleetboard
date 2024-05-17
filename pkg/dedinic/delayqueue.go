@@ -2,10 +2,11 @@ package dedinic
 
 import (
 	"context"
+	"time"
+
 	"github.com/cfanbo/delayqueue"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"k8s.io/klog/v2"
-	"time"
 )
 
 var DelayQueue *delayqueue.Queue
