@@ -130,12 +130,15 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			//  prepare data...
 			existingCIDR := make([]string, 0)
 			noCIDR = true
-			if peerList, errListPeer := p.peerLister.Peers(namespace).List(labels.Everything()); errListPeer != nil {
+			if peerList, errListPeer := p.peerLister.Peers(namespace).List(labels.Everything()); errListPeer == nil {
 				for _, item := range peerList {
 					if item.Name != "hub" && len(item.Spec.PodCIDR) != 0 {
 						existingCIDR = append(existingCIDR, item.Spec.PodCIDR[0])
 					}
 				}
+			} else {
+				klog.Errorf("peers get with %v", err)
+				return &failedPeriod, err
 			}
 			// cidr allocation here.
 			cachedPeer.Spec.PodCIDR = make([]string, 1)

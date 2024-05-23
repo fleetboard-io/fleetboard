@@ -91,8 +91,7 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   And install nauti-agent in cluster by:
   
 helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
---set hub.hubURL=https://10.115.217.212:6443 --set tunnel.globalcidr=20.112.0.0/12 --set tunnel.cidr=20.114.0.0/16 \
- --set cluster.clusterID=cluster1
+--set hub.hubURL=https://10.115.217.212:6443 --set cluster.clusterID=cluster1
   ```
 
 
@@ -132,8 +131,7 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
   "mcs" has been added to your repositories
   
   $ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
-   --set hub.hubURL=https://10.115.217.212:6443 --set tunnel.globalcidr=20.112.0.0/12 \
-   --set tunnel.cidr=20.114.0.0/16 --set cluster.clusterID=cluster1
+   --set hub.hubURL=https://10.115.217.212:6443 --set cluster.clusterID=cluster1
   ```
   Add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
   ```yaml
