@@ -4,10 +4,6 @@ IMG ?= ovnmaster:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:crdVersions=v1,generateEmbeddedObjectMeta=true"
 
-IMAGE_TAG := $(shell git rev-parse --short HEAD)
-IMAGE_REPOSITORY := ghcr.io/nauti-io
-
-
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -15,9 +11,28 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+GIT_COMMIT = $(shell git rev-parse HEAD)
+ifeq ($(shell git tag --points-at ${GIT_COMMIT}),)
+GIT_VERSION=$(shell echo ${GIT_COMMIT} | cut -c 1-7)
+else
+GIT_VERSION=$(shell git describe --abbrev=0 --tags --always)
+endif
+
+IMAGE_TAG = ${GIT_VERSION}
+REGISTRY ?= ghcr.io
+REGISTRY_NAMESPACE ?= nauti-io
+
+
+DOCKERARGS?=
+ifdef HTTP_PROXY
+	DOCKERARGS += --build-arg http_proxy=$(HTTP_PROXY)
+endif
+ifdef HTTPS_PROXY
+	DOCKERARGS += --build-arg https_proxy=$(HTTPS_PROXY)
+endif
+
 lint: golangci-lint
 	golangci-lint run -c .golangci.yaml --timeout=10m
-
 
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -43,29 +58,54 @@ endif
 
 
 ovnmaster:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/ovnmaster/ovnmaster cmd/ovnmaster/main.go
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ovnmaster cmd/ovnmaster/main.go
+
 crossdns:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o cmd/crossdns/crossdns cmd/crossdns/main.go
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
+
 octopus:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o cmd/octopus/octopus cmd/octopus/main.go
+	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/octopus cmd/octopus/main.go
+
 dedinic:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/dedinic cmd/dedinic/main.go
+
 ep-controller:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ep-controller cmd/ep-controller/main.go
 
 images:
-	docker build -f ./build/dedinic.Dockerfile ./ -t ${IMAGE_REPOSITORY}/dedinic:${IMAGE_TAG}
-	docker build -f ./build/ep-controller.Dockerfile ./ -t ${IMAGE_REPOSITORY}/ep-controller:${IMAGE_TAG}
-	docker push ${IMAGE_REPOSITORY}/dedinic:${IMAGE_TAG}
-	docker push ${IMAGE_REPOSITORY}/ep-controller:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/ovnmaster.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/octopus.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
 
-dedinic-image:
-	docker build -f ./build/dedinic.Dockerfile ./ -t${IMAGE_REPOSITORY}/dedinic:${IMAGE_TAG}
-	docker push ${IMAGE_REPOSITORY}/dedinic:${IMAGE_TAG}
-ep-controller-image:
-	docker build -f ./build/ep-controller.Dockerfile ./ -t ${IMAGE_REPOSITORY}/ep-controller:${IMAGE_TAG}
-	docker push ${IMAGE_REPOSITORY}/ep-controller:${IMAGE_TAG}
+image-ovnmaster:
+	docker build $(DOCKERARGS) -f ./build/ovnmaster.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
 
+image-crossdns:
+	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+
+image-octopus:
+	docker build $(DOCKERARGS) -f ./build/octopus.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+
+image-dedinic:
+	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
+
+image-ep-controller:
+	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
+
+
+images-push:
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
 
 # find or download golangci-lint
 # download golangci-lint if necessary
