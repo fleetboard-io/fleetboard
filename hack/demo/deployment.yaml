@@ -1,0 +1,263 @@
+---
+- name: Install kubeadm
+  hosts: hub-node-0,child-node-0,child-node-1,child-node-2
+
+  tasks:
+    - name: Let iptables see bridged traffic
+      become: yes
+      block:
+        - name: "Let iptables see bridged traffic : Load overlay module"
+          modprobe:
+            name: overlay
+        - name: "Let iptables see bridged traffic : Load br_netfilter module"
+          modprobe:
+            name: br_netfilter
+        - name: "Let iptables see bridged traffic : Persist load of br_netfilter module"
+          lineinfile:
+            path: /etc/modules-load.d/k8s.conf
+            create: yes
+            line: br_netfilter
+        - name: "Let iptables see bridged traffic : Set net.bridge.bridge-nf-call-iptables to 1"
+          sysctl:
+            name: "{{ item.name }}"
+            value: "{{ item.value }}"
+          with_items:
+            - { name: 'net.bridge.bridge-nf-call-ip6tables', value: '1' }
+            - { name: 'net.bridge.bridge-nf-call-iptables', value: '1' }
+            - { name: net.ipv4.ip_forward', value: '1' }
+        - name: Load sysctl settings
+          ansible.builtin.command: sysctl --system
+
+    - name: Install runc
+      become: yes
+      block:
+        - name: Set runc version
+          set_fact:
+            runc_version: "v1.1.4"
+
+        - name: Check if runc.amd64 exists
+          stat:
+            path: /usr/local/sbin/runc.amd64
+          register: runc_stat
+
+        - name: Download runc.amd64 if it does not exist
+          get_url:
+            url: "https://github.com/opencontainers/runc/releases/download/{{ runc_version }}/runc.amd64"
+            dest: /usr/local/sbin/runc.amd64
+          when: not runc_stat.exists
+
+        - name: Install runc
+          file:
+            src: /usr/local/sbin/runc.amd64
+            dest: /usr/local/sbin/runc
+            mode: "0755"
+          become: yes
+
+    - name: Install and configure containerd
+      become: yes
+      tasks:
+        - name: Set containerd version
+          set_fact:
+            containerd_version: "1.7.0"
+
+        - name: Check if containerd archive exists
+          stat:
+            path: "/usr/local/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+          register: containerd_archive_stat
+
+        - name: Download containerd archive if it does not exist
+          get_url:
+            url: "https://github.com/containerd/containerd/releases/download/v{{ containerd_version }}/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+            dest: "/usr/local/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+          when: not containerd_archive_stat.exists
+
+        - name: Extract containerd archive
+          become: yes
+          ansible.builtin.command: tar Czxvf /usr/local -f "/usr/local/containerd-{{ containerd_version }}-linux-amd64.tar.gz"
+
+        - name: Check if containerd service file exists
+          stat:
+            path: "/usr/lib/systemd/system/containerd.service"
+          register: containerd_service_stat
+
+        - name: Download containerd service file if it does not exist
+          get_url:
+            url: "https://raw.githubusercontent.com/containerd/containerd/main/containerd.service"
+            dest: "/usr/lib/systemd/system/containerd.service"
+          when: not containerd_service_stat.exists
+
+        - name: Move containerd service file
+          become: yes
+          ansible.builtin.command: mv /usr/lib/systemd/system/containerd.service /usr/lib/systemd/system/
+
+        - name: Reload systemd daemon
+          become: yes
+          ansible.builtin.systemd:
+            daemon_reload: yes
+
+        - name: Enable and start containerd service
+          become: yes
+          ansible.builtin.systemd:
+            name: containerd
+            enabled: yes
+            state: started
+
+        - name: Create /etc/containerd directory
+          become: yes
+          ansible.builtin.file:
+            path: /etc/containerd
+            state: directory
+
+        - name: Generate containerd configuration
+          become: yes
+          ansible.builtin.command: containerd config default | sudo tee /etc/containerd/config.toml >/dev/null 2>&1
+
+        - name: Update containerd configuration for SystemdCgroup
+          become: yes
+          ansible.builtin.replace:
+            path: /etc/containerd/config.toml
+            regexp: 'SystemdCgroup \= false'
+            replace: 'SystemdCgroup \= true'
+
+        - name: Update containerd configuration for disabling
+          become: yes
+          ansible.builtin.replace:
+            path: /etc/containerd/config.toml
+            regexp: 'disable \= true'
+            replace: 'disable \= false'
+
+        - name: Restart containerd service
+          become: yes
+          ansible.builtin.systemd:
+            name: containerd
+            state: restarted
+
+
+    - name: Install kubeadm, kubelet, and kubectl
+      become: yes
+      block:
+        - name: "Install runtime : Install docker prerequisite packages"
+          apt:
+            name:
+              - apt-transport-https
+              - ca-certificates
+              - curl
+              - gnupg-agent
+              - net-tools
+              - ipvsadm
+              - software-properties-common
+            update_cache: yes
+        - name: Install Helm using snap
+          ansible.builtin.command: snap install helm --classic
+        - name: "Install kubeadm, kubelet, and kubectl : Add kubernetes package signing key"
+          apt_key:
+            url: "https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg"
+            state: present
+        - name: "Install kubeadm, kubelet, and kubectl : Add kubernetes package repository"
+          apt_repository:
+            repo: "deb https://mirrors.aliyun.com/kubernetes/apt/ kubernetes-xenial main"
+            state: present
+        - name: "Install kubeadm, kubelet, and kubectl : Install kubernetes packages"
+          apt:
+            name:
+              - kubelet=1.28.3-00
+              - kubeadm=1.28.3-00
+              - kubectl=1.28.3-00
+            update_cache: yes
+      # TODO Kubernetes recommends: sudo apt-mark hold kubelet kubeadm kubectl (see dpkg_selections module)
+
+- name: Initialize control-plane node
+  become: yes
+  tasks:
+    - name: Initialize control-plane node
+      block:
+        - name: "Initialize control-plane node : Check cluster status"
+          shell: kubectl cluster-info
+          register: cluster_info
+          changed_when: false
+          ignore_errors: yes
+        - name: "Initialize control-plane node : Initialize control-plane node"
+          become: yes
+          shell: "kubeadm init --pod-network-cidr=10.233.64.0/18 --apiserver-advertise-address={{ ansible_default_ipv4.address }}"
+          when: (cluster_info.rc != 0) or
+            (cluster_info.stdout.find('Kubernetes control plane is running') != -1 and
+            cluster_info.stdout.find('KubeDNS is running') != -1)
+    - name: Enable kubectl operation for user
+      become: yes
+      block:
+        - name: "Enable kubectl operation for user : Create $HOME/.kube"
+          file:
+            path: "{{ ansible_user_dir }}/.kube"
+            state: directory
+        - name: "Enable kubectl operation for user : Copy admin.conf to $HOME/.kube/config"
+          become: yes
+          copy:
+            remote_src: yes
+            src: /etc/kubernetes/admin.conf
+            dest: "{{ ansible_user_dir }}/.kube/config"
+            owner: "{{ ansible_user_uid }}"
+            group: "{{ ansible_user_gid }}"
+    - name: Register variables for later joins
+      become: yes
+      block:
+        - name: "Register variables for later joins : token"
+          shell: kubeadm token list -o=jsonpath='{.token}'
+          register: kubeadm_token
+          changed_when: false
+        - name: "Register variables for later joins : discovery-token-ca-cert-hash"
+          shell: openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+          register: kubeadm_discovery_token_ca_cert_hash
+          changed_when: false
+
+- name: Disable control plane node isolation
+  become: yes
+  tasks:
+    - name: Check master node taint for no schedule
+      shell: kubectl get node/master -o=jsonpath='{.spec.taints[].effect}'
+      register: taints_result
+      changed_when: false
+    - name: Remove the master node taint for no schedule
+      shell: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+      when: "taints_result.stdout is search('NoSchedule')"
+
+- name: Install Default CNI
+  become: yes
+  tasks:
+    - name: Deploy the default cni with kube flannel
+      shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+      changed_when: false
+
+- name: Install Nauti on Hub
+  hosts: hub-node-0
+  tasks:
+    - name: Deploy the nauti on hub
+      block:
+        - name: "Deploy the ovn4nfv Pod network to the cluster : Copy YAML files to host"
+          copy:
+            src: "{{ item }}"
+            dest: "{{ ansible_user_dir }}"
+          with_items:
+            - "../../deploy/ovn-daemonset.yaml"
+            - "../../deploy/ovn4nfv-k8s-plugin.yaml"
+        - name: "Deploy the ovn4nfv Pod network to the cluster : Apply YAML files"
+          shell: kubectl apply -f "{{ item }}"
+          with_items:
+            - "ovn-daemonset.yaml"
+            - "ovn4nfv-k8s-plugin.yaml"
+          args:
+            chdir: "{{ ansible_user_dir }}"
+          register: apply_ovn_result
+          changed_when: apply_ovn_result.stdout is not search('unchanged')
+    - name: Wait for CoreDNS deployment up and running
+      shell: kubectl -n kube-system wait deployments/coredns --for=condition=available --timeout=300s
+      changed_when: false
+
+
+- name: Wait for nodes to be ready
+  become: yes
+  tasks:
+    # Nodes are reported as ready before all pods are up and running,
+    # so wait for the pods.
+    - name: Wait for all pods to be ready
+      shell: kubectl wait -A pods --all --for=condition=ready --timeout=300s
+      changed_when: false
