@@ -2,10 +2,11 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 image:
-  repository: lmxia
-  pullPolicy: IfNotPresent
+  registry: ghcr.io
+  repository: nauti-io
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "v1.0"
+  tag: "latest"
 
 cluster:
   # Specifies whether this is a hub

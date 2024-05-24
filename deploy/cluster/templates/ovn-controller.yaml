@@ -19,7 +19,7 @@ spec:
       serviceAccountName: ovn
       containers:
         - name: ipam-controller
-          image: "{{ .Values.image.repository }}/ovnmaster:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/ovnmaster:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: NODE_IPS

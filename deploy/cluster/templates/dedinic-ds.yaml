@@ -32,7 +32,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: PARALLEL_IP_ANNOTATION
               value: "nauti.io/ip_address"
-          image: {{ .Values.epControllerImage }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/ep-controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: Always
           resources:
             requests:
@@ -83,9 +83,9 @@ spec:
               value: "true"
             - name: DBUS_SYSTEM_BUS_ADDRESS
               value: unix:path=/host/var/run/dbus/system_bus_socket
-          image: {{ .Values.dedinicImage }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/dedinic:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: Always
-          name: cni-server
+          name: dedinic
           resources:
             limits:
               cpu: "1"
