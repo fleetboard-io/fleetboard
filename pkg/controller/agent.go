@@ -105,38 +105,6 @@ func (a *Syncer) Start(ctx context.Context) error {
 	return nil
 }
 
-// func (a *Syncer) newServiceImport(name, namespace string) *mcsv1a1.ServiceImport {
-// 	return &mcsv1a1.ServiceImport{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name: a.getObjectNameWithClusterID(name, namespace),
-// 			Annotations: map[string]string{
-// 				known.OriginName:      name,
-// 				known.OriginNamespace: namespace,
-// 			},
-// 			Labels: map[string]string{
-// 				known.LabelSourceName:      name,
-// 				known.LabelSourceNamespace: namespace,
-// 				known.LabelSourceCluster:   a.ClusterID,
-// 				known.LabelOriginNameSpace: namespace,
-// 			},
-// 		},
-// 	}
-// }
-
-// func (a *Syncer) getPortsForService(service *corev1.Service) []mcsv1a1.ServicePort {
-// 	mcsPorts := make([]mcsv1a1.ServicePort, 0, len(service.Spec.Ports))
-//
-// 	for _, port := range service.Spec.Ports {
-// 		mcsPorts = append(mcsPorts, mcsv1a1.ServicePort{
-// 			Name:     port.Name,
-// 			Protocol: port.Protocol,
-// 			Port:     port.Port,
-// 		})
-// 	}
-//
-// 	return mcsPorts
-// }
-
 func generateSliceName(clusterName, namespace, name string) string {
 	clusterName = fmt.Sprintf("%s%s%s", clusterName, namespace, name)
 	hasher := sha256.New()

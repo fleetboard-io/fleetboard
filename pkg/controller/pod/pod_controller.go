@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nauti-io/nauti/pkg/controller/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,13 +112,13 @@ func (c *PodController) Run(ctx context.Context) error {
 
 func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
 	key := obj.(string)
-	namespace, epsName, err := cache.SplitMetaNamespaceKey(key)
+	namespace, podName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid endpointslice key: %s", key))
 		return nil, nil
 	}
 	podNotExist := false
-	pod, err := c.podLister.Pods(namespace).Get(epsName)
+	pod, err := c.podLister.Pods(namespace).Get(podName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			runtime.HandleError(fmt.Errorf("pods '%s' no longer exists", key))
@@ -125,7 +126,7 @@ func (c *PodController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 		}
 	}
 	// pod is been deleting
-	if podNotExist || !isPodAlive(pod) {
+	if podNotExist || !utils.IsPodAlive(pod) {
 		// recycle related resources.
 		errRecycle := c.recycleResources(key)
 		if errRecycle != nil {
@@ -328,31 +329,4 @@ func (c *PodController) recycleResources(key string) error {
 	}
 	c.ipam.ReleaseAddressByPod(key, c.subnet.Name)
 	return nil
-}
-
-func isPodAlive(p *v1.Pod) bool {
-	if p.DeletionTimestamp != nil && p.DeletionGracePeriodSeconds != nil {
-		now := time.Now()
-		deletionTime := p.DeletionTimestamp.Time
-		gracePeriod := time.Duration(*p.DeletionGracePeriodSeconds) * time.Second
-		if now.After(deletionTime.Add(gracePeriod)) {
-			return false
-		}
-	}
-	return isPodStatusPhaseAlive(p)
-}
-
-func isPodStatusPhaseAlive(p *v1.Pod) bool {
-	if p.Status.Phase == v1.PodSucceeded && p.Spec.RestartPolicy != v1.RestartPolicyAlways {
-		return false
-	}
-
-	if p.Status.Phase == v1.PodFailed && p.Spec.RestartPolicy == v1.RestartPolicyNever {
-		return false
-	}
-
-	if p.Status.Phase == v1.PodFailed && p.Status.Reason == "Evicted" {
-		return false
-	}
-	return true
 }

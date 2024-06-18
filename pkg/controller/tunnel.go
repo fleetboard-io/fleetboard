@@ -8,6 +8,7 @@ import (
 
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
@@ -25,15 +26,36 @@ type managedKeys struct {
 	publicKey  wgtypes.Key
 }
 
+type DaemonNRITunnelConfig struct {
+	nodeID        string
+	podID         string
+	endpointIP    string
+	secondaryCIDR string
+	port          int
+	PublicKey     string `json:"public_key"` // wire-guard public key
+}
+
 type Wireguard struct {
-	connections   map[string]*v1alpha1.Peer // clusterID -> remote ep connection
-	mutex         sync.Mutex
-	link          netlink.Link // your link
-	spec          *known.Specification
-	client        *wgctrl.Client
-	keys          *managedKeys
-	StopCh        <-chan struct{}
-	octopusClient *versioned.Clientset
+	interConnections map[string]*v1alpha1.Peer         // clusterID -> remote ep connection
+	innerConnections map[string]*DaemonNRITunnelConfig // nodeID -> inner cluster connection
+	mutex            sync.Mutex
+	link             netlink.Link // your link
+	spec             *known.Specification
+	client           *wgctrl.Client
+	keys             *managedKeys
+	StopCh           <-chan struct{}
+	octopusClient    *versioned.Clientset
+}
+
+func DaemonConfigFromPodAnntotation(pod *v1.Pod) *DaemonNRITunnelConfig {
+	return &DaemonNRITunnelConfig{
+		nodeID:        pod.Spec.NodeName,
+		podID:         pod.Name,
+		endpointIP:    getEth0IP(pod),
+		secondaryCIDR: getSpecificAnnotation(pod, known.DaemonCIDR),
+		port:          31080,
+		PublicKey:     getSpecificAnnotation(pod, known.PublicKey),
+	}
 }
 
 func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, done <-chan struct{},
@@ -41,11 +63,12 @@ func NewTunnel(octopusClient *versioned.Clientset, spec *known.Specification, do
 	var err error
 
 	w := &Wireguard{
-		connections:   make(map[string]*v1alpha1.Peer),
-		StopCh:        done,
-		octopusClient: octopusClient,
-		keys:          &managedKeys{},
-		spec:          spec,
+		interConnections: make(map[string]*v1alpha1.Peer),
+		innerConnections: make(map[string]*DaemonNRITunnelConfig),
+		StopCh:           done,
+		octopusClient:    octopusClient,
+		keys:             &managedKeys{},
+		spec:             spec,
 	}
 
 	if err = w.setWGLink(); err != nil {
