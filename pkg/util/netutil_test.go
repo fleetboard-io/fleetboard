@@ -89,6 +89,7 @@ func Test_findAvailableCIDR(t *testing.T) {
 	type args struct {
 		networkCIDR   string
 		existingPeers []string
+		networkBits   int
 	}
 	tests := []struct {
 		name    string
@@ -101,41 +102,55 @@ func Test_findAvailableCIDR(t *testing.T) {
 			args: args{
 				networkCIDR:   "20.112.0.0/12",
 				existingPeers: []string{"20.112.0.0/16", "20.112.16.0/16", "20.112.32.0/16"},
+				networkBits:   16,
 			},
 			want:    "20.113.0.0/16",
 			wantErr: false,
 		},
 		{
-			name: "name1",
+			name: "name2",
 			args: args{
 				networkCIDR:   "20.112.0.0/12",
 				existingPeers: []string{"20.113.0.0/16", "20.112.16.0/16", "20.115.32.0/16"},
+				networkBits:   16,
 			},
 			want:    "20.114.0.0/16",
 			wantErr: false,
 		},
 		{
-			name: "name1",
+			name: "name3",
 			args: args{
 				networkCIDR:   "20.112.0.0/12",
 				existingPeers: []string{"20.112.0.0/16", "20.113.16.0/16", "20.114.32.0/16"},
+				networkBits:   16,
 			},
 			want:    "20.115.0.0/16",
 			wantErr: false,
 		},
 		{
-			name: "namex",
+			name: "name4",
 			args: args{
 				networkCIDR:   "20.112.0.0/12",
 				existingPeers: []string{"20.112.0.0/16"},
+				networkBits:   16,
 			},
 			want:    "20.113.0.0/16",
+			wantErr: false,
+		},
+		{
+			name: "name5",
+			args: args{
+				networkCIDR:   "20.112.0.0/16",
+				existingPeers: []string{"20.112.0.0/24", "20.112.1.0/24", "20.112.2.0/24"},
+				networkBits:   24,
+			},
+			want:    "20.112.3.0/24",
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := FindAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers)
+			got, err := FindAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers, tt.args.networkBits)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FindAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
 				return

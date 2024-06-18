@@ -107,11 +107,19 @@ func main() {
 	}
 	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(oClient, known.DefaultResync,
 		kubeinformers.WithNamespace(agentSpec.ShareNamespace))
-	peerController, err := controller.NewPeerController(agentSpec, w, hubInformerFactory)
+	interController, err := controller.NewPeerController(agentSpec, w, hubInformerFactory)
 	if err != nil {
 		klog.Fatalf("start peer controller failed: %v", err)
 	}
-	peerController.Start(ctx)
+	innerClusterController, errCreateError := controller.NewInnerClusterTunnelController(w, k8sClient,
+		hubInformerFactory)
+	if errCreateError != nil {
+		klog.Fatalf("start inner cluster tunnel controller failed: %v", errCreateError)
+	}
+	hubInformerFactory.Start(ctx.Done())
+	innerClusterController.Start(ctx)
+	interController.Start(ctx)
+
 	<-ctx.Done()
 
 	// remove your self from hub.

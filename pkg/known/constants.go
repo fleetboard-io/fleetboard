@@ -64,6 +64,7 @@ const (
 	LogicalSwitchAnnotationTemplate = "%s.io/logical_switch"
 	PodNicAnnotationTemplate        = "%s.io/pod_nic_type"
 	NautiTrue                       = "true"
-
-	CNFLabel = "nauti.io/cnf"
+	DaemonCIDR                      = "%s.io/daemon_cidr"
+	PublicKey                       = "%s.io/public_key"
+	CNFLabel                        = "nauti.io/cnf"
 )
