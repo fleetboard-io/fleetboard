@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         app: {{ .Chart.Name }}
-        nauti.io/cnf: "true"
+        router.nauti.io/cnf: "true"
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       containers:
@@ -50,6 +50,14 @@ spec:
               value: {{ .Values.tunnel.cidr }}
             - name: OCTOPUS_ISHUB
               value: {{ .Values.cluster.hub | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           resources:
             limits:
               cpu: 100m

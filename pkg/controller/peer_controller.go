@@ -125,6 +125,16 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
 		}
+		// if we get a target cidr for this cluster
+		annotationName := known.DaemonCIDR
+		if cachedPeer.Name == known.HubClusterName {
+			annotationName = known.CNFCIDR
+		}
+
+		if annoError := addAnnotationToSelf(p.tunnel.k8sClient, annotationName,
+			cachedPeer.Spec.PodCIDR[0]); annoError != nil {
+			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
+		}
 	} else {
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			//  prepare data...
@@ -164,7 +174,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	// 需要回写peer
 	if noCIDR {
-		_, err = p.tunnel.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
+		_, err = p.tunnel.OctopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
 			cachedPeer, metav1.UpdateOptions{})
 		if err != nil {
 			return &failedPeriod, err
@@ -183,10 +193,10 @@ func (p *PeerController) Start(ctx context.Context) {
 
 func configHostRoutingRules(cidrs []string, operation known.RouteOperation) error {
 	var ifaceIndex int
-	if wg, err := net.InterfaceByName(DefaultDeviceName); err == nil {
+	if wg, err := net.InterfaceByName(known.DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index
 	} else {
-		klog.Errorf("%s not found in octopus.", DefaultDeviceName)
+		klog.Errorf("%s not found in octopus.", known.DefaultDeviceName)
 		return err
 	}
 

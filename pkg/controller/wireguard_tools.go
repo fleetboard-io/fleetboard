@@ -1,13 +1,18 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/nauti-io/nauti/pkg/known"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
@@ -15,17 +20,10 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	// DefaultDeviceName specifies name of WireGuard network device.
-	DefaultDeviceName = "wg0"
-
-	UDPPort = 31820
-)
-
 // Create new wg link and assign addr from local subnets.
 func (w *Wireguard) setWGLink() error {
 	// delete existing wg device if needed
-	if link, err := netlink.LinkByName(DefaultDeviceName); err == nil {
+	if link, err := netlink.LinkByName(known.DefaultDeviceName); err == nil {
 		// delete existing device
 		if err := netlink.LinkDel(link); err != nil {
 			return errors.Wrap(err, "failed to delete existing WireGuard device")
@@ -34,7 +32,7 @@ func (w *Wireguard) setWGLink() error {
 
 	// Create the wg device (ip link add dev $DefaultDeviceName type wireguard).
 	la := netlink.NewLinkAttrs()
-	la.Name = DefaultDeviceName
+	la.Name = known.DefaultDeviceName
 	link := &netlink.GenericLink{
 		LinkAttrs: la,
 		LinkType:  "wireguard",
@@ -58,7 +56,7 @@ func (w *Wireguard) RemoveInterClusterTunnel(key *wgtypes.Key) error {
 			Remove:    true,
 		},
 	}
-	err := w.client.ConfigureDevice(DefaultDeviceName, wgtypes.Config{
+	err := w.client.ConfigureDevice(known.DefaultDeviceName, wgtypes.Config{
 		ReplacePeers: false,
 		Peers:        peerCfg,
 	})
@@ -73,7 +71,7 @@ func (w *Wireguard) RemoveInterClusterTunnel(key *wgtypes.Key) error {
 
 func (w *Wireguard) AddInterClusterTunnel(peer *v1alpha1.Peer) error {
 	var endpoint *net.UDPAddr
-	if w.spec.ClusterID == peer.Spec.ClusterID {
+	if w.Spec.ClusterID == peer.Spec.ClusterID {
 		klog.Infof("Will not connect to self")
 		return nil
 	}
@@ -138,7 +136,7 @@ func (w *Wireguard) AddInterClusterTunnel(peer *v1alpha1.Peer) error {
 		AllowedIPs:                  allowedIPs,
 	}}
 
-	err = w.client.ConfigureDevice(DefaultDeviceName, wgtypes.Config{
+	err = w.client.ConfigureDevice(known.DefaultDeviceName, wgtypes.Config{
 		ReplacePeers: false,
 		Peers:        peerCfg,
 	})
@@ -158,7 +156,7 @@ func (w *Wireguard) RemoveInnerClusterTunnel(key *wgtypes.Key) error {
 			Remove:    true,
 		},
 	}
-	err := w.client.ConfigureDevice(DefaultDeviceName, wgtypes.Config{
+	err := w.client.ConfigureDevice(known.DefaultDeviceName, wgtypes.Config{
 		ReplacePeers: false,
 		Peers:        peerCfg,
 	})
@@ -188,10 +186,10 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 		}
 	}
 
-	allowedIPs := parseSubnets([]string{daemonPeerConfig.secondaryCIDR})
+	allowedIPs := parseSubnets(daemonPeerConfig.secondaryCIDR)
 
 	// Parse remote public key.
-	remoteKey, err := wgtypes.ParseKey(daemonPeerConfig.PublicKey)
+	remoteKey, err := wgtypes.ParseKey(daemonPeerConfig.PublicKey[0])
 	if err != nil {
 		return errors.Wrap(err, "failed to parse daemonPeerConfig public key")
 	}
@@ -204,7 +202,7 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 	// Delete or update old peers for ClusterID.
 	oldCon, found := w.innerConnections[daemonPeerConfig.nodeID]
 	if found {
-		if oldKey, e := wgtypes.ParseKey(oldCon.PublicKey); e == nil {
+		if oldKey, e := wgtypes.ParseKey(oldCon.PublicKey[0]); e == nil {
 			// because every time when nri pod restart it will change the public key and the tunnel should be re-build.
 			if oldKey.String() == remoteKey.String() {
 				// Existing connection, update status and skip.
@@ -234,7 +232,7 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 		AllowedIPs:                  allowedIPs,
 	}}
 
-	err = w.client.ConfigureDevice(DefaultDeviceName, wgtypes.Config{
+	err = w.client.ConfigureDevice(known.DefaultDeviceName, wgtypes.Config{
 		ReplacePeers: false,
 		Peers:        peerCfg,
 	})
@@ -248,22 +246,22 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 
 func (w *Wireguard) setKeyPair() error {
 	var err error
-	// Generate local keys and set public key in BackendConfig.
+	// Generate local Keys and set public key in BackendConfig.
 	var psk, priKey, pubKey wgtypes.Key
 
 	if psk, err = wgtypes.GenerateKey(); err != nil {
 		return errors.Wrap(err, "error generating pre-shared key")
 	}
 
-	w.keys.psk = psk
+	w.Keys.psk = psk
 
 	if priKey, err = wgtypes.GeneratePrivateKey(); err != nil {
 		return errors.Wrap(err, "error generating private key")
 	}
-	w.keys.privateKey = priKey
+	w.Keys.privateKey = priKey
 
 	pubKey = priKey.PublicKey()
-	w.keys.publicKey = pubKey
+	w.Keys.PublicKey = pubKey
 	return nil
 }
 
@@ -285,22 +283,49 @@ func parseSubnets(subnets []string) []net.IPNet {
 	return nets
 }
 
+func setSpecificAnnotation(client *kubernetes.Clientset, pod *v1.Pod, annotationKey, annotationValue string) error {
+	annoChanged := true
+	if pod.Annotations == nil {
+		pod.Annotations = map[string]string{}
+	}
+	annotationKey = fmt.Sprintf(annotationKey, known.NautiPrefix)
+
+	existingValues, ok := pod.Annotations[annotationKey]
+	if ok {
+		existingValuesSlice := strings.Split(existingValues, ",")
+		if contains(existingValuesSlice, annotationValue) {
+			annoChanged = false
+		} else {
+			pod.Annotations[annotationKey] = existingValues + "," + annotationValue
+		}
+	} else {
+		pod.Annotations[annotationKey] = annotationValue
+	}
+	if annoChanged {
+		_, err := client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // getSpecificAnnotation get DaemonCIDR from pod annotation return "" if is empty.
-func getSpecificAnnotation(pod *v1.Pod, annotation string) string {
-	if pod == nil {
-		return ""
-	}
-
+func getSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	annotations := pod.Annotations
+	allAnnoValue := make([]string, 0)
 	if annotations == nil {
-		return ""
+		return allAnnoValue
 	}
 
-	if val, ok := annotations[fmt.Sprintf(annotation, known.NautiPrefix)]; ok {
-		return val
+	for _, item := range annotationKeys {
+		if val, ok := annotations[fmt.Sprintf(item, known.NautiPrefix)]; ok {
+			existingValuesSlice := strings.Split(val, ",")
+			allAnnoValue = append(allAnnoValue, existingValuesSlice...)
+		}
 	}
 
-	return ""
+	return allAnnoValue
 }
 
 func hasIPChanged(oldPod, newPod *v1.Pod) bool {
@@ -324,6 +349,44 @@ func isRunningAndHasIP(pod *v1.Pod) bool {
 			if podIP.IP != "" {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotationValue string) error {
+	// Get the Pod's name and namespace from the environment variables
+	podName := os.Getenv("POD_NAME")
+	namespace := os.Getenv("POD_NAMESPACE")
+
+	// Get the Pod
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	return setSpecificAnnotation(client, pod, annotationKey, annotationValue)
+}
+
+func getAnnotationFromSelf(client *kubernetes.Clientset, annotationKey ...string) ([]string, error) {
+	// Get the Pod's name and namespace from the environment variables
+	podName := os.Getenv("POD_NAME")
+	namespace := os.Getenv("POD_NAMESPACE")
+	// Get the Pod
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		return []string{""}, err
+	}
+	existingValue := getSpecificAnnotation(pod, annotationKey...)
+	if len(existingValue) == 0 {
+		return nil, errors.New("Annotation is unavailable")
+	}
+	return existingValue, nil
+}
+
+func contains(values []string, value string) bool {
+	for _, v := range values {
+		if v == value {
+			return true
 		}
 	}
 	return false
