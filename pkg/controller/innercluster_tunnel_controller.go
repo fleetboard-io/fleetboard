@@ -21,7 +21,6 @@ import (
 
 	"github.com/dixudx/yacht"
 	"github.com/nauti-io/nauti/pkg/controller/utils"
-	"github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/nauti-io/nauti/pkg/util"
@@ -65,33 +64,41 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 		}
 		return nil, nil
 	}
-	// prepare subnet in cluster
-	existingCIDR := make([]string, 0)
-	if podList, errListPod := ict.podLister.Pods(namespace).List(labels.Everything()); errListPod == nil {
-		for _, existingPod := range podList {
-			cidr := getSpecificAnnotation(existingPod, known.DaemonCIDR)
-			if len(cidr) != 0 {
-				existingCIDR = append(existingCIDR, cidr)
-			}
-		}
-	} else {
-		klog.Errorf("peers get with %v", err)
-		return &failedPeriod, err
-	}
+
 	daemonConfig := DaemonConfigFromPodAnntotation(pod)
 	// empty cidr on nri pod annotation
 	if len(daemonConfig.secondaryCIDR) == 0 {
-		peer, peerGetError := ict.peerLister.Peers(ict.tunnelManager.spec.ShareNamespace).
-			Get(ict.tunnelManager.spec.ClusterID)
-		if peerGetError != nil {
-			// use peer to get this cluster level secondary cidr, try next time if failed
-			return &failedPeriod, err
-		}
-		if secondaryCIDR, allocateError := util.FindAvailableCIDR(peer.Spec.PodCIDR[0],
-			existingCIDR, 24); allocateError != nil {
-			return &failedPeriod, err
+		// in cnf pod, we can allocate
+		if len(pod.GetLabels()[known.CNFLabel]) == 0 {
+			// prepare subnet in cluster
+			existingCIDR := make([]string, 0)
+			if podList, errListPod := ict.podLister.Pods(namespace).List(labels.Everything()); errListPod == nil {
+				for _, existingPod := range podList {
+					cidr := getSpecificAnnotation(existingPod, known.DaemonCIDR)
+					if len(cidr) != 0 {
+						existingCIDR = append(existingCIDR, cidr[0])
+					}
+				}
+			} else {
+				klog.Errorf("peers get with %v", err)
+				return &failedPeriod, err
+			}
+			podCIDR, errAnnotation := getAnnotationFromSelf(ict.tunnelManager.k8sClient, known.CNFCIDR)
+			if errAnnotation != nil {
+				return &failedPeriod, err
+			}
+			if secondaryCIDR, allocateError := util.FindAvailableCIDR(podCIDR[0], existingCIDR,
+				24); allocateError != nil {
+				return &failedPeriod, err
+			} else {
+				daemonConfig.secondaryCIDR = []string{secondaryCIDR}
+				if setSpecificAnnotation(ict.tunnelManager.k8sClient, pod, known.DaemonCIDR, secondaryCIDR) != nil {
+					return &failedPeriod, err
+				}
+			}
 		} else {
-			daemonConfig.secondaryCIDR = secondaryCIDR
+			// in nri pod, wait next time
+			return &failedPeriod, err
 		}
 	}
 
@@ -102,7 +109,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 	klog.Infof("inner cluster tunnel with pod: %s has been added successfully", pod.Name)
 
 	// add route for target inner cluster tunnel pod
-	if errRoute := configHostRoutingRules([]string{daemonConfig.secondaryCIDR}, known.Add); errRoute != nil {
+	if errRoute := configHostRoutingRules(daemonConfig.secondaryCIDR, known.Add); errRoute != nil {
 		klog.Infof("add route inner cluster in cnf failed for %s, with error %v",
 			daemonConfig.secondaryCIDR, errRoute)
 		return &failedPeriod, errRoute
@@ -120,7 +127,7 @@ func (ict *InnerClusterTunnelController) recycleResources(pod *v1.Pod) error {
 		return nil
 	}
 	publicKey := getSpecificAnnotation(pod, known.PublicKey)
-	if oldKey, err := wgtypes.ParseKey(publicKey); err != nil {
+	if oldKey, err := wgtypes.ParseKey(publicKey[0]); err != nil {
 		klog.Infof("Can't parse key for %s with key %s", pod.Name, publicKey)
 		return err
 	} else {
@@ -131,7 +138,7 @@ func (ict *InnerClusterTunnelController) recycleResources(pod *v1.Pod) error {
 			klog.Infof("failed to remove tunnel for %s on node %s", pod.Name, pod.Spec.NodeName)
 			return removeTunnelError
 		}
-		if errRemoveRoute := configHostRoutingRules([]string{cidr}, known.Delete); errRemoveRoute != nil {
+		if errRemoveRoute := configHostRoutingRules(cidr, known.Delete); errRemoveRoute != nil {
 			klog.Infof("delete route failed for %v", errRemoveRoute)
 			return errRemoveRoute
 		}
@@ -140,26 +147,24 @@ func (ict *InnerClusterTunnelController) recycleResources(pod *v1.Pod) error {
 }
 
 func NewInnerClusterTunnelController(w *Wireguard, kubeClientSet kubernetes.Interface,
-	factory externalversions.SharedInformerFactory) (*InnerClusterTunnelController, error) {
+	labelSelector string) (*InnerClusterTunnelController, error) {
 	// only nauti system namespace pod is responsible for tunnelManager
 	k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClientSet, 10*time.Minute,
 		informers.WithNamespace(known.NautiSystemNamespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.LabelSelector = known.RouterDaemonCreatedByLabel
+			options.LabelSelector = labelSelector
 		}),
 	)
 	podInformer := k8sInformerFactory.Core().V1().Pods()
-	peerInformer := factory.Octopus().V1alpha1().Peers()
 
 	ictController := &InnerClusterTunnelController{
 		tunnelManager:       w,
 		kubeInformerFactory: k8sInformerFactory,
 		podLister:           podInformer.Lister(),
-		peerLister:          peerInformer.Lister(),
 		podSynced:           podInformer.Informer().HasSynced,
 	}
 	podController := yacht.NewController("daemon pod for inner cluster tunnel connection").
-		WithCacheSynced(podInformer.Informer().HasSynced, peerInformer.Informer().HasSynced).
+		WithCacheSynced(podInformer.Informer().HasSynced).
 		WithHandlerFunc(ictController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
 		var newPod *v1.Pod
 		// delete event

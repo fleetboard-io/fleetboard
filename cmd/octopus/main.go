@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
+	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/nauti-io/nauti/utils"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -19,6 +22,7 @@ import (
 	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	kubeinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -49,14 +53,12 @@ func main() {
 	if err = envconfig.Process(known.HubSecretName, &agentSpec); err != nil {
 		klog.Infof("got config info %v", agentSpec)
 		klog.Fatal(err)
+		return
 	}
 	klog.Infof("got config info %v", agentSpec)
 	klog.Infof("Arguments: %v", os.Args)
 
-	k8sClient, clientErr := kubernetes.NewForConfig(restConfig)
-	if clientErr != nil {
-		klog.Fatalf("error creating dynamic client: %v", clientErr)
-	}
+	k8sClient := kubernetes.NewForConfigOrDie(restConfig)
 
 	if !agentSpec.IsHub {
 		if errScheme := mcsv1a1.AddToScheme(scheme.Scheme); err != nil {
@@ -95,14 +97,9 @@ func main() {
 		//
 		return
 	}
-	w, err := controller.NewTunnel(oClient, &agentSpec, ctx.Done())
+	w, err := InitTunnelConfig(k8sClient, oClient, agentSpec, ctx)
 	if err != nil {
-		klog.Fatal(err)
-		return
-	}
-	// up the interface.
-	if w.Init() != nil {
-		klog.Fatal(err)
+		klog.Fatalf("Failed to start syncer agent: %v", err)
 		return
 	}
 	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(oClient, known.DefaultResync,
@@ -112,7 +109,7 @@ func main() {
 		klog.Fatalf("start peer controller failed: %v", err)
 	}
 	innerClusterController, errCreateError := controller.NewInnerClusterTunnelController(w, k8sClient,
-		hubInformerFactory)
+		known.RouterDaemonCreatedByLabel)
 	if errCreateError != nil {
 		klog.Fatalf("start inner cluster tunnel controller failed: %v", errCreateError)
 	}
@@ -128,4 +125,36 @@ func main() {
 	}
 
 	klog.Info("All controllers stopped or exited. Stopping main loop")
+}
+
+func InitTunnelConfig(k8sClient *kubernetes.Clientset, oClient *octopusClientset.Clientset,
+	agentSpec known.Specification, ctx context.Context) (*controller.Wireguard, error) {
+	w, err := controller.NewTunnel(k8sClient, oClient, &agentSpec, ctx.Done())
+	if err != nil {
+		klog.Fatal(err)
+		return nil, err
+	}
+	// up the interface.
+	if errInit := w.Init(); errInit != nil {
+		klog.Fatal(errInit)
+		return nil, errInit
+	}
+	peer := &v1alpha1.Peer{
+		Spec: v1alpha1.PeerSpec{
+			ClusterID: w.Spec.ClusterID,
+			PodCIDR:   w.Spec.CIDR,
+			Endpoint:  w.Spec.Endpoint,
+			IsHub:     w.Spec.IsHub,
+			Port:      known.UDPPort,
+			IsPublic:  len(w.Spec.Endpoint) != 0,
+			PublicKey: w.Keys.PublicKey.String(),
+		},
+	}
+	peer.Namespace = w.Spec.ShareNamespace
+	peer.Name = w.Spec.ClusterID
+	peerCreateErr := utils.ApplyPeerWithRetry(w.OctopusClient, peer)
+	if peerCreateErr != nil {
+		return nil, errors.Wrap(peerCreateErr, "failed to create peer in hub")
+	}
+	return w, nil
 }
