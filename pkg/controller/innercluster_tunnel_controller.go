@@ -3,13 +3,16 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/nauti-io/nauti/pkg/config"
+	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	utils "github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -20,10 +23,8 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
-	"github.com/nauti-io/nauti/pkg/controller/utils"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/util"
 )
 
 type InnerClusterTunnelController struct {
@@ -35,6 +36,31 @@ type InnerClusterTunnelController struct {
 	spec                *known.Specification
 	podSynced           cache.InformerSynced
 	peerLister          v1alpha1.PeerLister
+	existingCIDR        []string
+	clusterCIDR         string
+	sync.Mutex
+}
+
+func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (string, error) {
+	ict.Lock()
+	defer ict.Unlock()
+	existingCIDR := ict.existingCIDR
+	secondaryCIDR, allocateError := utils.FindAvailableCIDR(ict.clusterCIDR, existingCIDR,
+		24)
+	if allocateError != nil {
+		klog.Errorf("allocate form %s with error %v", existingCIDR, allocateError)
+		return "", allocateError
+	}
+
+	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
+	if err := setSpecificAnnotation(ict.tunnelManager.k8sClient, pod, known.DaemonCIDR, secondaryCIDR,
+		true); err != nil {
+		klog.Errorf("set pod annotation with error %v", err)
+		return "", err
+	}
+
+	ict.existingCIDR = append(ict.existingCIDR, secondaryCIDR)
+	return secondaryCIDR, nil
 }
 
 func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfter *time.Duration, err error) {
@@ -46,56 +72,35 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 		runtime.HandleError(fmt.Errorf("invalid endpointslice key: %s", key))
 		return nil, nil
 	}
-	podNotExist := false
 	pod, err := ict.podLister.Pods(namespace).Get(podName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("pods '%s' no longer exists", key))
-			podNotExist = true
+			runtime.HandleError(fmt.Errorf("pods '%s' no longer exists, we must has handle delete event", key))
+			return nil, nil
 		}
 	}
+	daemonConfig := DaemonConfigFromPod(pod)
+	klog.Infof("pod config info is %v", daemonConfig)
 	// pod is been deleting
-	if podNotExist || !utils.IsPodAlive(pod) {
+	if !utils.IsPodAlive(pod) {
 		// recycle related resources.
-		errRecycle := ict.recycleResources(pod)
+		errRecycle := ict.recycleResources(daemonConfig)
 		if errRecycle != nil {
 			d := 2 * time.Second
 			return &d, errRecycle
 		}
 		return nil, nil
 	}
-
-	daemonConfig := DaemonConfigFromPodAnntotation(pod)
 	// empty cidr on nri pod annotation
 	if len(daemonConfig.secondaryCIDR) == 0 {
 		// in cnf pod, we can allocate
 		if len(pod.GetLabels()[known.CNFLabel]) == 0 {
 			// prepare subnet in cluster
-			existingCIDR := make([]string, 0)
-			if podList, errListPod := ict.podLister.Pods(namespace).List(labels.Everything()); errListPod == nil {
-				for _, existingPod := range podList {
-					cidr := getSpecificAnnotation(existingPod, known.DaemonCIDR)
-					if len(cidr) != 0 {
-						existingCIDR = append(existingCIDR, cidr[0])
-					}
-				}
-			} else {
-				klog.Errorf("peers get with %v", err)
+			cidr, errSpawn := ict.SpawnNewCIDRForNRIPod(pod)
+			if errSpawn != nil {
 				return &failedPeriod, err
 			}
-			podCIDR, errAnnotation := getAnnotationFromSelf(ict.tunnelManager.k8sClient, known.CNFCIDR)
-			if errAnnotation != nil {
-				return &failedPeriod, err
-			}
-			if secondaryCIDR, allocateError := util.FindAvailableCIDR(podCIDR[0], existingCIDR,
-				24); allocateError != nil {
-				return &failedPeriod, err
-			} else {
-				daemonConfig.secondaryCIDR = []string{secondaryCIDR}
-				if setSpecificAnnotation(ict.tunnelManager.k8sClient, pod, known.DaemonCIDR, secondaryCIDR) != nil {
-					return &failedPeriod, err
-				}
-			}
+			daemonConfig.secondaryCIDR = []string{cidr}
 		} else {
 			// in nri pod, wait next time
 			return &failedPeriod, err
@@ -117,28 +122,30 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 	return nil, nil
 }
 
-func (ict *InnerClusterTunnelController) recycleResources(pod *v1.Pod) error {
+func (ict *InnerClusterTunnelController) recycleResources(podConfig *DaemonNRITunnelConfig) error {
 	ict.tunnelManager.mutex.Lock()
 	defer ict.tunnelManager.mutex.Unlock()
 	// check if we have had a tunnel for it.
-	_, found := ict.tunnelManager.innerConnections[pod.Spec.NodeName]
+	_, found := ict.tunnelManager.innerConnections[podConfig.nodeID]
 	if !found {
 		// do nothing if we have not established any tunnel for this node
 		return nil
 	}
-	publicKey := getSpecificAnnotation(pod, known.PublicKey)
+	publicKey := podConfig.PublicKey
 	if oldKey, err := wgtypes.ParseKey(publicKey[0]); err != nil {
-		klog.Infof("Can't parse key for %s with key %s", pod.Name, publicKey)
+		klog.Infof("Can't parse key for %s with key %s", podConfig.podID, publicKey)
 		return err
 	} else {
-		delete(ict.tunnelManager.innerConnections, pod.Spec.NodeName)
-		cidr := getSpecificAnnotation(pod, known.DaemonCIDR)
+		ict.Lock()
+		delete(ict.tunnelManager.innerConnections, podConfig.nodeID)
+		utils.RemoveString(ict.existingCIDR, podConfig.secondaryCIDR[0])
+		ict.Unlock()
 		removeTunnelError := ict.tunnelManager.RemoveInnerClusterTunnel(&oldKey)
 		if removeTunnelError != nil {
-			klog.Infof("failed to remove tunnel for %s on node %s", pod.Name, pod.Spec.NodeName)
+			klog.Infof("failed to remove tunnel for %s on node %s", podConfig.podID, podConfig.nodeID)
 			return removeTunnelError
 		}
-		if errRemoveRoute := configHostRoutingRules(cidr, known.Delete); errRemoveRoute != nil {
+		if errRemoveRoute := configHostRoutingRules(podConfig.secondaryCIDR, known.Delete); errRemoveRoute != nil {
 			klog.Infof("delete route failed for %v", errRemoveRoute)
 			return errRemoveRoute
 		}
@@ -196,4 +203,44 @@ func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		ict.yachtController.Run(ctx)
 	}, time.Duration(0))
+}
+
+// ConfigWithAnnotationAndExistingCIDR  only need invoke on cnf pod
+func (ict *InnerClusterTunnelController) ConfigWithAnnotationAndExistingCIDR() error {
+	existingCIDR, clusterCIDR, err := getInnerClusterExistingCIDR(ict.tunnelManager.k8sClient,
+		ict.tunnelManager.OctopusClient, ict.tunnelManager.Spec)
+	if err != nil {
+		klog.Errorf("can't get or set annotation with existing cidr and global or cluster cidr")
+		return err
+	}
+	ict.existingCIDR = existingCIDR
+	ict.clusterCIDR = clusterCIDR
+	return nil
+}
+
+func getInnerClusterExistingCIDR(k8sClient *kubernetes.Clientset, clientset *octopusClientset.Clientset,
+	spec *known.Specification) ([]string, string, error) {
+	existingCIDR := make([]string, 0)
+	globalCIDR, clusterCIDR := config.WaitGetCIDRFromHubclient(clientset, spec)
+	if err := addAnnotationToSelf(k8sClient, known.CNFCIDR, globalCIDR, true); err != nil {
+		return existingCIDR, "", err
+	}
+	if err := addAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
+		return existingCIDR, "", err
+	}
+	if podList, errListPod := k8sClient.CoreV1().Pods(known.NautiSystemNamespace).List(context.TODO(),
+		metav1.ListOptions{LabelSelector: known.RouterDaemonCreatedByLabel}); errListPod == nil {
+		for _, existingPod := range podList.Items {
+			pod := existingPod
+			cidr := getSpecificAnnotation(&pod, known.DaemonCIDR)
+			if len(cidr) != 0 {
+				existingCIDR = append(existingCIDR, cidr[0])
+			}
+		}
+	} else {
+		klog.Errorf("list all nri pod error with %v", errListPod)
+		return existingCIDR, "", errListPod
+	}
+
+	return existingCIDR, clusterCIDR, nil
 }

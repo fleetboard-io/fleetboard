@@ -1,5 +1,5 @@
 // ！！！！请不要让这个文件单独存在，它应该和dedinic合并
-package nri_daemon
+package main
 
 import (
 	"flag"

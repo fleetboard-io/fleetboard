@@ -48,13 +48,13 @@ type Wireguard struct {
 	k8sClient        *kubernetes.Clientset
 }
 
-func DaemonConfigFromPodAnntotation(pod *v1.Pod) *DaemonNRITunnelConfig {
+func DaemonConfigFromPod(pod *v1.Pod) *DaemonNRITunnelConfig {
 	return &DaemonNRITunnelConfig{
 		nodeID:        pod.Spec.NodeName,
 		podID:         pod.Name,
 		endpointIP:    getEth0IP(pod),
 		secondaryCIDR: getSpecificAnnotation(pod, known.DaemonCIDR, known.CNFCIDR),
-		port:          31080,
+		port:          known.UDPPort,
 		PublicKey:     getSpecificAnnotation(pod, known.PublicKey),
 	}
 }
@@ -139,7 +139,7 @@ func (w *Wireguard) Init() error {
 	klog.Infof("WireGuard device %s, is up on i/f number %d, listening on port :%d, with key %s",
 		w.link.Attrs().Name, l.Index, d.ListenPort, d.PublicKey)
 
-	return addAnnotationToSelf(w.k8sClient, known.PublicKey, w.Keys.PublicKey.String())
+	return addAnnotationToSelf(w.k8sClient, known.PublicKey, w.Keys.PublicKey.String(), true)
 }
 
 func (w *Wireguard) Cleanup() error {

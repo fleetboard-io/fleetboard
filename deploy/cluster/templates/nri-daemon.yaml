@@ -18,10 +18,8 @@ spec:
       hostNetwork: false
       containers:
         - name: nri-daemon
-          image: lmxia/nri-daemon:20240619
+          image: lmxia/nri-daemon:2024061901
           imagePullPolicy: IfNotPresent
-          command:
-            - ./nri-daemon
           securityContext:
             runAsUser: 0
             privileged: true

@@ -66,6 +66,10 @@ crossdns:
 octopus:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/octopus cmd/octopus/main.go
 
+nri-daemon:
+	 CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/nri-daemon cmd/nri-daemon/main.go
+
+
 dedinic:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/dedinic cmd/dedinic/main.go
 

@@ -104,16 +104,16 @@ func storeHubClusterCredentials(kubeClientSet kubernetes.Interface, secret corev
 }
 
 // WaitGetGlobalNetworkInfo will wait util we get valid global cidr and my cidr config
-func WaitGetGlobalNetworkInfo(client kubernetes.Interface, spec *known.Specification) (string, string) {
+func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *known.Specification) (string, string) {
 	secretCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	secretName := known.HubSecretName
 	namespace := known.NautiSystemNamespace
 	var globalCIDR, clusterCIDR string
 	wait.JitterUntilWithContext(secretCtx, func(ctx context.Context) {
-		secret, err := client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+		secret, err := localClient.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 		if err != nil {
-			fmt.Printf("failed to get hub cluster secret, wait next loop: %v\n", err)
+			klog.Errorf("failed to get hub cluster secret, wait next loop: %v\n", err)
 			return
 		}
 		if parentKubeConfig, configErr := utils.GenerateKubeConfigFromToken(
@@ -121,35 +121,64 @@ func WaitGetGlobalNetworkInfo(client kubernetes.Interface, spec *known.Specifica
 			string(secret.Data[corev1.ServiceAccountTokenKey]),
 			secret.Data[corev1.ServiceAccountRootCAKey],
 		); configErr != nil {
-			fmt.Printf("failed to get hub config from hub secret, loop next %v\n", configErr)
+			klog.Errorf("failed to get hub config from hub secret, loop next %v\n", configErr)
 			return
 		} else {
 			if octopusClient, oClientError := octopusClientset.NewForConfig(parentKubeConfig); oClientError == nil {
-				peerList, listErr := octopusClient.OctopusV1alpha1().Peers(spec.ShareNamespace).
-					List(ctx, metav1.ListOptions{})
-				if listErr != nil {
-					fmt.Printf("failed to list peers from hub cluster, loop next %v\n", configErr)
+				globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient, spec.ShareNamespace, spec.ClusterID)
+				if err != nil {
 					return
-				}
-				for _, peer := range peerList.Items {
-					switch peer.Name {
-					case "hub":
-						globalCIDR = peer.Spec.PodCIDR[0]
-					case spec.ClusterID:
-						if len(peer.Spec.PodCIDR) != 0 {
-							clusterCIDR = peer.Spec.PodCIDR[0]
-						}
-					}
 				}
 				if len(globalCIDR) != 0 && len(clusterCIDR) != 0 {
 					// stop only when global cidr and cluster cidr is not empty
 					cancel()
 				}
 			} else {
-				fmt.Printf("failed to construct octopu sclient from parent config, loop next %v\n", configErr)
+				klog.Errorf("failed to construct octopu sclient from parent config, loop next %v\n", configErr)
 				return
 			}
 		}
 	}, 10*time.Second, 0.3, false)
 	return globalCIDR, clusterCIDR
+}
+
+func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *known.Specification) (string, string) {
+	cidrCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var globalCIDR, clusterCIDR string
+	var err error
+	wait.JitterUntilWithContext(cidrCtx, func(ctx context.Context) {
+		globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient, spec.ShareNamespace,
+			spec.ClusterID)
+		if err != nil {
+			return
+		}
+		if len(globalCIDR) != 0 && len(clusterCIDR) != 0 {
+			// stop only when global cidr and cluster cidr is not empty
+			cancel()
+		}
+	}, 10*time.Second, 0.3, false)
+	return globalCIDR, clusterCIDR
+}
+
+func getGlobalAndClusterCIDRByHubClient(ctx context.Context, octopusClient *octopusClientset.Clientset, namespace,
+	localClusterID string) (string, string, error) {
+	var globalCIDR, clusterCIDR string
+	peerList, listErr := octopusClient.OctopusV1alpha1().Peers(namespace).
+		List(ctx, metav1.ListOptions{})
+	if listErr != nil {
+		klog.Errorf("failed to list peers from hub cluster, loop next %v\n", listErr)
+		return "", "", listErr
+	}
+	for _, peer := range peerList.Items {
+		switch peer.Name {
+		case known.HubClusterName:
+			globalCIDR = peer.Spec.PodCIDR[0]
+		case localClusterID:
+			if len(peer.Spec.PodCIDR) != 0 {
+				clusterCIDR = peer.Spec.PodCIDR[0]
+			}
+		}
+	}
+	return globalCIDR, clusterCIDR, nil
 }
