@@ -22,7 +22,7 @@ import (
 	octopusinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/util"
+	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -125,15 +125,12 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
 		}
-		// if we get a target cidr for this cluster
-		annotationName := known.DaemonCIDR
-		if cachedPeer.Name == known.HubClusterName {
-			annotationName = known.CNFCIDR
-		}
-
-		if annoError := addAnnotationToSelf(p.tunnel.k8sClient, annotationName,
-			cachedPeer.Spec.PodCIDR[0]); annoError != nil {
-			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
+		// other child cluster has public ip.
+		if cachedPeer.Name != known.HubClusterName {
+			if annoError := addAnnotationToSelf(p.tunnel.k8sClient, known.DaemonCIDR, cachedPeer.Spec.PodCIDR[0],
+				true); annoError != nil {
+				return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
+			}
 		}
 	} else {
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
@@ -152,7 +149,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			}
 			// cidr allocation here.
 			cachedPeer.Spec.PodCIDR = make([]string, 1)
-			cachedPeer.Spec.PodCIDR[0], err = util.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
+			cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
 			if err != nil {
 				klog.Infof("allocate peer cidr failed %v", err)
 				return &failedPeriod, err

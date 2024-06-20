@@ -67,6 +67,7 @@ const (
 	NautiTrue                       = "true"
 	DaemonCIDR                      = "%s.io/daemon_cidr"
 	CNFCIDR                         = "%s.io/cnf_cidr"
+	CLUSTERCIDR                     = "%s.io/cluster_cidr"
 	PublicKey                       = "%s.io/public_key"
 	CNFLabel                        = "router.nauti.io/cnf"
 )

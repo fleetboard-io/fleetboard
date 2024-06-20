@@ -113,6 +113,9 @@ func main() {
 	if errCreateError != nil {
 		klog.Fatalf("start inner cluster tunnel controller failed: %v", errCreateError)
 	}
+	if errConfig := innerClusterController.ConfigWithAnnotationAndExistingCIDR(); errConfig != nil {
+		klog.Fatalf("failed to config annotation: %v", errConfig)
+	}
 	hubInformerFactory.Start(ctx.Done())
 	innerClusterController.Start(ctx)
 	interController.Start(ctx)

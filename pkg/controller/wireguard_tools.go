@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -283,7 +284,8 @@ func parseSubnets(subnets []string) []net.IPNet {
 	return nets
 }
 
-func setSpecificAnnotation(client *kubernetes.Clientset, pod *v1.Pod, annotationKey, annotationValue string) error {
+func setSpecificAnnotation(client *kubernetes.Clientset, pod *v1.Pod, annotationKey, annotationValue string,
+	override bool) error {
 	annoChanged := true
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
@@ -291,9 +293,9 @@ func setSpecificAnnotation(client *kubernetes.Clientset, pod *v1.Pod, annotation
 	annotationKey = fmt.Sprintf(annotationKey, known.NautiPrefix)
 
 	existingValues, ok := pod.Annotations[annotationKey]
-	if ok {
+	if ok && !override {
 		existingValuesSlice := strings.Split(existingValues, ",")
-		if contains(existingValuesSlice, annotationValue) {
+		if utils.ContainsString(existingValuesSlice, annotationValue) {
 			annoChanged = false
 		} else {
 			pod.Annotations[annotationKey] = existingValues + "," + annotationValue
@@ -354,7 +356,7 @@ func isRunningAndHasIP(pod *v1.Pod) bool {
 	return false
 }
 
-func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotationValue string) error {
+func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotationValue string, override bool) error {
 	// Get the Pod's name and namespace from the environment variables
 	podName := os.Getenv("POD_NAME")
 	namespace := os.Getenv("POD_NAMESPACE")
@@ -364,30 +366,5 @@ func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotation
 	if err != nil {
 		return err
 	}
-	return setSpecificAnnotation(client, pod, annotationKey, annotationValue)
-}
-
-func getAnnotationFromSelf(client *kubernetes.Clientset, annotationKey ...string) ([]string, error) {
-	// Get the Pod's name and namespace from the environment variables
-	podName := os.Getenv("POD_NAME")
-	namespace := os.Getenv("POD_NAMESPACE")
-	// Get the Pod
-	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return []string{""}, err
-	}
-	existingValue := getSpecificAnnotation(pod, annotationKey...)
-	if len(existingValue) == 0 {
-		return nil, errors.New("Annotation is unavailable")
-	}
-	return existingValue, nil
-}
-
-func contains(values []string, value string) bool {
-	for _, v := range values {
-		if v == value {
-			return true
-		}
-	}
-	return false
+	return setSpecificAnnotation(client, pod, annotationKey, annotationValue, override)
 }
