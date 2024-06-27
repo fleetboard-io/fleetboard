@@ -8,15 +8,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
+	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -367,4 +370,22 @@ func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotation
 		return err
 	}
 	return setSpecificAnnotation(client, pod, annotationKey, annotationValue, override)
+}
+
+func patchPodConfig(client *kubernetes.Clientset, cachedPod, pod *v1.Pod) error {
+	patch, err := util.GenerateMergePatchPayload(cachedPod, pod)
+	if err != nil {
+		klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
+		return err
+	}
+	_, err = client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
+		types.MergePatchType, patch, metav1.PatchOptions{}, "")
+	if err != nil {
+		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
