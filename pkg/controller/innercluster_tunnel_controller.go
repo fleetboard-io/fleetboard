@@ -38,6 +38,7 @@ type InnerClusterTunnelController struct {
 	peerLister          v1alpha1.PeerLister
 	existingCIDR        []string
 	clusterCIDR         string
+	globalCIDR          string
 	sync.Mutex
 }
 
@@ -53,8 +54,10 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	}
 
 	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
-	if err := setSpecificAnnotation(ict.tunnelManager.k8sClient, pod, known.DaemonCIDR, secondaryCIDR,
-		true); err != nil {
+	cachedPod := pod.DeepCopy()
+	pod.GetAnnotations()[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)] = secondaryCIDR
+	pod.GetAnnotations()[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)] = ict.globalCIDR
+	if err := patchPodConfig(ict.tunnelManager.k8sClient, cachedPod, pod); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
 	}
@@ -207,7 +210,7 @@ func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 
 // ConfigWithAnnotationAndExistingCIDR  only need invoke on cnf pod
 func (ict *InnerClusterTunnelController) ConfigWithAnnotationAndExistingCIDR() error {
-	existingCIDR, clusterCIDR, err := getInnerClusterExistingCIDR(ict.tunnelManager.k8sClient,
+	existingCIDR, clusterCIDR, globalCIDR, err := getInnerClusterExistingCIDR(ict.tunnelManager.k8sClient,
 		ict.tunnelManager.OctopusClient, ict.tunnelManager.Spec)
 	if err != nil {
 		klog.Errorf("can't get or set annotation with existing cidr and global or cluster cidr")
@@ -215,18 +218,19 @@ func (ict *InnerClusterTunnelController) ConfigWithAnnotationAndExistingCIDR() e
 	}
 	ict.existingCIDR = existingCIDR
 	ict.clusterCIDR = clusterCIDR
+	ict.globalCIDR = globalCIDR
 	return nil
 }
 
 func getInnerClusterExistingCIDR(k8sClient *kubernetes.Clientset, clientset *octopusClientset.Clientset,
-	spec *known.Specification) ([]string, string, error) {
+	spec *known.Specification) ([]string, string, string, error) {
 	existingCIDR := make([]string, 0)
 	globalCIDR, clusterCIDR := config.WaitGetCIDRFromHubclient(clientset, spec)
 	if err := addAnnotationToSelf(k8sClient, known.CNFCIDR, globalCIDR, true); err != nil {
-		return existingCIDR, "", err
+		return existingCIDR, "", "", err
 	}
 	if err := addAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
-		return existingCIDR, "", err
+		return existingCIDR, "", "", err
 	}
 	if podList, errListPod := k8sClient.CoreV1().Pods(known.NautiSystemNamespace).List(context.TODO(),
 		metav1.ListOptions{LabelSelector: known.RouterDaemonCreatedByLabel}); errListPod == nil {
@@ -239,8 +243,8 @@ func getInnerClusterExistingCIDR(k8sClient *kubernetes.Clientset, clientset *oct
 		}
 	} else {
 		klog.Errorf("list all nri pod error with %v", errListPod)
-		return existingCIDR, "", errListPod
+		return existingCIDR, "", "", errListPod
 	}
 
-	return existingCIDR, clusterCIDR, nil
+	return existingCIDR, clusterCIDR, globalCIDR, nil
 }
