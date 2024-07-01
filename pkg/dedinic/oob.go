@@ -243,7 +243,7 @@ func (o *OobImpl) runEventHandler(stoptCh <-chan struct{}) {
 						PodNamespace: pod.Namespace,
 						ContainerID:  string(pod.GetUID()),
 						NetNs:        netns,
-						IfName:       "eth-ovn",
+						IfName:       "eth-nauti",
 						Provider:     known.NautiPrefix,
 					}
 					DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)

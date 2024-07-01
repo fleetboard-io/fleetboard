@@ -1,13 +1,9 @@
 package dedinic
 
 import (
-	"os/exec"
-	"time"
-
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -17,6 +13,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 	k8sexec "k8s.io/utils/exec"
+	"os/exec"
 )
 
 // Controller watch pod and namespace changes to update iptables, ipset and ovs qos
@@ -71,27 +68,16 @@ func NewController(config *Configuration, stopCh <-chan struct{}, podInformerFac
 	return controller, nil
 }
 
-func (c *Controller) loopEncapIPCheck() {
-	klog.V(5).Info("encapip check ...")
-	node, err := c.nodesLister.Get(c.config.NodeName)
-	if err != nil {
-		klog.Errorf("failed to get node %s %v", c.config.NodeName, err)
-		return
-	}
-	klog.V(5).Infof("encapip check node: %s", node.Annotations)
-}
-
 // Run starts controller
 func (c *Controller) Run(stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.podQueue.ShutDown()
 
 	// go wait.Until(ovs.CleanLostInterface, time.Minute, stopCh)
-	go wait.Until(recompute, 10*time.Minute, stopCh)
-	go wait.Until(rotateLog, 1*time.Hour, stopCh)
+	//go wait.Until(recompute, 10*time.Minute, stopCh)
+	//go wait.Until(rotateLog, 1*time.Hour, stopCh)
 
 	klog.Info("Started workers")
-	go wait.Until(c.loopEncapIPCheck, 3*time.Second, stopCh)
 
 	<-stopCh
 	klog.Info("Shutting down workers")

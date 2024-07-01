@@ -2,6 +2,7 @@ package dedinic
 
 import (
 	"context"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"os"
 	"time"
 
@@ -11,6 +12,20 @@ import (
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/nauti-io/nauti/pkg/known"
+)
+
+var (
+	CNFBridgeName = "nauti"
+)
+
+var (
+	NodeCIDR           string
+	GlobalCIDR         string
+	CNFPodName         string
+	CNFPodNamespace    string
+	CNFPodIP           string
+	CNFBridgeIP        string
+	CNFPodNetNamespace ns.NetNS
 )
 
 type CNIPlugin struct {
@@ -28,11 +43,7 @@ func InitNRIPlugin(config *Configuration, controller *Controller) {
 		err  error
 		opts []stub.Option
 	)
-	flag := os.Getenv("NRI_ENABLE")
-	if flag != "true" {
-		klog.Infof("NRI plugin is no enabled")
-		return
-	}
+
 	pluginName := "hydra"
 	opts = append(opts, stub.WithPluginName(pluginName))
 	pluginIdx := "00"
@@ -67,10 +78,22 @@ func (p *CNIPlugin) Configure(config, runtime, version string) (stub.EventMask, 
 
 func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	for _, pod := range pods {
-		err := addPodToCNIQueue(pod)
-		if err != nil {
-			klog.Errorf("put pod: %v into cni queue failed: %v", pod, err)
+		if pod.Name == CNFPodName {
+			CNFPodNetNamespaceStr := GetNSPathFromPod(pod)
+			if CNFPodNetNamespaceStr == "" {
+				klog.Fatalf("get CNFPodNamespace failed")
+			}
+			CNFPodNetNamespace, err = ns.GetNS(CNFPodNetNamespaceStr)
+			if err != nil {
+				klog.Fatalf("get CNFPodNamespace failedi: %v", err)
+
+			}
 		}
+
+		//err := addPodToCNIQueue(pod)
+		//if err != nil {
+		//	klog.Errorf("put pod: %v into cni queue failed: %v", pod, err)
+		//}
 	}
 	return nil, nil
 }
@@ -93,13 +116,12 @@ func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
 	}
 	klog.Infof("the namespace path is: %s ", nsPath)
 	podRequest := &request.CniRequest{
-		CniType:      "kube-ovn",
+		CniType:      "host-local",
 		PodName:      pod.Name,
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-ovn",
-		Provider:     "ovn",
+		IfName:       "eth-nauti",
 	}
 
 	return csh.handleDel(podRequest)
@@ -140,7 +162,7 @@ func addPodToCNIQueue(pod *api.PodSandbox) error {
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-ovn",
+		IfName:       "eth-nauti",
 		Provider:     known.NautiPrefix,
 	}
 	DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)

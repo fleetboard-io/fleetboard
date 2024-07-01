@@ -1,16 +1,6 @@
 package dedinic
 
 import (
-	"context"
-	"fmt"
-	"net"
-	"os"
-	"strings"
-
-	"github.com/kubeovn/kube-ovn/pkg/util"
-	"github.com/vishvananda/netlink"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -63,10 +53,6 @@ func InitConfig() error {
 	}
 
 	err := Conf.initKubeClient()
-	if err != nil {
-		return err
-	}
-	err = Conf.initNicConfig()
 	return err
 }
 func (config *Configuration) initKubeClient() error {
@@ -85,67 +71,4 @@ func (config *Configuration) initKubeClient() error {
 	}
 	config.KubeClient = kubeClient
 	return nil
-}
-
-func (config *Configuration) initNicConfig() error {
-	if config.NodeName == "" {
-		klog.Info("node name not specified in command line parameters, fall back to the environment variable")
-		if config.NodeName = strings.ToLower(os.Getenv(util.HostnameEnv)); config.NodeName == "" {
-			klog.Info("node name not specified in environment variables, fall back to the hostname")
-			hostname, err := os.Hostname()
-			if err != nil {
-				return fmt.Errorf("failed to get hostname: %v", err)
-			}
-			config.NodeName = strings.ToLower(hostname)
-		}
-	}
-
-	klog.V(5).Infof("initNicConfig")
-	// Support to specify node network card separately
-	node, err := config.KubeClient.CoreV1().Nodes().Get(context.Background(), config.NodeName, metav1.GetOptions{})
-	if err != nil {
-		klog.Errorf("Failed to find node info, err: %v", err)
-		return err
-	}
-
-	encapIP := config.getEncapIP(node)
-	if config.Iface, _, err = getIfaceByIP(encapIP); err != nil {
-		klog.Errorf("failed to get interface by IP %s: %v", encapIP, err)
-		return err
-	}
-	return setEncapIP(encapIP)
-}
-
-func (config *Configuration) getEncapIP(node *corev1.Node) string {
-	if podIP := os.Getenv(util.PodIP); podIP != "" {
-		return podIP
-	}
-
-	klog.Info("environment variable POD_IP not found, fall back to node address")
-	ipv4, ipv6 := util.GetNodeInternalIP(*node)
-	if ipv4 != "" {
-		return ipv4
-	}
-	return ipv6
-}
-
-func getIfaceByIP(ip string) (string, int, error) {
-	links, err := netlink.LinkList()
-	if err != nil {
-		return "", 0, err
-	}
-
-	for _, link := range links {
-		addrs, err := netlink.AddrList(link, netlink.FAMILY_ALL)
-		if err != nil {
-			return "", 0, fmt.Errorf("failed to get addresses of link %s: %v", link.Attrs().Name, err)
-		}
-		for _, addr := range addrs {
-			if addr.IPNet.Contains(net.ParseIP(ip)) && addr.IP.String() == ip {
-				return link.Attrs().Name, link.Attrs().MTU, nil
-			}
-		}
-	}
-
-	return "", 0, fmt.Errorf("failed to find interface by address %s", ip)
 }
