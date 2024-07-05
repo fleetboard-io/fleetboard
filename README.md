@@ -59,6 +59,8 @@ logical ports. Finally, it writes the assigned address to the annotation of the 
 `Nauti` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters, 
 please refer to this installation guide.
 
+[Helm Chart Page](https://nauti-io.github.io/nauti-charts/）
+
 ### Set Global CIDR
 `Global CIDR` is used in parallel network connection, it should not be conflict or overlap with cluster `Pod`
 or `Service` CIDR, it's `10.112.0.0/12` by default.
@@ -66,17 +68,17 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
 ### Install in Hub
 `Hub` is a kubernetes which has a public IP exposed,
   ```shell
-  $ helm repo add  mcs http://122.96.144.180:30088/charts/mcs
+  $ helm repo add nauti https://nauti-io.github.io/nauti-charts
   "mcs" has been added to your repositories
   $ helm repo list
   NAME    URL
-  mcs     http://122.96.144.180:30088/charts/mcs
-  $ helm search repo mcs
-  NAME                    CHART VERSION   APP VERSION     DESCRIPTION
-  mcs/nauti             0.1.0           1.16.0          A Helm chart for Tunnel across clusters.
-  mcs/nauti-agent       0.1.0           1.0.0           A Helm chart for Tunnel across clusters.
-  $ helm install nauti mcs/nauti --namespace nauti-system  --create-namespace \
-  --set tunnel.endpoint=10.115.217.212 --set tunnel.cidr=10.112.0.0/12
+  nauti     https://nauti-io.github.io/nauti-charts
+  $ helm search repo nauti
+NAME             	CHART VERSION	APP VERSION	DESCRIPTION
+nauti/nauti      	0.1.0        	1.16.0     	A Helm chart for Tunnel across clusters.
+nauti/nauti-agent	0.1.0        	1.0.0      	A Helm chart for Tunnel across clusters.
+  $ helm install nauti nauti/nauti --namespace nauti-system  --create-namespace \
+--set tunnel.endpoint=<Hub Pubic IP>   --set tunnel.cidr=20.112.0.0/12
   NAME: nauti
   LAST DEPLOYED: Fri Mar 31 12:43:43 2024
   NAMESPACE: nauti-system
@@ -91,7 +93,7 @@ or `Service` CIDR, it's `10.112.0.0/12` by default.
   And install nauti-agent in cluster by:
   
 helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
---set hub.hubURL=https://10.115.217.212:6443 --set cluster.clusterID=cluster1
+--set hub.hubURL=https:/<Hub Pubic IP>:6443 --set cluster.clusterID=cluster1
   ```
 
 
@@ -127,12 +129,12 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
 
   Joining a cluster, make sure clusterID and tunnel.cidr is unique. We don't require cluster has a public IP.
   ```shell
-  $ helm repo add  mcs http://122.96.144.180:30088/charts/mcs
-  "mcs" has been added to your repositories
+  $ helm repo add nauti https://nauti-io.github.io/nauti-charts
+  "nauti" has been added to your repositories
   
-  $ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-namespace   \
-   --set hub.hubURL=https://10.115.217.212:6443 --set cluster.clusterID=cluster1
-  ```
+  $ helm install nauti-agent nauti/nauti-agent --namespace nauti-system  --create-namespace \
+--set hub.hubURL=https://<Hub Public IP>:6443 --set cluster.clusterID=<Cluster Alias Name>
+```
   Add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
   ```yaml
     hyperos.local:53 {
@@ -140,6 +142,7 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
      }
   ```
   ```shell
+  # restart kube-dns
   $ kubectl delete pod -n kube-system --selector=k8s-app=kube-dns
   ```
   
