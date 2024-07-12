@@ -1,4 +1,4 @@
-package util
+package utils
 
 import (
 	"errors"
@@ -35,9 +35,8 @@ func inc(ipA net.IP) {
 	}
 }
 
-func FindAvailableCIDR(networkCIDR string, existingPeers []string) (string, error) {
+func FindAvailableCIDR(networkCIDR string, existingPeers []string, networkBits int) (string, error) {
 	// Split networkCIDR into 16 size blocks
-	networkBits := 16            // 网络位数
 	hostBits := 32 - networkBits // 主机位数
 	_, network, err := net.ParseCIDR(networkCIDR)
 

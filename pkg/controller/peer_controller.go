@@ -22,7 +22,7 @@ import (
 	octopusinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/util"
+	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
 )
 
@@ -60,7 +60,7 @@ func NewPeerController(spec known.Specification, w *Wireguard,
 				newPeer := tempObj.(*v1alpha1app.Peer)
 				// hub connect with nohub, nohub connect with hub.
 				// make sure there is only ONE Hub.
-				// TODO should we create tunnel for public child cluster in hub?
+				// TODO should we create tunnelManager for public child cluster in hub?
 				if newPeer.Spec.IsHub || (len(newPeer.Spec.Endpoint) != 0 && newPeer.Spec.IsPublic) {
 					return !spec.IsHub, nil
 				} else {
@@ -109,7 +109,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			klog.Infof("can't find key for %s with key %s", peerName, cachedPeer.Spec.PublicKey)
 			return &failedPeriod, err
 		}
-		if p.tunnel.RemovePeer(&oldKey) != nil {
+		if p.tunnel.RemoveInterClusterTunnel(&oldKey) != nil {
 			return &failedPeriod, err
 		}
 		if errRemoveRoute := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Delete); errRemoveRoute != nil {
@@ -124,6 +124,13 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		// just cluster, only wait if the coming peer has no cidr.
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
+		}
+		// other child cluster has public ip.
+		if cachedPeer.Name != known.HubClusterName {
+			if annoError := addAnnotationToSelf(p.tunnel.k8sClient, known.DaemonCIDR, cachedPeer.Spec.PodCIDR[0],
+				true); annoError != nil {
+				return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
+			}
 		}
 	} else {
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
@@ -142,7 +149,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 			}
 			// cidr allocation here.
 			cachedPeer.Spec.PodCIDR = make([]string, 1)
-			cachedPeer.Spec.PodCIDR[0], err = util.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR)
+			cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
 			if err != nil {
 				klog.Infof("allocate peer cidr failed %v", err)
 				return &failedPeriod, err
@@ -150,7 +157,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		}
 	}
 
-	if errAddPeer := p.tunnel.AddPeer(cachedPeer); errAddPeer != nil {
+	if errAddPeer := p.tunnel.AddInterClusterTunnel(cachedPeer); errAddPeer != nil {
 		klog.Infof("add peer failed %v", cachedPeer)
 		return &failedPeriod, errAddPeer
 	}
@@ -164,7 +171,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	// 需要回写peer
 	if noCIDR {
-		_, err = p.tunnel.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
+		_, err = p.tunnel.OctopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
 			cachedPeer, metav1.UpdateOptions{})
 		if err != nil {
 			return &failedPeriod, err
@@ -173,30 +180,20 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 	return nil, nil
 }
 
-func (p *PeerController) Run(ctx context.Context) error {
-	p.octopusFactory.Start(ctx.Done())
-	p.yachtController.Run(ctx)
-	return nil
-}
-
 func (p *PeerController) Start(ctx context.Context) {
 	defer utilruntime.HandleCrash()
-	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting octopus")
+	klog.Info("Starting inter cluster tunnel controller...")
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		if err := p.Run(ctx); err != nil {
-			klog.Error(err)
-		}
+		p.yachtController.Run(ctx)
 	}, time.Duration(0))
-	<-ctx.Done()
 }
 
 func configHostRoutingRules(cidrs []string, operation known.RouteOperation) error {
 	var ifaceIndex int
-	if wg, err := net.InterfaceByName(DefaultDeviceName); err == nil {
+	if wg, err := net.InterfaceByName(known.DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index
 	} else {
-		klog.Errorf("%s not found in octopus.", DefaultDeviceName)
+		klog.Errorf("%s not found in octopus.", known.DefaultDeviceName)
 		return err
 	}
 
