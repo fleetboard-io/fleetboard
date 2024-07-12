@@ -1,0 +1,43 @@
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: nri-daemon
+  namespace: nauti-system
+spec:
+  selector:
+    matchLabels:
+      app: nri-daemon
+  template:
+    metadata:
+      labels:
+        app: nri-daemon
+        router.nauti.io/nri: true
+    spec:
+      tolerations:
+      serviceAccountName: octopus
+      hostNetwork: false
+      containers:
+        - name: nri-daemon
+          image: lmxia/nri-daemon:2024061901
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+            privileged: true
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1000Mi
+            requests:
+              cpu: 200m
+              memory: 200Mi
+      nodeSelector:
+        kubernetes.io/os: "linux"

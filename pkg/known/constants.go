@@ -50,6 +50,7 @@ const (
 const (
 	HubSecretName        = "octopus"
 	NautiSystemNamespace = "nauti-system"
+	HubClusterName       = "hub"
 )
 
 // IPAM annotation const.
@@ -64,6 +65,16 @@ const (
 	LogicalSwitchAnnotationTemplate = "%s.io/logical_switch"
 	PodNicAnnotationTemplate        = "%s.io/pod_nic_type"
 	NautiTrue                       = "true"
+	DaemonCIDR                      = "%s.io/daemon_cidr"
+	CNFCIDR                         = "%s.io/cnf_cidr"
+	CLUSTERCIDR                     = "%s.io/cluster_cidr"
+	PublicKey                       = "%s.io/public_key"
+	CNFLabel                        = "router.nauti.io/cnf"
+)
 
-	CNFLabel = "nauti.io/cnf"
+const (
+	// DefaultDeviceName specifies name of WireGuard network device.
+	DefaultDeviceName = "wg0"
+
+	UDPPort = 31820
 )
