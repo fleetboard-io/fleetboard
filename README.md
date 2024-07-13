@@ -1,12 +1,12 @@
 # Nauti
 
-`Nauti` connects kubernetes clusters by a new build parallel network securely, it requires no public IP for 
+`Nauti` connects kubernetes clusters by a new build parallel network securely, it requires no public IP for
 child cluster and has no limits of cluster IP CIDR or CNI types of kubernetes clusters and also
 provide service discovery ability.
 
 It consists of several parts for networking between clusters:
 
-- ovnmaster it builds an `ovs` for in-cluster traffic manage which is parallel with native cluster CNI and IPAM 
+- ovnmaster it builds an `ovs` for in-cluster traffic manage which is parallel with native cluster CNI and IPAM
   for second network interface
 - nri-controller add second network interface when pod created.
 - octopus manages secure tunnels between hub and clusters, sync multi cluster services related resource across clusters
@@ -25,7 +25,7 @@ all other participating clusters. Hub defines a set of ServiceAccount, Secrets a
 ## Octopus
 
 Octopus maintains the tunnels by using of [WireGuard](https://www.wireguard.com/), a performant and secure VPN
-in`CNF pod`. The `CNF pod` can run on any node without specifically designated. `CNF pod` will generate key pairs 
+in`CNF pod`. The `CNF pod` can run on any node without specifically designated. `CNF pod` will generate key pairs
 every time it starts, creates and up wiregurad network interface and config the wireguard device with `peer` CRD.
 
 
@@ -56,7 +56,7 @@ logical ports. Finally, it writes the assigned address to the annotation of the 
 
 ## Helm Chart Installation
 
-`Nauti` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters, 
+`Nauti` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters,
 please refer to this installation guide.
 
 [Helm Chart Page](https://nauti-io.github.io/nauti-charts/）
@@ -98,7 +98,7 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
 
 
 ### Install in Cluster
-  Add a PV (Be careful, the PV below is just for demo):
+Add a PV (Be careful, the PV below is just for demo):
   ```yaml
   apiVersion: v1
   kind: PersistentVolume
@@ -127,7 +127,7 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
   $ kubectl create -f local-pv.yaml
   ```
 
-  Joining a cluster, make sure clusterID and tunnel.cidr is unique. We don't require cluster has a public IP.
+Joining a cluster, make sure clusterID and tunnel.cidr is unique. We don't require cluster has a public IP.
   ```shell
   $ helm repo add nauti https://nauti-io.github.io/nauti-charts
   "nauti" has been added to your repositories
@@ -135,7 +135,7 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
   $ helm install nauti-agent nauti/nauti-agent --namespace nauti-system  --create-namespace \
 --set hub.hubURL=https://<Hub Public IP>:6443 --set cluster.clusterID=<Cluster Alias Name>
 ```
-  Add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
+Add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
   ```yaml
     hyperos.local:53 {
         forward . 10.96.0.11
@@ -145,13 +145,13 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
   # restart kube-dns
   $ kubectl delete pod -n kube-system --selector=k8s-app=kube-dns
   ```
-  
+
 ### Test examples:
-  Create this example in one cluster.
+Create this example in one cluster.
   ```shell
   $ kubectl create -f https://raw.githubusercontent.com/nauti-io/nauti/main/examples/nginx-deploy.yaml
   ```
-  Test it in another cluster.
+Test it in another cluster.
   ```shell
   $ kubectl exec -it nginx-app-xxx  -c alpine -- curl nginx-svc.default.svc.hyperos.local
   <!DOCTYPE html>
