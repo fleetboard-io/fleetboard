@@ -1,6 +1,3 @@
-
-# Image URL to use all building/pushing image targets
-IMG ?= ovnmaster:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:crdVersions=v1,generateEmbeddedObjectMeta=true"
 
@@ -57,9 +54,6 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 
-ovnmaster:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ovnmaster cmd/ovnmaster/main.go
-
 crossdns:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
 
@@ -74,15 +68,10 @@ ep-controller:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ep-controller cmd/ep-controller/main.go
 
 images:
-	docker build $(DOCKERARGS) -f ./build/ovnmaster.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/octopus.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
-
-image-ovnmaster:
-	docker build $(DOCKERARGS) -f ./build/ovnmaster.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
 
 image-crossdns:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
@@ -106,7 +95,6 @@ image-ep-controller:
 
 
 images-push:
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ovnmaster:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}

@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/nauti-io/nauti/utils"
 	"strings"
 	"time"
 
-	"github.com/nauti-io/nauti/pkg/controller/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +26,7 @@ import (
 	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/nauti-io/nauti/pkg/api"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 )
 
 type PodController struct {

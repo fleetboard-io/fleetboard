@@ -6,8 +6,6 @@ provide service discovery ability.
 
 It consists of several parts for networking between clusters:
 
-- ovnmaster it builds an `ovs` for in-cluster traffic manage which is parallel with native cluster CNI and IPAM
-  for second network interface
 - nri-controller add second network interface when pod created.
 - octopus manages secure tunnels between hub and clusters, sync multi cluster services related resource across clusters
 - crossdns provides DNS discovery of Services across clusters.
@@ -42,16 +40,6 @@ the running pods contain references to endpoint's secondary IP. These endpointSl
 `Hub Cluster` and will be copied to other clusters.
 
 ![](doc/pic/servicediscovery.png)
-
-## OvnMaster
-
-OvnMaster deploy `OVN/OVS` components to create a virtual switch for all pods’ secondary network, so that we can route
-all inner cluster traffic to CNF pod in L2 level, without any specifically modification on Kubernetes Node.
-
-Also, it creates logical switch, watches the Pod creation and deletion events, manage the address and create
-logical ports. Finally, it writes the assigned address to the annotation of the Pod.
-
-![](doc/pic/ovnmaster.png)
 
 
 ## Helm Chart Installation
@@ -98,35 +86,6 @@ helm install nauti-agent mcs/nauti-agent --namespace  nauti-system  --create-nam
 
 
 ### Install in Cluster
-Add a PV (Be careful, the PV below is just for demo):
-  ```yaml
-  apiVersion: v1
-  kind: PersistentVolume
-  metadata:
-    name: ovn-pv
-  spec:
-    capacity:
-      storage: 1Gi
-    volumeMode: Filesystem
-    accessModes:
-    - ReadWriteOnce
-    persistentVolumeReclaimPolicy: Retain
-    storageClassName: local-storage
-    local:
-      path: /home/ubuntu/pv
-    nodeAffinity:
-      required:
-        nodeSelectorTerms:
-        - matchExpressions:
-          - key: kubernetes.io/hostname
-            operator: In
-            values:
-            - child-node-0
-  ```
-  ``` shell
-  $ kubectl create -f local-pv.yaml
-  ```
-
 Joining a cluster, make sure clusterID and tunnel.cidr is unique. We don't require cluster has a public IP.
   ```shell
   $ helm repo add nauti https://nauti-io.github.io/nauti-charts

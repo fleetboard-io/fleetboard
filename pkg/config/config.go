@@ -125,7 +125,8 @@ func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *known.Spec
 			return
 		} else {
 			if octopusClient, oClientError := octopusClientset.NewForConfig(parentKubeConfig); oClientError == nil {
-				globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient, spec.ShareNamespace, spec.ClusterID)
+				globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient,
+					spec.ShareNamespace, spec.ClusterID)
 				if err != nil {
 					return
 				}
