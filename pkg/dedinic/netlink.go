@@ -2,14 +2,15 @@ package dedinic
 
 import (
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
-	"net"
-	"strings"
 )
 
 func setupVethPair(containerID, ifName string) (string, string, error) {
@@ -47,7 +48,7 @@ func CreateBridge(bridgeName string) error {
 	if err != nil {
 		klog.Errorf("remove exist link failed: %v", err)
 	}
-	if err := netlink.LinkAdd(bridge); err != nil {
+	if err = netlink.LinkAdd(bridge); err != nil {
 		return fmt.Errorf("could not add %s: %v", bridgeName, err)
 	}
 
@@ -58,7 +59,7 @@ func CreateBridge(bridgeName string) error {
 	}
 
 	// Bring the bridge up
-	if err := netlink.LinkSetUp(bridgeLink); err != nil {
+	if err = netlink.LinkSetUp(bridgeLink); err != nil {
 		return fmt.Errorf("could not set up %s: %v", bridgeName, err)
 	}
 
@@ -110,7 +111,6 @@ func addVethToBridge(vethName, bridgeName string) error {
 	}
 
 	return nil
-
 }
 
 func configureContainerNic(nicName, ifName, ipAddr string,
@@ -176,10 +176,6 @@ func configureNic(link, ip string) error {
 	if err != nil {
 		return fmt.Errorf("can not find nic %s: %v", link, err)
 	}
-
-	//if err = netlink.LinkSetHardwareAddr(nodeLink, macAddr); err != nil {
-	//	return fmt.Errorf("can not set mac address to nic %s: %v", link, err)
-	//}
 
 	if nodeLink.Attrs().OperState != netlink.OperUp {
 		if err = netlink.LinkSetUp(nodeLink); err != nil {

@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +22,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
-	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
 )
 
@@ -33,12 +31,12 @@ type InnerClusterTunnelController struct {
 	podLister           listenrv1.PodLister
 	kubeInformerFactory informers.SharedInformerFactory
 	tunnelManager       *Wireguard
-	spec                *known.Specification
-	podSynced           cache.InformerSynced
-	peerLister          v1alpha1.PeerLister
-	existingCIDR        []string
-	clusterCIDR         string
-	globalCIDR          string
+	// spec                *known.Specification
+	podSynced cache.InformerSynced
+	// peerLister          v1alpha1.PeerLister
+	existingCIDR []string
+	clusterCIDR  string
+	globalCIDR   string
 	sync.Mutex
 }
 
@@ -199,7 +197,7 @@ func NewInnerClusterTunnelController(w *Wireguard, kubeClientSet kubernetes.Inte
 }
 
 func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
-	defer utilruntime.HandleCrash()
+	defer runtime.HandleCrash()
 	// octopus has been started before.
 	ict.kubeInformerFactory.Start(ctx.Done())
 	klog.Info("Starting inner cluster tunnel controller...")

@@ -59,7 +59,8 @@ func DaemonConfigFromPod(pod *v1.Pod) *DaemonNRITunnelConfig {
 	}
 }
 
-func NewTunnel(k8sClient *kubernetes.Clientset, octopusClient *versioned.Clientset, spec *known.Specification, done <-chan struct{}) (*Wireguard, error) {
+func NewTunnel(k8sClient *kubernetes.Clientset, octopusClient *versioned.Clientset,
+	spec *known.Specification, done <-chan struct{}) (*Wireguard, error) {
 	var err error
 
 	w := &Wireguard{

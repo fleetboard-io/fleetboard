@@ -2,34 +2,26 @@ package dedinic
 
 import (
 	"fmt"
+
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kubeovn/kube-ovn/pkg/request"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 )
 
 type cniHandler struct {
-	// Config     *Configuration
-	KubeClient kubernetes.Interface
-	Controller *Controller
 }
 
-func createCniHandler(config *Configuration, controller *Controller) *cniHandler {
-	ch := &cniHandler{
-		KubeClient: config.KubeClient,
-		Controller: controller,
-	}
+func createCniHandler() *cniHandler {
+	ch := &cniHandler{}
 	return ch
 }
 
 func (ch cniHandler) handleAdd(rq *request.CniRequest) error {
-
 	// do not handel the CNF pod self
 	if rq.PodName == CNFPodName && rq.PodNamespace == CNFPodNamespace {
 		return nil
 	}
 	klog.Infof("add port request: %v", rq)
-	//var routes []request.Route
 	var err error
 
 	cniConf := `{
@@ -66,7 +58,7 @@ func (ch cniHandler) handleAdd(rq *request.CniRequest) error {
 		klog.Errorf("add nic failed: %v", err)
 	}
 
-	return nil
+	return err
 }
 
 func (ch cniHandler) configureNic(netns, containerID,
@@ -98,27 +90,5 @@ func (ch cniHandler) configureNic(netns, containerID,
 }
 
 func (ch cniHandler) handleDel(podRequest *request.CniRequest) error {
-	//pod, err := ch.Controller.podsLister.Pods(podRequest.PodNamespace).Get(podRequest.PodName)
-	//if err != nil {
-	//	if k8serrors.IsNotFound(err) {
-	//		return err
-	//	}
-	//
-	//	errMsg := fmt.Errorf("parse del request failed %v", err)
-	//	klog.Error(errMsg)
-	//	return errMsg
-	//}
-	//
-	//klog.Infof("del port request: %v", podRequest)
-	//if pod.Annotations != nil && (podRequest.Provider == known.NautiPrefix || podRequest.CniType == CniTypeName) {
-	//	nicType := pod.Annotations[fmt.Sprintf(known.PodNicAnnotationTemplate, podRequest.Provider)]
-	//	err = ch.deleteNic(podRequest.PodName, podRequest.PodNamespace, podRequest.ContainerID, podRequest.IfName, nicType)
-	//	if err != nil {
-	//		errMsg := fmt.Errorf("del nic failed %v", err)
-	//		klog.Error(errMsg)
-	//		return errMsg
-	//	}
-	//}
-
-	return err
+	return nil
 }
