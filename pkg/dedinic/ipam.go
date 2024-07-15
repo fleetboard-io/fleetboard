@@ -2,11 +2,12 @@ package dedinic
 
 import (
 	"fmt"
+	"net"
+
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/disk"
 	"github.com/kubeovn/kube-ovn/pkg/request"
-	"net"
 )
 
 func GetIP(rq *request.CniRequest, ipamConfStr string) (res *current.Result, err error) {
@@ -35,13 +36,14 @@ func GetIP(rq *request.CniRequest, ipamConfStr string) (res *current.Result, err
 		requestedIPs[ip.String()] = ip
 	}
 
-	for idx, rangeset := range ipamConf.Ranges {
-		allocator := allocator.NewIPAllocator(&rangeset, store, idx)
+	for idx, rangeSet := range ipamConf.Ranges {
+		v := rangeSet
+		allocator := allocator.NewIPAllocator(&v, store, idx)
 
 		// Check to see if there are any custom IPs requested in this range.
 		var requestedIP net.IP
 		for k, ip := range requestedIPs {
-			if rangeset.Contains(ip) {
+			if v.Contains(ip) {
 				requestedIP = ip
 				delete(requestedIPs, k)
 				break

@@ -7,12 +7,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"github.com/nauti-io/nauti/pkg/controller"
 	"github.com/nauti-io/nauti/pkg/dedinic"
@@ -33,8 +32,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	//ctx := signals.SetupSignalHandler()
-	ctx := context.Background()
+	ctx := signals.SetupSignalHandler()
 	restConfig, err := clientcmd.BuildConfigFromFlags(localMasterURL, localKubeconfig)
 	if err != nil {
 		klog.Fatal(err)
@@ -54,7 +52,7 @@ func main() {
 		klog.Fatalf("get self pod namespace failed")
 	}
 
-	//init wire-guard device
+	// init wire-guard device
 	w, err := controller.NewTunnel(k8sClient, nil, nil, ctx.Done())
 	if err != nil {
 		klog.Fatal(err)
@@ -73,30 +71,8 @@ func main() {
 	innerClusterController.Start(ctx)
 
 	waitForCIDRReady(ctx, k8sClient)
-	err = dedinic.InitConfig()
-	if err != nil {
-		klog.Fatalf("")
-	}
-
-	podInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(dedinic.Conf.KubeClient, 0,
-		kubeinformers.WithTweakListOptions(func(listOption *v1.ListOptions) {
-			listOption.FieldSelector = fmt.Sprintf("spec.nodeName=%s", dedinic.Conf.NodeName)
-			listOption.AllowWatchBookmarks = true
-		}))
-	nodeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(dedinic.Conf.KubeClient, 0,
-		kubeinformers.WithTweakListOptions(func(listOption *v1.ListOptions) {
-			listOption.AllowWatchBookmarks = true
-		}))
-
-	ctl, err := dedinic.NewController(dedinic.Conf, dedinic.StopCh, podInformerFactory, nodeInformerFactory)
-	if err != nil {
-		util.LogFatalAndExit(err, "failed to create controller")
-	}
-	klog.Info("start dedicnic controller")
-
 	go dedinic.InitDelayQueue()
-
-	go dedinic.InitNRIPlugin(dedinic.Conf, ctl)
+	go dedinic.InitNRIPlugin()
 
 	// todo if nri is invalid
 	<-time.After(5 * time.Second)
@@ -107,13 +83,12 @@ func main() {
 	}
 
 	klog.Info("start nri dedicated plugin run")
-	ctl.Run(dedinic.StopCh)
 
+	<-ctx.Done()
 	// remove your self from hub.
 	if err := w.Cleanup(); err != nil {
 		klog.Error(nil, "Error cleaning up resources before removing peer")
 	}
-
 }
 
 func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {

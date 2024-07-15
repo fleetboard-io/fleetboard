@@ -333,11 +333,12 @@ func getSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	return allAnnoValue
 }
 
-func hasIPChanged(oldPod, newPod *v1.Pod) bool {
-	oldIP := getEth0IP(oldPod)
-	newIP := getEth0IP(newPod)
-	return oldIP != newIP
-}
+// HasIPChanged checks if the IP of the pod has changed:w.
+// func hasIPChanged(oldPod, newPod *v1.Pod) bool {
+//	oldIP := getEth0IP(oldPod)
+//	newIP := getEth0IP(newPod)
+//	return oldIP != newIP
+// }
 
 func getEth0IP(pod *v1.Pod) string {
 	for _, podIP := range pod.Status.PodIPs {

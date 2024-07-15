@@ -2,15 +2,15 @@ package dedinic
 
 import (
 	"context"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"os"
 	"time"
 
-	"k8s.io/klog/v2"
-
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/kubeovn/kube-ovn/pkg/request"
+	"k8s.io/klog/v2"
+
 	"github.com/nauti-io/nauti/pkg/known"
 )
 
@@ -38,7 +38,7 @@ var (
 	_   = stub.ConfigureInterface(&CNIPlugin{})
 )
 
-func InitNRIPlugin(config *Configuration, controller *Controller) {
+func InitNRIPlugin() {
 	var (
 		err  error
 		opts []stub.Option
@@ -61,7 +61,7 @@ func InitNRIPlugin(config *Configuration, controller *Controller) {
 		klog.Errorf("nri failed to create nri stub: %v", err)
 	}
 
-	csh = createCniHandler(config, controller)
+	csh = createCniHandler()
 	klog.Info(">>>>>>>>>>>>>>>>>>>>>  nri CNI Plugin Started - Version Tag 0.0.1 <<<<<<<<<<<<<<<<<<<<<<<<<<")
 
 	err = p.Stub.Run(context.Background())
@@ -77,6 +77,7 @@ func (p *CNIPlugin) Configure(config, runtime, version string) (stub.EventMask, 
 }
 
 func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
+	var err error
 	for _, pod := range pods {
 		if pod.Name == CNFPodName {
 			CNFPodNetNamespaceStr := GetNSPathFromPod(pod)
@@ -86,14 +87,14 @@ func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Contai
 			CNFPodNetNamespace, err = ns.GetNS(CNFPodNetNamespaceStr)
 			if err != nil {
 				klog.Fatalf("get CNFPodNamespace failedi: %v", err)
-
 			}
 		}
 
-		//err := addPodToCNIQueue(pod)
-		//if err != nil {
+		// todo sync existing pods
+		// err := addPodToCNIQueue(pod)
+		// if err != nil {
 		//	klog.Errorf("put pod: %v into cni queue failed: %v", pod, err)
-		//}
+		// }
 	}
 	return nil, nil
 }

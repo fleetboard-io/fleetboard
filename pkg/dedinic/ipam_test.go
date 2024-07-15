@@ -1,13 +1,13 @@
 package dedinic
 
 import (
+	"testing"
+
 	"github.com/containernetworking/cni/pkg/types"
 	"github.com/kubeovn/kube-ovn/pkg/request"
-	"testing"
 )
 
 func TestGetIP(t *testing.T) {
-
 	cniConf := `{
     "cniVersion": "0.3.1",
     "name": "dedicate-cni",

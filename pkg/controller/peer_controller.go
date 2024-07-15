@@ -132,31 +132,28 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 				return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
 			}
 		}
-	} else {
-		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
-			//  prepare data...
-			existingCIDR := make([]string, 0)
-			noCIDR = true
-			if peerList, errListPeer := p.peerLister.Peers(namespace).List(labels.Everything()); errListPeer == nil {
-				for _, item := range peerList {
-					if item.Name != "hub" && len(item.Spec.PodCIDR) != 0 {
-						existingCIDR = append(existingCIDR, item.Spec.PodCIDR[0])
-					}
+	} else if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
+		//  prepare data...
+		existingCIDR := make([]string, 0)
+		noCIDR = true
+		if peerList, errListPeer := p.peerLister.Peers(namespace).List(labels.Everything()); errListPeer == nil {
+			for _, item := range peerList {
+				if item.Name != "hub" && len(item.Spec.PodCIDR) != 0 {
+					existingCIDR = append(existingCIDR, item.Spec.PodCIDR[0])
 				}
-			} else {
-				klog.Errorf("peers get with %v", err)
-				return &failedPeriod, err
 			}
-			// cidr allocation here.
-			cachedPeer.Spec.PodCIDR = make([]string, 1)
-			cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
-			if err != nil {
-				klog.Infof("allocate peer cidr failed %v", err)
-				return &failedPeriod, err
-			}
+		} else {
+			klog.Errorf("peers get with %v", err)
+			return &failedPeriod, err
+		}
+		// cidr allocation here.
+		cachedPeer.Spec.PodCIDR = make([]string, 1)
+		cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
+		if err != nil {
+			klog.Infof("allocate peer cidr failed %v", err)
+			return &failedPeriod, err
 		}
 	}
-
 	if errAddPeer := p.tunnel.AddInterClusterTunnel(cachedPeer); errAddPeer != nil {
 		klog.Infof("add peer failed %v", cachedPeer)
 		return &failedPeriod, errAddPeer
