@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cfanbo/delayqueue"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	"k8s.io/klog/v2"
 )
 
@@ -21,7 +20,7 @@ func InitDelayQueue() {
 func consume(entry delayqueue.Entry) {
 	klog.Info("delay queue consume pod", entry.Body())
 
-	podRequest := entry.Body().(*request.CniRequest)
+	podRequest := entry.Body().(*CniRequest)
 
 	err := csh.handleAdd(podRequest)
 	if err != nil {

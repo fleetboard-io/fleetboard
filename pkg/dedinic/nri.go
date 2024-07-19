@@ -8,7 +8,6 @@ import (
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	"k8s.io/klog/v2"
 
 	"github.com/nauti-io/nauti/pkg/known"
@@ -116,7 +115,7 @@ func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
 		return nil
 	}
 	klog.Infof("the namespace path is: %s ", nsPath)
-	podRequest := &request.CniRequest{
+	podRequest := &CniRequest{
 		CniType:      "host-local",
 		PodName:      pod.Name,
 		PodNamespace: pod.Namespace,
@@ -157,7 +156,7 @@ func addPodToCNIQueue(pod *api.PodSandbox) error {
 	klog.V(5).Infof("the namespace path is: %s ", nsPath)
 	klog.V(5).Infof("the pod annotation is: %s ", pod.Annotations)
 
-	podRequest := &request.CniRequest{
+	podRequest := &CniRequest{
 		CniType:      "kube-ovn",
 		PodName:      pod.Name,
 		PodNamespace: pod.Namespace,
