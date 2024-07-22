@@ -7,10 +7,9 @@ import (
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/disk"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 )
 
-func GetIP(rq *request.CniRequest, ipamConfStr string) (res *current.Result, err error) {
+func GetIP(rq *CniRequest, ipamConfStr string) (res *current.Result, err error) {
 	ipamConf, _, err := allocator.LoadIPAMConfig([]byte(ipamConfStr), "")
 	if err != nil {
 		return nil, err

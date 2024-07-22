@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	"k8s.io/klog/v2"
 )
 
@@ -16,7 +15,7 @@ func createCniHandler() *cniHandler {
 	return ch
 }
 
-func (ch cniHandler) handleAdd(rq *request.CniRequest) error {
+func (ch cniHandler) handleAdd(rq *CniRequest) error {
 	// do not handel the CNF pod self
 	if rq.PodName == CNFPodName && rq.PodNamespace == CNFPodNamespace {
 		return nil
@@ -49,11 +48,11 @@ func (ch cniHandler) handleAdd(rq *request.CniRequest) error {
 	}
 
 	ipStr := ip.IPs[0].Address.String()
-	route := request.Route{
+	route := Route{
 		Destination: GlobalCIDR,
 		Gateway:     CNFBridgeIP,
 	}
-	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, []request.Route{route})
+	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, []Route{route})
 	if err != nil {
 		klog.Errorf("add nic failed: %v", err)
 	}
@@ -62,7 +61,7 @@ func (ch cniHandler) handleAdd(rq *request.CniRequest) error {
 }
 
 func (ch cniHandler) configureNic(netns, containerID,
-	ifName, ip string, routes []request.Route) error {
+	ifName, ip string, routes []Route) error {
 	var err error
 	var hostNicName, containerNicName string
 
@@ -89,6 +88,6 @@ func (ch cniHandler) configureNic(netns, containerID,
 	return configureContainerNic(containerNicName, ifName, ip, routes, podNS)
 }
 
-func (ch cniHandler) handleDel(podRequest *request.CniRequest) error {
+func (ch cniHandler) handleDel(podRequest *CniRequest) error {
 	return nil
 }

@@ -2,9 +2,6 @@ package dedinic
 
 import (
 	"testing"
-
-	"github.com/containernetworking/cni/pkg/types"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 )
 
 func TestGetIP(t *testing.T) {
@@ -26,20 +23,15 @@ func TestGetIP(t *testing.T) {
     }
 }
 `
-	rq := &request.CniRequest{
-		CniType:                   "",
-		PodName:                   "",
-		PodNamespace:              "",
-		ContainerID:               "ContainerId",
-		NetNs:                     "ns",
-		IfName:                    "eth-99",
-		Provider:                  "",
-		Routes:                    nil,
-		DNS:                       types.DNS{},
-		VfDriver:                  "",
-		DeviceID:                  "",
-		VhostUserSocketVolumeName: "",
-		VhostUserSocketName:       "",
+	rq := &CniRequest{
+		CniType:      "",
+		PodName:      "",
+		PodNamespace: "",
+		ContainerID:  "ContainerId",
+		NetNs:        "ns",
+		IfName:       "eth-99",
+		Provider:     "",
+		Routes:       nil,
 	}
 
 	ip, err := GetIP(rq, cniConf)

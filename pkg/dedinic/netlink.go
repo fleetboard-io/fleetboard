@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/kubeovn/kube-ovn/pkg/request"
 	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -114,7 +113,7 @@ func addVethToBridge(vethName, bridgeName string) error {
 }
 
 func configureContainerNic(nicName, ifName, ipAddr string,
-	routes []request.Route, netns ns.NetNS) error {
+	routes []Route, netns ns.NetNS) error {
 	var err error
 	containerLink, err := netlink.LinkByName(nicName)
 	if err != nil {
