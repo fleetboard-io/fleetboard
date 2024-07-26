@@ -2,12 +2,11 @@ package dedinic
 
 import (
 	"context"
+	"fmt"
 	"os"
-	"time"
 
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
-	"github.com/containernetworking/plugins/pkg/ns"
 	"k8s.io/klog/v2"
 
 	"github.com/nauti-io/nauti/pkg/known"
@@ -18,13 +17,12 @@ var (
 )
 
 var (
-	NodeCIDR           string
-	GlobalCIDR         string
-	CNFPodName         string
-	CNFPodNamespace    string
-	CNFPodIP           string
-	CNFBridgeIP        string
-	CNFPodNetNamespace ns.NetNS
+	NodeCIDR        string
+	GlobalCIDR      string
+	CNFPodName      string
+	CNFPodNamespace string
+	CNFPodIP        string
+	CNFBridgeIP     string
 )
 
 type CNIPlugin struct {
@@ -76,24 +74,34 @@ func (p *CNIPlugin) Configure(config, runtime, version string) (stub.EventMask, 
 }
 
 func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
-	var err error
 	for _, pod := range pods {
-		if pod.Name == CNFPodName {
-			CNFPodNetNamespaceStr := GetNSPathFromPod(pod)
-			if CNFPodNetNamespaceStr == "" {
-				klog.Fatalf("get CNFPodNamespace failed")
-			}
-			CNFPodNetNamespace, err = ns.GetNS(CNFPodNetNamespaceStr)
-			if err != nil {
-				klog.Fatalf("get CNFPodNamespace failedi: %v", err)
-			}
+		if isCNFSelf(pod.Namespace, pod.Name) {
+			continue
+		}
+		nsPath, err := GetNSPathFromPod(pod)
+		if err != nil {
+			klog.Infof("the namespace path is host-network or cant fount the ns: %v ", err)
+			continue
 		}
 
-		// todo sync existing pods
-		// err := addPodToCNIQueue(pod)
-		// if err != nil {
-		//	klog.Errorf("put pod: %v into cni queue failed: %v", pod, err)
-		// }
+		klog.V(6).Infof("deal the pod: %v/%v,the namespace path is: %s ", pod.Namespace, pod.Name, nsPath)
+
+		podRequest := &CniRequest{
+			PodName:      pod.Name,
+			PodNamespace: pod.Namespace,
+			ContainerID:  pod.GetId(),
+			NetNs:        nsPath,
+			IfName:       "eth-nauti",
+		}
+
+		if err := csh.handleDel(podRequest); err != nil {
+			klog.Errorf("delete exist network failed: %v", err)
+			continue
+		}
+		if err := csh.handleAdd(podRequest); err != nil {
+			klog.Errorf("add network failed: %v", err)
+			continue
+		}
 	}
 	return nil, nil
 }
@@ -104,19 +112,40 @@ func (p *CNIPlugin) Shutdown() {
 
 func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {
 	klog.Infof("[RunPodSandbox]: the pod is %s/%s", pod.Namespace, pod.Name)
-	return addPodToCNIQueue(pod)
+
+	nsPath, err := GetNSPathFromPod(pod)
+	if err != nil {
+		klog.V(5).Info("the namespace path is hostnetwork ")
+		return err
+	}
+	klog.V(5).Infof("the namespace path is: %s ", nsPath)
+	klog.V(5).Infof("the pod annotation is: %s ", pod.Annotations)
+
+	podRequest := &CniRequest{
+		PodName:      pod.Name,
+		PodNamespace: pod.Namespace,
+		ContainerID:  pod.GetId(),
+		NetNs:        nsPath,
+		IfName:       "eth-nauti",
+		Provider:     known.NautiPrefix,
+	}
+
+	err = csh.handleAdd(podRequest)
+	if err != nil {
+		klog.Errorf("add interface failed for pod: %v", podRequest)
+	}
+	return err
 }
 
 func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
 	klog.Infof("[StopPodSandbox]: the pod is %s--%s", pod.Namespace, pod.Name)
-	nsPath := GetNSPathFromPod(pod)
-	if nsPath == "" {
-		klog.Info("the namespace path is hostnetwork  or cant fount the ns")
-		return nil
+	nsPath, err := GetNSPathFromPod(pod)
+	if err != nil {
+		klog.Info("the namespace path is host-network or cant fount the ns")
+		return err
 	}
 	klog.Infof("the namespace path is: %s ", nsPath)
 	podRequest := &CniRequest{
-		CniType:      "host-local",
 		PodName:      pod.Name,
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
@@ -137,34 +166,16 @@ func (p *CNIPlugin) OnClose() {
 	os.Exit(0)
 }
 
-func GetNSPathFromPod(pod *api.PodSandbox) (nsPath string) {
+func GetNSPathFromPod(pod *api.PodSandbox) (nsPath string, err error) {
 	for _, ns := range pod.Linux.Namespaces {
 		if ns.Type == "network" {
 			nsPath = ns.Path
 			break
 		}
 	}
-	return
-}
-
-func addPodToCNIQueue(pod *api.PodSandbox) error {
-	nsPath := GetNSPathFromPod(pod)
 	if nsPath == "" {
-		klog.V(5).Info("the namespace path is hostnetwork ")
-		return nil
+		klog.V(6).Infof("pod: %v/%v, linux: %v", pod.Namespace, pod.Name, pod.Linux)
+		return "", fmt.Errorf("nsPath is empty for pod: %s/%s", pod.Namespace, pod.Name)
 	}
-	klog.V(5).Infof("the namespace path is: %s ", nsPath)
-	klog.V(5).Infof("the pod annotation is: %s ", pod.Annotations)
-
-	podRequest := &CniRequest{
-		CniType:      "kube-ovn",
-		PodName:      pod.Name,
-		PodNamespace: pod.Namespace,
-		ContainerID:  pod.GetId(),
-		NetNs:        nsPath,
-		IfName:       "eth-nauti",
-		Provider:     known.NautiPrefix,
-	}
-	DelayQueue.Put(time.Now().Add(time.Second*3), podRequest)
-	return nil
+	return nsPath, nil
 }

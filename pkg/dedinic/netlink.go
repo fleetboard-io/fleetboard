@@ -6,10 +6,12 @@ import (
 	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
+
+	"github.com/nauti-io/nauti/utils"
 )
 
 func setupVethPair(containerID, ifName string) (string, string, error) {
@@ -89,6 +91,14 @@ func GetSubNetMask(cidr string) (string, error) {
 }
 
 func addVethToBridge(vethName, bridgeName string) error {
+	curNs, err := netns.Get()
+	if err != nil {
+		klog.Errorf("Failed to get current namespace: %v", err)
+		return err
+	}
+	defer curNs.Close()
+	klog.V(6).Infof("Current network namespace: %v\n", curNs)
+
 	// Find the bridge link
 	bridgeLink, err := netlink.LinkByName(bridgeName)
 	if err != nil {
