@@ -24,6 +24,7 @@ var (
 )
 
 func init() {
+	klog.InitFlags(nil)
 	flag.StringVar(&localKubeconfig, "kubeconfig", "",
 		"Path to kubeconfig of local cluster. Only required if out-of-cluster.")
 	flag.StringVar(&localMasterURL, "master", "",
@@ -32,6 +33,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+
 	ctx := signals.SetupSignalHandler()
 	restConfig, err := clientcmd.BuildConfigFromFlags(localMasterURL, localKubeconfig)
 	if err != nil {
@@ -71,8 +73,6 @@ func main() {
 	innerClusterController.Start(ctx)
 
 	waitForCIDRReady(ctx, k8sClient)
-	go dedinic.InitDelayQueue()
-	go dedinic.InitNRIPlugin()
 
 	// todo if nri is invalid
 	<-time.After(5 * time.Second)
@@ -83,6 +83,7 @@ func main() {
 	}
 
 	klog.Info("start nri dedicated plugin run")
+	go dedinic.InitNRIPlugin()
 
 	<-ctx.Done()
 	// remove your self from hub.
@@ -96,7 +97,7 @@ func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
 	for dedinic.NodeCIDR == "" || dedinic.GlobalCIDR == "" || dedinic.CNFPodIP == "" {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, v1.GetOptions{})
 		if err == nil && pod != nil {
-			klog.Infof("cnf pod: %v", pod)
+			klog.Infof("cnf pod annotions: %v", pod.Annotations)
 			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)]
 			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)]
 			dedinic.CNFPodIP = pod.Status.PodIP

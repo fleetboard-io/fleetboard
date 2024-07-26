@@ -3,6 +3,7 @@ package dedinic
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	current "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/plugins/ipam/host-local/backend/allocator"
@@ -78,4 +79,34 @@ func GetIP(rq *CniRequest, ipamConfStr string) (res *current.Result, err error) 
 	result.Routes = ipamConf.Routes
 
 	return result, nil
+}
+
+func DelIP(rq *CniRequest, ipamConfStr string) error {
+	ipamConf, _, err := allocator.LoadIPAMConfig([]byte(ipamConfStr), "")
+	if err != nil {
+		return err
+	}
+
+	store, err := disk.New(ipamConf.Name, ipamConf.DataDir)
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+
+	// Loop through all ranges, releasing all IPs, even if an error occurs
+	var errors []string
+	for idx, rangeset := range ipamConf.Ranges {
+		set := rangeset
+		ipAllocator := allocator.NewIPAllocator(&set, store, idx)
+
+		err := ipAllocator.Release(rq.ContainerID, rq.IfName)
+		if err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+
+	if errors != nil {
+		return fmt.Errorf(strings.Join(errors, ";"))
+	}
+	return nil
 }

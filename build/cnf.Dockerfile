@@ -1,7 +1,7 @@
-FROM golang:1.21 as builder
+FROM golang:1.21-alpine as builder
 
 WORKDIR /workspace
-RUN apt install -y  make
+RUN apk update && apk add --no-cache make git
 COPY ../go.mod ../go.sum ./
 COPY ../staging ./staging
 RUN go mod download
@@ -9,9 +9,19 @@ COPY .. .
 RUN make cnf
 
 
-FROM  ubuntu:jammy
-RUN apt update &&  apt install iproute2 bridge-utils tcpdump -y
-RUN apt install  wireguard-tools wget openresolv iptables -y
-RUN apt-get autoclean; rm -rf /var/lib/apt/lists/*
+FROM alpine:latest
+
+# Install required packages
+RUN apk update && apk add --no-cache \
+    iproute2 \
+    bridge-utils \
+    tcpdump \
+    iputils \
+    wireguard-tools \
+    wget \
+    openresolv \
+    iptables \
+    vim
+
 WORKDIR /cnf
 COPY --from=builder /workspace/bin/cnf ./
