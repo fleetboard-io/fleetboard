@@ -81,6 +81,8 @@ image-dedinic:
 image-cnf:
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
+	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
 
 image-ep-controller:
 	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}

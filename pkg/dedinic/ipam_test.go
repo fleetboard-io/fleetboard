@@ -24,7 +24,6 @@ func TestGetIP(t *testing.T) {
 }
 `
 	rq := &CniRequest{
-		CniType:      "",
 		PodName:      "",
 		PodNamespace: "",
 		ContainerID:  "ContainerId",
