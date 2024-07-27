@@ -1,4 +1,4 @@
-package controller
+package tunnel
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
@@ -14,7 +15,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
@@ -26,49 +26,63 @@ type managedKeys struct {
 	PublicKey  wgtypes.Key
 }
 
-type DaemonNRITunnelConfig struct {
-	nodeID        string
-	podID         string
+type DaemonCNFTunnelConfig struct {
+	NodeID        string
+	PodID         string
 	endpointIP    string
-	secondaryCIDR []string
+	SecondaryCIDR []string
 	port          int
 	PublicKey     []string `json:"public_key"` // wire-guard public key
 }
 
 type Wireguard struct {
 	interConnections map[string]*v1alpha1.Peer         // clusterID -> remote ep connection
-	innerConnections map[string]*DaemonNRITunnelConfig // nodeID -> inner cluster connection
-	mutex            sync.Mutex
-	link             netlink.Link // your link
-	Spec             *known.Specification
-	client           *wgctrl.Client
-	Keys             *managedKeys
-	StopCh           <-chan struct{}
-	OctopusClient    *versioned.Clientset
-	k8sClient        *kubernetes.Clientset
+	innerConnections map[string]*DaemonCNFTunnelConfig // NodeID -> inner cluster connection
+	sync.Mutex
+	link   netlink.Link // your link
+	Spec   *Specification
+	client *wgctrl.Client
+	Keys   *managedKeys
 }
 
-func DaemonConfigFromPod(pod *v1.Pod) *DaemonNRITunnelConfig {
-	return &DaemonNRITunnelConfig{
-		nodeID:        pod.Spec.NodeName,
-		podID:         pod.Name,
-		endpointIP:    getEth0IP(pod),
-		secondaryCIDR: getSpecificAnnotation(pod, known.DaemonCIDR, known.CNFCIDR),
+func (w *Wireguard) GetAllExistingInnerConnection() map[string]*DaemonCNFTunnelConfig {
+	return w.innerConnections
+}
+
+func (w *Wireguard) GetAllExistingInterConnection() map[string]*v1alpha1.Peer {
+	return w.interConnections
+}
+
+func (w *Wireguard) GetExistingInnerConnection(nodeID string) (*DaemonCNFTunnelConfig, bool) {
+	w.Lock()
+	defer w.Unlock()
+	config, found := w.innerConnections[nodeID]
+	return config, found
+}
+
+func (w *Wireguard) DeleteExistingInnerConnection(nodeID string) {
+	w.Lock()
+	defer w.Unlock()
+	delete(w.innerConnections, nodeID)
+}
+
+func DaemonConfigFromPod(pod *v1.Pod) *DaemonCNFTunnelConfig {
+	return &DaemonCNFTunnelConfig{
+		NodeID:        pod.Spec.NodeName,
+		PodID:         pod.Name,
+		endpointIP:    utils.GetEth0IP(pod),
+		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.DaemonCIDR, known.CNFCIDR),
 		port:          known.UDPPort,
-		PublicKey:     getSpecificAnnotation(pod, known.PublicKey),
+		PublicKey:     utils.GetSpecificAnnotation(pod, known.PublicKey),
 	}
 }
 
-func NewTunnel(k8sClient *kubernetes.Clientset, octopusClient *versioned.Clientset,
-	spec *known.Specification, done <-chan struct{}) (*Wireguard, error) {
+func NewTunnel(spec *Specification) (*Wireguard, error) {
 	var err error
 
 	w := &Wireguard{
 		interConnections: make(map[string]*v1alpha1.Peer),
-		innerConnections: make(map[string]*DaemonNRITunnelConfig),
-		StopCh:           done,
-		OctopusClient:    octopusClient,
-		k8sClient:        k8sClient,
+		innerConnections: make(map[string]*DaemonCNFTunnelConfig),
 		Keys:             &managedKeys{},
 		Spec:             spec,
 	}
@@ -116,9 +130,9 @@ func NewTunnel(k8sClient *kubernetes.Clientset, octopusClient *versioned.Clients
 	return w, err
 }
 
-func (w *Wireguard) Init() error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+func (w *Wireguard) Init(client *kubernetes.Clientset) error {
+	w.Lock()
+	defer w.Unlock()
 
 	klog.Info("Initializing WireGuard device...")
 
@@ -140,11 +154,26 @@ func (w *Wireguard) Init() error {
 	klog.Infof("WireGuard device %s, is up on i/f number %d, listening on port :%d, with key %s",
 		w.link.Attrs().Name, l.Index, d.ListenPort, d.PublicKey)
 
-	return addAnnotationToSelf(w.k8sClient, known.PublicKey, w.Keys.PublicKey.String(), true)
+	return utils.AddAnnotationToSelf(client, known.PublicKey, w.Keys.PublicKey.String(), true)
+}
+
+func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec Specification) (*Wireguard, error) {
+	w, err := NewTunnel(&agentSpec)
+	if err != nil {
+		klog.Fatal(err)
+		return nil, err
+	}
+	// up the interface.
+	if errInit := w.Init(k8sClient); errInit != nil {
+		klog.Fatal(errInit)
+		return nil, errInit
+	}
+	return w, nil
 }
 
 func (w *Wireguard) Cleanup() error {
 	// return utils.DeletePeerWithRetry(w.octopusClient, w.Spec.ClusterID, w.Spec.ShareNamespace)
 	// it pretty hard to handle the case, when we update the deployment of the cnf pod, as to roll-update mechanism.
+
 	return nil
 }

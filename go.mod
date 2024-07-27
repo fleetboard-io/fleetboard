@@ -16,9 +16,8 @@ require (
 	github.com/kubeovn/kube-ovn v1.12.4
 	github.com/mattbaird/jsonpatch v0.0.0-20240118010651-0ba75a80ca38
 	github.com/miekg/dns v1.1.58
-	github.com/ovn-org/libovsdb v0.0.0-20230711201130-6785b52d4020
-	github.com/prometheus-community/pro-bing v0.3.0
 	github.com/sirupsen/logrus v1.9.3
+	github.com/spf13/cobra v1.7.0
 	golang.org/x/sys v0.20.0
 	golang.org/x/time v0.5.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
@@ -27,6 +26,7 @@ require (
 	k8s.io/apiserver v0.28.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.28.4
+	k8s.io/component-base v0.28.4
 	k8s.io/endpointslice v0.0.0
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.27.8
@@ -39,8 +39,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bhendo/go-powershell v0.0.0-20190719160123-219e7fb4e41e // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
-	github.com/cenkalti/hub v1.0.1 // indirect
-	github.com/cenkalti/rpc2 v0.0.0-20210604223624-c1acbc6ec984 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containernetworking/cni v1.1.2
 	github.com/evanphx/json-patch/v5 v5.7.0 // indirect
@@ -55,13 +53,11 @@ require (
 	github.com/mdlayher/socket v0.4.1 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/scylladb/go-set v1.0.2 // indirect
-	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vishvananda/netns v0.0.4 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
@@ -71,6 +67,7 @@ require (
 )
 
 require (
+	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/DataDog/appsec-internal-go v1.0.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.45.0-rc.1 // indirect
 	github.com/DataDog/datadog-agent/pkg/remoteconfig/state v0.48.0-devel.0.20230725154044-2549ba9058df // indirect
@@ -122,6 +119,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
 	github.com/mdlayher/netlink v1.7.2 // indirect
+	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
@@ -133,14 +131,12 @@ require (
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.2 // indirect
 	github.com/outcaste-io/ristretto v0.2.1 // indirect
-	github.com/parnurzeal/gorequest v0.2.16 // indirect
+	github.com/ovn-org/libovsdb v0.0.0-20230711201130-6785b52d4020 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/quic-go/quic-go v0.37.4 // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.7.0 // indirect
-	github.com/smartystreets/goconvey v1.8.1 // indirect
-	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.2.1 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
@@ -183,7 +179,6 @@ require (
 	inet.af/netaddr v0.0.0-20220811202034-502d2d690317 // indirect
 	k8s.io/apiextensions-apiserver v0.28.3 // indirect
 	k8s.io/cloud-provider v0.27.8 // indirect
-	k8s.io/component-base v0.28.4 // indirect
 	k8s.io/component-helpers v0.28.4 // indirect
 	k8s.io/controller-manager v0.28.4 // indirect
 	k8s.io/cri-api v0.28.4 // indirect
@@ -191,7 +186,6 @@ require (
 	k8s.io/kms v0.28.4 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/kubelet v0.27.8 // indirect
-	moul.io/http2curl v1.0.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.1.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect

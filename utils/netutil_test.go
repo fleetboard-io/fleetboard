@@ -147,6 +147,16 @@ func Test_findAvailableCIDR(t *testing.T) {
 			want:    "20.112.3.0/24",
 			wantErr: false,
 		},
+		{
+			name: "name6",
+			args: args{
+				networkCIDR:   "20.112.0.0/16",
+				existingPeers: []string{""},
+				networkBits:   24,
+			},
+			want:    "20.112.0.0/24",
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

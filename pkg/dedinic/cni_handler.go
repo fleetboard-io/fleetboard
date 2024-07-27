@@ -3,8 +3,9 @@ package dedinic
 import (
 	"fmt"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"k8s.io/klog/v2"
+
+	"github.com/containernetworking/plugins/pkg/ns"
 )
 
 type cniHandler struct {

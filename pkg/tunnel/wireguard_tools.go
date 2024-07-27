@@ -1,25 +1,14 @@
-package controller
+package tunnel
 
 import (
-	"context"
-	"fmt"
 	"net"
-	"os"
-	"strings"
 	"time"
 
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -103,8 +92,8 @@ func (w *Wireguard) AddInterClusterTunnel(peer *v1alpha1.Peer) error {
 
 	klog.Infof("Connecting cluster %s endpoint %s with publicKey %s",
 		peer.Spec.ClusterID, remoteIP, remoteKey)
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.Lock()
+	defer w.Unlock()
 
 	// Delete or update old peers for ClusterID.
 	oldCon, found := w.interConnections[peer.Spec.ClusterID]
@@ -124,10 +113,10 @@ func (w *Wireguard) AddInterClusterTunnel(peer *v1alpha1.Peer) error {
 	}
 
 	// create connection, overwrite existing connection
-	klog.Infof("Adding connection for cluster %s, %v", peer.Spec.ClusterID, peer)
+	klog.Infof("Adding connection for cluster %s, with allowed ips %s,"+
+		" %v", peer.Spec.ClusterID, allowedIPs, peer)
 	w.interConnections[peer.Spec.ClusterID] = peer
 
-	// configure peer 10s default todo make it configurable.
 	ka := 10 * time.Second
 	peerCfg := []wgtypes.PeerConfig{{
 		PublicKey:  remoteKey,
@@ -173,15 +162,13 @@ func (w *Wireguard) RemoveInnerClusterTunnel(key *wgtypes.Key) error {
 	return nil
 }
 
-func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfig) error {
+func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonCNFTunnelConfig) error {
 	var endpoint *net.UDPAddr
-	// should we connect daemon nri to cnf in same node?
-
 	// Parse remote addresses and allowed IPs.
 	remoteIP := net.ParseIP(daemonPeerConfig.endpointIP)
 	remotePort := daemonPeerConfig.port
 	if remoteIP == nil {
-		klog.Infof("failed to parse pod %s on node %s eth0 IP.", daemonPeerConfig.podID, daemonPeerConfig.nodeID)
+		klog.Infof("failed to parse pod %s on node %s eth0 IP.", daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
 		return errors.New("failed to parse ")
 	} else {
 		endpoint = &net.UDPAddr{
@@ -190,7 +177,7 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 		}
 	}
 
-	allowedIPs := parseSubnets(daemonPeerConfig.secondaryCIDR)
+	allowedIPs := parseSubnets(daemonPeerConfig.SecondaryCIDR)
 
 	// Parse remote public key.
 	remoteKey, err := wgtypes.ParseKey(daemonPeerConfig.PublicKey[0])
@@ -199,12 +186,12 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 	}
 
 	klog.Infof("Connecting daemon nri endpoint %s with publicKey %s",
-		daemonPeerConfig.nodeID, remoteKey)
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+		daemonPeerConfig.NodeID, remoteKey)
+	w.Lock()
+	defer w.Unlock()
 
 	// Delete or update old peers for ClusterID.
-	oldCon, found := w.innerConnections[daemonPeerConfig.nodeID]
+	oldCon, found := w.innerConnections[daemonPeerConfig.NodeID]
 	if found {
 		if oldKey, e := wgtypes.ParseKey(oldCon.PublicKey[0]); e == nil {
 			// because every time when nri pod restart it will change the public key and the tunnel should be re-build.
@@ -214,15 +201,15 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonNRITunnelConfi
 				return nil
 			}
 			// new daemonPeerConfig will take over subnets so can ignore error
-			_ = w.RemoveInterClusterTunnel(&oldKey)
+			_ = w.RemoveInnerClusterTunnel(&oldKey)
 		}
 
-		delete(w.innerConnections, daemonPeerConfig.nodeID)
+		delete(w.innerConnections, daemonPeerConfig.NodeID)
 	}
 
 	// create connection, overwrite existing connection
-	klog.Infof("Adding inner cluster tunnel connection for node %s, %v", daemonPeerConfig.nodeID, daemonPeerConfig)
-	w.innerConnections[daemonPeerConfig.nodeID] = daemonPeerConfig
+	klog.Infof("Adding inner cluster tunnel connection for node %s, %v", daemonPeerConfig.NodeID, daemonPeerConfig)
+	w.innerConnections[daemonPeerConfig.NodeID] = daemonPeerConfig
 
 	// configure daemonPeerConfig 10s default todo make it configurable.
 	ka := 10 * time.Second
@@ -285,108 +272,4 @@ func parseSubnets(subnets []string) []net.IPNet {
 	}
 
 	return nets
-}
-
-func setSpecificAnnotation(client *kubernetes.Clientset, pod *v1.Pod, annotationKey, annotationValue string,
-	override bool) error {
-	annoChanged := true
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	annotationKey = fmt.Sprintf(annotationKey, known.NautiPrefix)
-
-	existingValues, ok := pod.Annotations[annotationKey]
-	if ok && !override {
-		existingValuesSlice := strings.Split(existingValues, ",")
-		if utils.ContainsString(existingValuesSlice, annotationValue) {
-			annoChanged = false
-		} else {
-			pod.Annotations[annotationKey] = existingValues + "," + annotationValue
-		}
-	} else {
-		pod.Annotations[annotationKey] = annotationValue
-	}
-	if annoChanged {
-		_, err := client.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// getSpecificAnnotation get DaemonCIDR from pod annotation return "" if is empty.
-func getSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
-	annotations := pod.Annotations
-	allAnnoValue := make([]string, 0)
-	if annotations == nil {
-		return allAnnoValue
-	}
-
-	for _, item := range annotationKeys {
-		if val, ok := annotations[fmt.Sprintf(item, known.NautiPrefix)]; ok {
-			existingValuesSlice := strings.Split(val, ",")
-			allAnnoValue = append(allAnnoValue, existingValuesSlice...)
-		}
-	}
-
-	return allAnnoValue
-}
-
-// HasIPChanged checks if the IP of the pod has changed:w.
-// func hasIPChanged(oldPod, newPod *v1.Pod) bool {
-//	oldIP := getEth0IP(oldPod)
-//	newIP := getEth0IP(newPod)
-//	return oldIP != newIP
-// }
-
-func getEth0IP(pod *v1.Pod) string {
-	for _, podIP := range pod.Status.PodIPs {
-		if podIP.IP != "" {
-			return podIP.IP
-		}
-	}
-	return ""
-}
-
-func isRunningAndHasIP(pod *v1.Pod) bool {
-	if pod.Status.Phase == v1.PodRunning {
-		for _, podIP := range pod.Status.PodIPs {
-			if podIP.IP != "" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func addAnnotationToSelf(client *kubernetes.Clientset, annotationKey, annotationValue string, override bool) error {
-	// Get the Pod's name and namespace from the environment variables
-	podName := os.Getenv("POD_NAME")
-	namespace := os.Getenv("POD_NAMESPACE")
-
-	// Get the Pod
-	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	return setSpecificAnnotation(client, pod, annotationKey, annotationValue, override)
-}
-
-func patchPodConfig(client *kubernetes.Clientset, cachedPod, pod *v1.Pod) error {
-	patch, err := util.GenerateMergePatchPayload(cachedPod, pod)
-	if err != nil {
-		klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
-		return err
-	}
-	_, err = client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
-		types.MergePatchType, patch, metav1.PatchOptions{}, "")
-	if err != nil {
-		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
 }

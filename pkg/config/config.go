@@ -15,11 +15,12 @@ import (
 
 	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/tunnel"
 	"github.com/nauti-io/nauti/utils"
 )
 
 // GetHubConfig will loop until we can get a valid secret.
-func GetHubConfig(kubeClientSet kubernetes.Interface, spec *known.Specification) (*rest.Config, error) {
+func GetHubConfig(kubeClientSet kubernetes.Interface, spec *tunnel.Specification) (*rest.Config, error) {
 	hubSecret, err := kubeClientSet.CoreV1().Secrets(known.NautiSystemNamespace).
 		Get(context.TODO(), known.HubSecretName, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
@@ -104,7 +105,7 @@ func storeHubClusterCredentials(kubeClientSet kubernetes.Interface, secret corev
 }
 
 // WaitGetGlobalNetworkInfo will wait util we get valid global cidr and my cidr config
-func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *known.Specification) (string, string) {
+func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *tunnel.Specification) (string, string) {
 	secretCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	secretName := known.HubSecretName
@@ -143,7 +144,7 @@ func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *known.Spec
 	return globalCIDR, clusterCIDR
 }
 
-func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *known.Specification) (string, string) {
+func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *tunnel.Specification) (string, string) {
 	cidrCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var globalCIDR, clusterCIDR string
@@ -156,6 +157,7 @@ func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *k
 		}
 		if len(globalCIDR) != 0 && len(clusterCIDR) != 0 {
 			// stop only when global cidr and cluster cidr is not empty
+			klog.Infof("we find global cidr and cluster cidr is %s, %s", globalCIDR, clusterCIDR)
 			cancel()
 		}
 	}, 10*time.Second, 0.3, false)

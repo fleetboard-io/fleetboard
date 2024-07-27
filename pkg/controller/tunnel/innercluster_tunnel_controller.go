@@ -1,4 +1,4 @@
-package controller
+package tunnel
 
 import (
 	"context"
@@ -6,9 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nauti-io/nauti/pkg/config"
-	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	utils "github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,22 +19,46 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
+	"github.com/nauti-io/nauti/pkg/config"
+	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/tunnel"
+	"github.com/nauti-io/nauti/utils"
 )
 
 type InnerClusterTunnelController struct {
-	yachtController *yacht.Controller
-	// specific namespace.
+	yachtController     *yacht.Controller
 	podLister           listenrv1.PodLister
 	kubeInformerFactory informers.SharedInformerFactory
-	tunnelManager       *Wireguard
-	// spec                *known.Specification
-	podSynced cache.InformerSynced
-	// peerLister          v1alpha1.PeerLister
-	existingCIDR []string
-	clusterCIDR  string
-	globalCIDR   string
-	sync.Mutex
+	wireguard           *tunnel.Wireguard
+	podSynced           cache.InformerSynced
+	existingCIDR        []string
+	clusterCIDR         string
+	globalCIDR          string
+	kubeClientSet       kubernetes.Interface
+	currentLeader       string
+	sync.RWMutex
+}
+
+func (ict *InnerClusterTunnelController) EnqueueAdditionalInnerConnectionHandleObj(podName string) {
+	if pod, err := ict.kubeClientSet.CoreV1().Pods(known.NautiSystemNamespace).
+		Get(context.TODO(), podName, metav1.GetOptions{}); err == nil {
+		ict.yachtController.Enqueue(pod)
+	} else {
+		klog.Errorf("can't get pod %s from this cluster", podName)
+	}
+}
+
+func (ict *InnerClusterTunnelController) EnqueueExistingAdditionalInnerConnectionHandle() {
+	if podList, err := ict.kubeClientSet.CoreV1().Pods(known.NautiSystemNamespace).
+		List(context.TODO(), metav1.ListOptions{}); err == nil {
+		for _, podItem := range podList.Items {
+			pod := podItem
+			ict.yachtController.Enqueue(&pod)
+		}
+	} else {
+		klog.Errorf("can't get existing pod from this cluster")
+	}
 }
 
 func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (string, error) {
@@ -55,7 +76,7 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	cachedPod := pod.DeepCopy()
 	pod.GetAnnotations()[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)] = secondaryCIDR
 	pod.GetAnnotations()[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)] = ict.globalCIDR
-	if err := patchPodConfig(ict.tunnelManager.k8sClient, cachedPod, pod); err != nil {
+	if err := utils.PatchPodConfig(ict.kubeClientSet, cachedPod, pod); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
 	}
@@ -80,7 +101,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 			return nil, nil
 		}
 	}
-	daemonConfig := DaemonConfigFromPod(pod)
+	daemonConfig := tunnel.DaemonConfigFromPod(pod)
 	klog.Infof("pod config info is %v", daemonConfig)
 	// pod is been deleting
 	if !utils.IsPodAlive(pod) {
@@ -93,60 +114,70 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 		return nil, nil
 	}
 	// empty cidr on nri pod annotation
-	if len(daemonConfig.secondaryCIDR) == 0 {
+	if len(daemonConfig.SecondaryCIDR) == 0 {
 		// in cnf pod, we can allocate
-		if len(pod.GetLabels()[known.CNFLabel]) == 0 {
+		if ict.wireguard.Spec.PodName == ict.currentLeader {
 			// prepare subnet in cluster
 			cidr, errSpawn := ict.SpawnNewCIDRForNRIPod(pod)
 			if errSpawn != nil {
 				return &failedPeriod, err
 			}
-			daemonConfig.secondaryCIDR = []string{cidr}
+			if daemonConfig.PodID == ict.wireguard.Spec.PodName {
+				// coming pod is leader, only allocate cidr no need to establish tunnels.
+				return nil, nil
+			}
+			daemonConfig.SecondaryCIDR = []string{cidr}
 		} else {
 			// in nri pod, wait next time
 			return &failedPeriod, err
 		}
 	}
 
-	if errAddInnerTunnel := ict.tunnelManager.AddInnerClusterTunnel(daemonConfig); errAddInnerTunnel != nil {
+	if errAddInnerTunnel := ict.wireguard.AddInnerClusterTunnel(daemonConfig); errAddInnerTunnel != nil {
 		klog.Infof("add inner cluster tunnel failed %v", daemonConfig)
 		return &failedPeriod, errAddInnerTunnel
 	}
 	klog.Infof("inner cluster tunnel with pod: %s has been added successfully", pod.Name)
 
 	// add route for target inner cluster tunnel pod
-	if errRoute := configHostRoutingRules(daemonConfig.secondaryCIDR, known.Add); errRoute != nil {
+	if errRoute := configHostRoutingRules(daemonConfig.SecondaryCIDR, known.Add); errRoute != nil {
 		klog.Infof("add route inner cluster in cnf failed for %s, with error %v",
-			daemonConfig.secondaryCIDR, errRoute)
+			daemonConfig.SecondaryCIDR, errRoute)
 		return &failedPeriod, errRoute
 	}
 	return nil, nil
 }
 
-func (ict *InnerClusterTunnelController) recycleResources(podConfig *DaemonNRITunnelConfig) error {
-	ict.tunnelManager.mutex.Lock()
-	defer ict.tunnelManager.mutex.Unlock()
+func (ict *InnerClusterTunnelController) RecycleAllResources() {
+	for _, innerConnection := range ict.wireguard.GetAllExistingInnerConnection() {
+		if err := ict.recycleResources(innerConnection); err != nil {
+			klog.Errorf("can't remove this inner connections %s", innerConnection.NodeID)
+		}
+	}
+}
+
+func (ict *InnerClusterTunnelController) recycleResources(podConfig *tunnel.DaemonCNFTunnelConfig) error {
 	// check if we have had a tunnel for it.
-	_, found := ict.tunnelManager.innerConnections[podConfig.nodeID]
+	_, found := ict.wireguard.GetExistingInnerConnection(podConfig.NodeID)
 	if !found {
 		// do nothing if we have not established any tunnel for this node
 		return nil
 	}
 	publicKey := podConfig.PublicKey
 	if oldKey, err := wgtypes.ParseKey(publicKey[0]); err != nil {
-		klog.Infof("Can't parse key for %s with key %s", podConfig.podID, publicKey)
+		klog.Infof("Can't parse key for %s with key %s", podConfig.PodID, publicKey)
 		return err
 	} else {
 		ict.Lock()
-		delete(ict.tunnelManager.innerConnections, podConfig.nodeID)
-		utils.RemoveString(ict.existingCIDR, podConfig.secondaryCIDR[0])
+		ict.wireguard.DeleteExistingInnerConnection(podConfig.NodeID)
+		utils.RemoveString(ict.existingCIDR, podConfig.SecondaryCIDR[0])
 		ict.Unlock()
-		removeTunnelError := ict.tunnelManager.RemoveInnerClusterTunnel(&oldKey)
+		removeTunnelError := ict.wireguard.RemoveInnerClusterTunnel(&oldKey)
 		if removeTunnelError != nil {
-			klog.Infof("failed to remove tunnel for %s on node %s", podConfig.podID, podConfig.nodeID)
+			klog.Infof("failed to remove tunnel for %s on node %s", podConfig.PodID, podConfig.NodeID)
 			return removeTunnelError
 		}
-		if errRemoveRoute := configHostRoutingRules(podConfig.secondaryCIDR, known.Delete); errRemoveRoute != nil {
+		if errRemoveRoute := configHostRoutingRules(podConfig.SecondaryCIDR, known.Delete); errRemoveRoute != nil {
 			klog.Infof("delete route failed for %v", errRemoveRoute)
 			return errRemoveRoute
 		}
@@ -154,22 +185,24 @@ func (ict *InnerClusterTunnelController) recycleResources(podConfig *DaemonNRITu
 	return nil
 }
 
-func NewInnerClusterTunnelController(w *Wireguard, kubeClientSet kubernetes.Interface,
-	labelSelector string) (*InnerClusterTunnelController, error) {
-	// only nauti system namespace pod is responsible for tunnelManager
+func NewInnerClusterTunnelController(w *tunnel.Wireguard,
+	kubeClientSet kubernetes.Interface) (*InnerClusterTunnelController, error) {
+	// only nauti system namespace pod is responsible for wire guard
 	k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClientSet, 10*time.Minute,
 		informers.WithNamespace(known.NautiSystemNamespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.LabelSelector = labelSelector
+			options.LabelSelector = known.RouterCNFCreatedByLabel
 		}),
 	)
 	podInformer := k8sInformerFactory.Core().V1().Pods()
 
 	ictController := &InnerClusterTunnelController{
-		tunnelManager:       w,
+		wireguard:           w,
 		kubeInformerFactory: k8sInformerFactory,
 		podLister:           podInformer.Lister(),
 		podSynced:           podInformer.Informer().HasSynced,
+		kubeClientSet:       kubeClientSet,
+		currentLeader:       "",
 	}
 	podController := yacht.NewController("daemon pod for inner cluster tunnel connection").
 		WithCacheSynced(podInformer.Informer().HasSynced).
@@ -177,11 +210,13 @@ func NewInnerClusterTunnelController(w *Wireguard, kubeClientSet kubernetes.Inte
 		var newPod *v1.Pod
 		// delete event
 		if newObj == nil {
-			return true, nil
+			pod := oldObj.(*v1.Pod)
+			return ictController.ShouldHandlerPod(pod), nil
 		} else {
 			newPod = newObj.(*v1.Pod)
-			publicKey := getSpecificAnnotation(newPod, known.PublicKey)
-			if isRunningAndHasIP(newPod) && len(publicKey) != 0 {
+			shouldHandle := ictController.ShouldHandlerPod(newPod)
+			publicKey := utils.GetSpecificAnnotation(newPod, known.PublicKey)
+			if shouldHandle && utils.IsRunningAndHasIP(newPod) && len(publicKey) != 0 {
 				return true, nil
 			}
 		}
@@ -206,10 +241,24 @@ func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 	}, time.Duration(0))
 }
 
-// ConfigWithAnnotationAndExistingCIDR  only need invoke on cnf pod
-func (ict *InnerClusterTunnelController) ConfigWithAnnotationAndExistingCIDR() error {
-	existingCIDR, clusterCIDR, globalCIDR, err := getInnerClusterExistingCIDR(ict.tunnelManager.k8sClient,
-		ict.tunnelManager.OctopusClient, ict.tunnelManager.Spec)
+func (ict *InnerClusterTunnelController) ShouldHandlerPod(pod *v1.Pod) bool {
+	var myPodName = ict.wireguard.Spec.PodName
+	var currentLeader = ict.GetCurrentLeader()
+	// I am a leader, establish tunnel with non-leaders
+	if myPodName == currentLeader {
+		return true
+	}
+	// ignore myself
+	if pod.Name == myPodName || currentLeader == "" {
+		return false
+	}
+	return pod.Name == currentLeader
+}
+
+// ConfigWithExistingCIDR  only need invoke on cnf pod
+func (ict *InnerClusterTunnelController) ConfigWithExistingCIDR(oClient *octopusClientset.Clientset) error {
+	existingCIDR, clusterCIDR, globalCIDR, err := getInnerClusterExistingCIDR(ict.kubeClientSet,
+		oClient, ict.wireguard.Spec)
 	if err != nil {
 		klog.Errorf("can't get or set annotation with existing cidr and global or cluster cidr")
 		return err
@@ -220,21 +269,21 @@ func (ict *InnerClusterTunnelController) ConfigWithAnnotationAndExistingCIDR() e
 	return nil
 }
 
-func getInnerClusterExistingCIDR(k8sClient *kubernetes.Clientset, clientset *octopusClientset.Clientset,
-	spec *known.Specification) ([]string, string, string, error) {
+func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *octopusClientset.Clientset,
+	spec *tunnel.Specification) ([]string, string, string, error) {
 	existingCIDR := make([]string, 0)
 	globalCIDR, clusterCIDR := config.WaitGetCIDRFromHubclient(clientset, spec)
-	if err := addAnnotationToSelf(k8sClient, known.CNFCIDR, globalCIDR, true); err != nil {
+	if err := utils.AddAnnotationToSelf(k8sClient, known.CNFCIDR, globalCIDR, true); err != nil {
 		return existingCIDR, "", "", err
 	}
-	if err := addAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
+	if err := utils.AddAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
 		return existingCIDR, "", "", err
 	}
 	if podList, errListPod := k8sClient.CoreV1().Pods(known.NautiSystemNamespace).List(context.TODO(),
-		metav1.ListOptions{LabelSelector: known.RouterDaemonCreatedByLabel}); errListPod == nil {
+		metav1.ListOptions{LabelSelector: known.RouterCNFCreatedByLabel}); errListPod == nil {
 		for _, existingPod := range podList.Items {
 			pod := existingPod
-			cidr := getSpecificAnnotation(&pod, known.DaemonCIDR)
+			cidr := utils.GetSpecificAnnotation(&pod, known.DaemonCIDR)
 			if len(cidr) != 0 {
 				existingCIDR = append(existingCIDR, cidr[0])
 			}
@@ -245,4 +294,16 @@ func getInnerClusterExistingCIDR(k8sClient *kubernetes.Clientset, clientset *oct
 	}
 
 	return existingCIDR, clusterCIDR, globalCIDR, nil
+}
+
+func (ict *InnerClusterTunnelController) SetCurrentLeader(leader string) {
+	ict.Lock()
+	defer ict.Unlock()
+	ict.currentLeader = leader
+}
+
+func (ict *InnerClusterTunnelController) GetCurrentLeader() string {
+	ict.RLock()
+	defer ict.RUnlock()
+	return ict.currentLeader
 }

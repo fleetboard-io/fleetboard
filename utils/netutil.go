@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 // GetIndexIPFromCIDR return index ip in the cidr, index start from 1 not 0, because 0 is not a valid ip.
@@ -48,6 +50,9 @@ func FindAvailableCIDR(networkCIDR string, existingPeers []string, networkBits i
 	existingCIDRs := make(map[string]bool)
 	for _, cidr := range existingPeers {
 		// Trim existing CIDR to 16 bits network
+		if len(cidr) == 0 {
+			continue
+		}
 		_, ipNet, _ := net.ParseCIDR(cidr)
 		ipNet.IP = ipNet.IP.Mask(net.CIDRMask(networkBits, 32))
 		existingCIDRs[ipNet.String()] = true
@@ -83,4 +88,24 @@ func isOverlappingCIDR(cidr1, cidr2 string) bool {
 	_, ipNet2, _ := net.ParseCIDR(cidr2)
 
 	return ipNet1.Contains(ipNet2.IP) || ipNet2.Contains(ipNet1.IP)
+}
+
+func GetEth0IP(pod *v1.Pod) string {
+	for _, podIP := range pod.Status.PodIPs {
+		if podIP.IP != "" {
+			return podIP.IP
+		}
+	}
+	return ""
+}
+
+func IsRunningAndHasIP(pod *v1.Pod) bool {
+	if pod.Status.Phase == v1.PodRunning {
+		for _, podIP := range pod.Status.PodIPs {
+			if podIP.IP != "" {
+				return true
+			}
+		}
+	}
+	return false
 }

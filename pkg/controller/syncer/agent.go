@@ -1,4 +1,4 @@
-package controller
+package syncer
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 
 	"github.com/nauti-io/nauti/pkg/controller/mcs"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/tunnel"
 	"github.com/pkg/errors"
 )
 
@@ -39,7 +40,7 @@ type Syncer struct {
 }
 
 // New create a syncer client, it only works in cluster level
-func New(spec *known.Specification, syncerConf known.SyncerConfig, kubeConfig *rest.Config) (*Syncer, error) {
+func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *rest.Config) (*Syncer, error) {
 	if errs := validations.IsDNS1123Label(spec.ClusterID); len(errs) > 0 {
 		return nil, errors.Errorf("%s is not a valid ClusterID %v", spec.ClusterID, errs)
 	}

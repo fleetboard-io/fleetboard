@@ -1,34 +1,47 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: nri-daemon
+  name: cnf-nauti
   namespace: nauti-system
 spec:
   selector:
     matchLabels:
-      app: nri-daemon
+      app: cnf-nauti
   template:
     metadata:
       labels:
-        app: nri-daemon
-        router.nauti.io/nri: true
+        app: cnf-nauti
+        router.nauti.io/cnf: "true"
     spec:
-      tolerations:
       serviceAccountName: octopus
       hostNetwork: false
       containers:
-        - name: nri-daemon
-          image: lmxia/nri-daemon:2024061901
+        - name: cnf-nauti
+          image: 121.40.102.76:30080/cnf/cnf:v7
           imagePullPolicy: IfNotPresent
           securityContext:
             runAsUser: 0
             privileged: true
+          command:
+            - ./cnf
+          args:
+            - --shared-namespace=syncer-operator
+            - --local-namespace=syncer-operator
+            - --as-hub=false
+            - --as-cluster=true
+            - --hub-secret-namespace=nauti-system
+            - --hub-secret-name=octopus
+            - --hub-url=https://172.24.33.2:6443
           env:
-            - name: POD_NAME
+            - name: NAUTI_CLUSTERID
+              value: cluster1
+            - name: NAUTI_BOOTSTRAPTOKEN
+              value: re51os.131tn13kek2iaqoz
+            - name: NAUTI_PODNAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: POD_NAMESPACE
+            - name: NAUTI_PODNAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
