@@ -1,4 +1,4 @@
-package controller
+package tunnel
 
 import (
 	"context"
@@ -14,14 +14,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
 	v1alpha1app "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	octopusinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
 	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/tunnel"
 	"github.com/nauti-io/nauti/utils"
 	"github.com/vishvananda/netlink"
 )
@@ -31,17 +34,22 @@ type PeerController struct {
 	// specific namespace.
 	peerLister     v1alpha1.PeerLister
 	octopusFactory octopusinformers.SharedInformerFactory
-	tunnel         *Wireguard
-	spec           *known.Specification
+	tunnel         *tunnel.Wireguard
+	octopusClient  *versioned.Clientset
+	spec           *tunnel.Specification
+	localK8sClient kubernetes.Interface
 }
 
-func NewPeerController(spec known.Specification, w *Wireguard,
+func NewPeerController(spec tunnel.Specification, localK8sClient kubernetes.Interface, w *tunnel.Wireguard,
+	octopusClient *versioned.Clientset,
 	octopusFactory octopusinformers.SharedInformerFactory) (*PeerController, error) {
 	peerController := &PeerController{
 		peerLister:     octopusFactory.Octopus().V1alpha1().Peers().Lister(),
 		octopusFactory: octopusFactory,
 		tunnel:         w,
+		octopusClient:  octopusClient,
 		spec:           &spec,
+		localK8sClient: localK8sClient,
 	}
 	peerInformer := octopusFactory.Octopus().V1alpha1().Peers()
 
@@ -60,12 +68,12 @@ func NewPeerController(spec known.Specification, w *Wireguard,
 				newPeer := tempObj.(*v1alpha1app.Peer)
 				// hub connect with nohub, nohub connect with hub.
 				// make sure there is only ONE Hub.
-				// TODO should we create tunnelManager for public child cluster in hub?
+				// TODO should we create wireguard for public child cluster in hub?
 				if newPeer.Spec.IsHub || (len(newPeer.Spec.Endpoint) != 0 && newPeer.Spec.IsPublic) {
-					return !spec.IsHub, nil
+					return !spec.AsHub, nil
 				} else {
 					// child cluster without public ip
-					return spec.IsHub || len(spec.Endpoint) != 0, nil
+					return spec.AsHub || len(spec.Endpoint) != 0, nil
 				}
 			}
 			return false, nil
@@ -76,6 +84,26 @@ func NewPeerController(spec known.Specification, w *Wireguard,
 	}
 	peerController.yachtController = yachtController
 	return peerController, nil
+}
+
+func (p *PeerController) RecyclePeer(cachedPeer *v1alpha1app.Peer) (*time.Duration, error) {
+	// TODO try to recycle peer in this cnf client.
+	var oldKey wgtypes.Key
+	var err error
+	failedPeriod := 2 * time.Second
+	if oldKey, err = wgtypes.ParseKey(cachedPeer.Spec.PublicKey); err != nil {
+		klog.Infof("can't find key for %s with key %s", cachedPeer.Name, cachedPeer.Spec.PublicKey)
+		return &failedPeriod, err
+	}
+	if p.tunnel.RemoveInterClusterTunnel(&oldKey) != nil {
+		return &failedPeriod, err
+	}
+	if errRemoveRoute := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Delete); errRemoveRoute != nil {
+		klog.Infof("delete route failed for %v", cachedPeer)
+		return &failedPeriod, errRemoveRoute
+	}
+	klog.Infof("peer %s has been recycled successfully", cachedPeer.Name)
+	return nil, nil
 }
 
 func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
@@ -103,31 +131,17 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 	peerTerminating := hubNotExist || cachedPeer.DeletionTimestamp != nil
 	// recycle corresponding endpoint slice.
 	if peerTerminating {
-		// TODO try to recycle peer in this cnf client.
-		var oldKey wgtypes.Key
-		if oldKey, err = wgtypes.ParseKey(cachedPeer.Spec.PublicKey); err != nil {
-			klog.Infof("can't find key for %s with key %s", peerName, cachedPeer.Spec.PublicKey)
-			return &failedPeriod, err
-		}
-		if p.tunnel.RemoveInterClusterTunnel(&oldKey) != nil {
-			return &failedPeriod, err
-		}
-		if errRemoveRoute := configHostRoutingRules(cachedPeer.Spec.PodCIDR, known.Delete); errRemoveRoute != nil {
-			klog.Infof("delete route failed for %v", cachedPeer)
-			return &failedPeriod, errRemoveRoute
-		}
-		klog.Infof("peer %s has been recycled successfully", peerName)
-		return nil, nil
+		return p.RecyclePeer(cachedPeer)
 	}
 
-	if !p.spec.IsHub {
+	if !p.spec.AsHub {
 		// just cluster, only wait if the coming peer has no cidr.
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
 		}
 		// other child cluster has public ip.
 		if cachedPeer.Name != known.HubClusterName {
-			if annoError := addAnnotationToSelf(p.tunnel.k8sClient, known.DaemonCIDR, cachedPeer.Spec.PodCIDR[0],
+			if annoError := utils.AddAnnotationToSelf(p.localK8sClient, known.DaemonCIDR, cachedPeer.Spec.PodCIDR[0],
 				true); annoError != nil {
 				return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")
 			}
@@ -148,7 +162,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		}
 		// cidr allocation here.
 		cachedPeer.Spec.PodCIDR = make([]string, 1)
-		cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR[0], existingCIDR, 16)
+		cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR, existingCIDR, 16)
 		if err != nil {
 			klog.Infof("allocate peer cidr failed %v", err)
 			return &failedPeriod, err
@@ -168,7 +182,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	// 需要回写peer
 	if noCIDR {
-		_, err = p.tunnel.OctopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
+		_, err = p.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
 			cachedPeer, metav1.UpdateOptions{})
 		if err != nil {
 			return &failedPeriod, err
@@ -180,9 +194,42 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 func (p *PeerController) Start(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	klog.Info("Starting inter cluster tunnel controller...")
+	err := p.ApplyPeerConfig()
+	if err != nil {
+		klog.Errorf("can't create or update peer in hub.")
+		return
+	}
+	utils.UpdatePodLabels(p.localK8sClient, p.tunnel.Spec.PodName, true)
+	p.octopusFactory.Start(ctx.Done())
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		p.yachtController.Run(ctx)
 	}, time.Duration(0))
+}
+
+func (p *PeerController) ApplyPeerConfig() error {
+	w := p.tunnel
+	peer := &v1alpha1app.Peer{
+		Spec: v1alpha1app.PeerSpec{
+			ClusterID: w.Spec.ClusterID,
+			PodCIDR:   []string{w.Spec.CIDR},
+			Endpoint:  w.Spec.Endpoint,
+			IsHub:     w.Spec.AsHub,
+			Port:      known.UDPPort,
+			IsPublic:  len(w.Spec.Endpoint) != 0,
+			PublicKey: w.Keys.PublicKey.String(),
+		},
+	}
+	peer.Namespace = w.Spec.ShareNamespace
+	peer.Name = w.Spec.ClusterID
+	return utils.ApplyPeerWithRetry(p.octopusClient, peer)
+}
+
+func (p *PeerController) RecycleAllResources() {
+	for _, peer := range p.tunnel.GetAllExistingInterConnection() {
+		if _, err := p.RecyclePeer(peer); err != nil {
+			klog.Errorf("can't remove peer %s", peer.Name)
+		}
+	}
 }
 
 func configHostRoutingRules(cidrs []string, operation known.RouteOperation) error {

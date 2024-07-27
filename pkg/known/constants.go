@@ -55,21 +55,12 @@ const (
 
 // IPAM annotation const.
 const (
-	NautiPrefix                     = "nauti"
-	AllocatedAnnotationTemplate     = "%s.io/allocated"
-	RoutesAnnotationTemplate        = "%s.io/routes"
-	MacAddressAnnotationTemplate    = "%s.io/mac_address"
-	IPAddressAnnotationTemplate     = "%s.io/ip_address"
-	CidrAnnotationTemplate          = "%s.io/cidr"
-	GatewayAnnotationTemplate       = "%s.io/gateway"
-	LogicalSwitchAnnotationTemplate = "%s.io/logical_switch"
-	PodNicAnnotationTemplate        = "%s.io/pod_nic_type"
-	NautiTrue                       = "true"
-	DaemonCIDR                      = "%s.io/daemon_cidr"
-	CNFCIDR                         = "%s.io/cnf_cidr"
-	CLUSTERCIDR                     = "%s.io/cluster_cidr"
-	PublicKey                       = "%s.io/public_key"
-	CNFLabel                        = "router.nauti.io/cnf"
+	NautiPrefix = "nauti"
+	DaemonCIDR  = "%s.io/daemon_cidr"
+	CNFCIDR     = "%s.io/cnf_cidr"
+	CLUSTERCIDR = "%s.io/cluster_cidr"
+	PublicKey   = "%s.io/public_key"
+	CNFLabel    = "router.nauti.io/cnf"
 )
 
 const (
