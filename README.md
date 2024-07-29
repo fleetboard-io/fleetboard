@@ -7,7 +7,6 @@ provide service discovery ability.
 It consists of several parts for networking between clusters:
 
 - nri-controller add second network interface when pod created.
-- octopus manages secure tunnels between hub and clusters, sync multi cluster services related resource across clusters
 - crossdns provides DNS discovery of Services across clusters.
 
 ## Architecture
@@ -19,13 +18,6 @@ It consists of several parts for networking between clusters:
 We use hub cluster to exchange MCS related resources for connecting clusters, and establish secure tunnels with
 all other participating clusters. Hub defines a set of ServiceAccount, Secrets and RBAC to enable `Syncer` and
 `octopus`to securely access the Hub cluster's API.
-
-## Octopus
-
-Octopus maintains the tunnels by using of [WireGuard](https://www.wireguard.com/), a performant and secure VPN
-in`CNF pod`. The `CNF pod` can run on any node without specifically designated. `CNF pod` will generate key pairs
-every time it starts, creates and up wiregurad network interface and config the wireguard device with `peer` CRD.
-
 
 For develop guide, workflow show as.
 
