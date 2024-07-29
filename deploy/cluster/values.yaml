@@ -11,8 +11,6 @@ image:
 cluster:
   # Specifies whether this is a hub
   hub: false
-  # if your cluster CNI is kube-ovn
-  kubeovn: false
   clusterID: cluster1
   sharenamespace: syncer-operator
   localnamespace: syncer-operator
@@ -23,14 +21,7 @@ hub:
   hubURL: https://121.41.31.123:6443
   bootstraptoken: re51os.131tn13kek2iaqoz
 
-tunnel:
-  cidr: ""
-
 serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: { }
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
   name: octopus

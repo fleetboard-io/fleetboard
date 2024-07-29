@@ -23,8 +23,8 @@ spec:
       hostNetwork: false
       containers:
         - name: cnf-nauti
-          image: 121.40.102.76:30080/cnf/cnf:v7
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/cnf:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsUser: 0
             privileged: true
@@ -33,14 +33,14 @@ spec:
           args:
             - --shared-namespace=syncer-operator
             - --local-namespace=syncer-operator
-            - --as-hub=false
+            - --as-hub={{ .Values.cluster.hub }}}
             - --as-cluster=true
             - --hub-secret-namespace=nauti-system
             - --hub-secret-name=octopus
-            - --hub-url=https://172.24.33.2:6443
+            - --hub-url={{ .Values.hub.hubURL }}
           env:
             - name: NAUTI_CLUSTERID
-              value: cluster1
+              value: {{ .Values.cluster.clusterID }}
             - name: NAUTI_BOOTSTRAPTOKEN
               value: re51os.131tn13kek2iaqoz
             - name: NAUTI_PODNAME
