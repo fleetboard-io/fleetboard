@@ -41,7 +41,7 @@ var ParallelIpKey string
 func init() {
 	ParallelIpKey = os.Getenv("PARALLEL_IP_ANNOTATION")
 	if ParallelIpKey == "" {
-		ParallelIpKey = "ovn.kubernetes.io/ip_address"
+		ParallelIpKey = "router.nauti.io/dedicated_ip"
 	}
 }
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
@@ -156,7 +156,6 @@ func newEndpointSlice(logger klog.Logger, service *v1.Service, endpointMeta *end
 	epSlice.Labels, _ = setEndpointSliceLabels(logger, epSlice, service, controllerName)
 
 	epSlice.Labels[v1.IsHeadlessService] = "true"
-
 
 	return epSlice
 }

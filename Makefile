@@ -68,32 +68,30 @@ images:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 
 image-crossdns:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 
-image-dedinic:
-	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
-
 image-cnf:
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
+	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
 
 image-ep-controller:
-	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
 
 
 images-push:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 
 # find or download golangci-lint
 # download golangci-lint if necessary

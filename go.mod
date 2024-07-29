@@ -5,7 +5,6 @@ go 1.21
 toolchain go1.21.4
 
 require (
-	github.com/cfanbo/delayqueue v0.0.15
 	github.com/containerd/nri v0.3.0
 	github.com/containernetworking/plugins v1.3.0
 	github.com/coredns/caddy v1.1.1
@@ -13,7 +12,6 @@ require (
 	github.com/dixudx/yacht v0.8.0
 	github.com/google/uuid v1.3.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kubeovn/kube-ovn v1.12.4
 	github.com/mattbaird/jsonpatch v0.0.0-20240118010651-0ba75a80ca38
 	github.com/miekg/dns v1.1.58
 	github.com/sirupsen/logrus v1.9.3
@@ -37,32 +35,23 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bhendo/go-powershell v0.0.0-20190719160123-219e7fb4e41e // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containernetworking/cni v1.1.2
-	github.com/evanphx/json-patch/v5 v5.7.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.7.0
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/josharian/native v1.1.0 // indirect
-	github.com/juju/errors v1.0.0 // indirect
-	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
-	github.com/mdlayher/arp v0.0.0-20220512170110-6706a2966875 // indirect
-	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118 // indirect
-	github.com/mdlayher/packet v1.1.1 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
-	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0 // indirect
 	github.com/prometheus/client_model v0.4.1-0.20230718164431-9a2bf3000d16 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
-	github.com/scylladb/go-set v1.0.2 // indirect
 	github.com/vishvananda/netlink v1.2.1-beta.2
-	github.com/vishvananda/netns v0.0.4 // indirect
+	github.com/vishvananda/netns v0.0.4
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
@@ -87,6 +76,7 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.5.0-alpha // indirect
@@ -109,6 +99,7 @@ require (
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645 // indirect
@@ -124,6 +115,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/ginkgo/v2 v2.13.2 // indirect
+	github.com/onsi/gomega v1.30.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0-rc.3 // indirect
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
@@ -131,7 +123,6 @@ require (
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.2 // indirect
 	github.com/outcaste-io/ristretto v0.2.1 // indirect
-	github.com/ovn-org/libovsdb v0.0.0-20230711201130-6785b52d4020 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/quic-go/quic-go v0.37.4 // indirect

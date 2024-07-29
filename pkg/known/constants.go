@@ -48,7 +48,7 @@ const (
 )
 
 const (
-	HubSecretName        = "octopus"
+	HubSecretName        = "nauti"
 	NautiSystemNamespace = "nauti-system"
 	HubClusterName       = "hub"
 )
@@ -60,6 +60,7 @@ const (
 	CNFCIDR     = "%s.io/cnf_cidr"
 	CLUSTERCIDR = "%s.io/cluster_cidr"
 	PublicKey   = "%s.io/public_key"
+	DEDINICIP   = "router.nauti.io/dedicated_ip"
 )
 
 const (
