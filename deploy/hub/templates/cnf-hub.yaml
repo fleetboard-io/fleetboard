@@ -26,23 +26,23 @@ spec:
       hostNetwork: false
       containers:
         - name: nri-daemon
-          image: 121.40.102.76:30080/cnf/cnf:v7
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/cnf:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
             runAsUser: 0
             privileged: true
           command:
             - ./cnf
           args:
-            - --as-hub=true
-            - --cidr=20.112.0.0/12
+            - --as-hub={{ .Values.cluster.hub }}
+            - --cidr={{ .Values.tunnel.cidr }}
             - --as-cluster=false
             - --shared-namespace=syncer-operator
           env:
             - name: NAUTI_CLUSTERID
-              value: hub
+              value: {{ .Values.cluster.clusterID }}
             - name: NAUTI_ENDPOINT
-              value: 172.24.33.2
+              value: {{ .Values.tunnel.endpoint }}
             - name: NAUTI_PODNAME
               valueFrom:
                 fieldRef:
