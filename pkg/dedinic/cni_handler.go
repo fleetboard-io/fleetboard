@@ -1,12 +1,18 @@
 package dedinic
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+
+	"github.com/nauti-io/nauti/pkg/known"
 )
 
 const cniConf = `{
@@ -27,11 +33,14 @@ const cniConf = `{
 
 type cniHandler struct {
 	cniConfStr string
+	kubeClient *kubernetes.Clientset
 }
 
-func createCniHandler() *cniHandler {
+func createCniHandler(kubeClinet *kubernetes.Clientset) *cniHandler {
 	ch := &cniHandler{
-		cniConfStr: fmt.Sprintf(cniConf, NodeCIDR)}
+		cniConfStr: fmt.Sprintf(cniConf, NodeCIDR),
+		kubeClient: kubeClinet,
+	}
 	return ch
 }
 
@@ -58,6 +67,10 @@ func (ch cniHandler) handleAdd(rq *CniRequest) error {
 	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, []Route{route})
 	if err != nil {
 		klog.Errorf("add nic failed: %v", err)
+	}
+	// add IP to the pod annotation
+	if err = ch.updateTheIPToPod(rq.PodName, rq.PodNamespace, strings.Split(ipStr, "/")[0]); err != nil {
+		klog.Errorf("update annotaion failed: %v/%v", rq.PodNamespace, rq.PodName)
 	}
 
 	return err
@@ -196,4 +209,25 @@ func (ch cniHandler) deleteNic(nsPath, ifName string) error {
 		return err
 	}
 	return nil
+}
+
+func (ch cniHandler) updateTheIPToPod(podName, podNamespace, ip string) error {
+	// Get the Pod
+	pod, err := ch.kubeClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// Add an annotation to the Pod
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	pod.Annotations[known.DEDINICIP] = ip
+
+	// Update the Pod
+	_, err = ch.kubeClient.CoreV1().Pods(podNamespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	if err != nil {
+		klog.Errorf("update IP to pod %v/%v annotation failed", podNamespace, podName)
+	}
+	return err
 }

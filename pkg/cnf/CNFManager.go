@@ -2,6 +2,8 @@ package cnf
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -11,9 +13,6 @@ import (
 	tunnelcontroller "github.com/nauti-io/nauti/pkg/controller/tunnel"
 	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
 	kubeinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
-	"github.com/nauti-io/nauti/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -24,6 +23,11 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 	mcsv1a1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/nauti-io/nauti/pkg/dedinic"
+	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/pkg/tunnel"
+	"github.com/nauti-io/nauti/utils"
 )
 
 // Manager defines configuration for cnf-related controllers
@@ -43,7 +47,27 @@ type Manager struct {
 }
 
 func (m *Manager) Run(ctx context.Context) error {
-	m.startLeaderElection(m.leaderLock, ctx)
+	go m.startLeaderElection(m.leaderLock, ctx)
+
+	dedinic.CNFPodName = os.Getenv("NAUTI_PODNAME")
+	if dedinic.CNFPodName == "" {
+		klog.Fatalf("get self pod name failed")
+	}
+	dedinic.CNFPodNamespace = os.Getenv("NAUTI_PODNAMESPACE")
+	if dedinic.CNFPodName == "" {
+		klog.Fatalf("get self pod namespace failed")
+	}
+	waitForCIDRReady(ctx, m.localK8sClient)
+	// todo if nri is invalid
+	<-time.After(5 * time.Second)
+	// add bridge
+	err := dedinic.CreateBridge(dedinic.CNFBridgeName)
+	if err != nil {
+		klog.Fatalf("create nauti bridge failed: %v", err)
+	}
+
+	klog.Info("start nri dedicated plugin run")
+	dedinic.InitNRIPlugin(m.localK8sClient)
 	return nil
 }
 
@@ -196,4 +220,22 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 		ReleaseOnCancel: true,
 		Name:            "cnf-leader-election",
 	})
+}
+
+func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
+	klog.Infof("wait for cidr ready")
+	for dedinic.NodeCIDR == "" || dedinic.GlobalCIDR == "" || dedinic.CNFPodIP == "" {
+		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
+		if err == nil && pod != nil {
+			klog.Infof("cnf pod annotions: %v", pod.Annotations)
+			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)]
+			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)]
+			dedinic.CNFPodIP = pod.Status.PodIP
+		} else {
+			klog.Errorf("have not find the cnf pod")
+		}
+		<-time.After(5 * time.Second)
+	}
+	klog.Infof("cnf cidr ready, nodecidr: %v, globalcidr: %v, cnfpodip: %v",
+		dedinic.NodeCIDR, dedinic.GlobalCIDR, dedinic.CNFPodIP)
 }

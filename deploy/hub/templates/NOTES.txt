@@ -6,4 +6,4 @@ Continue to install nauti-agent on clusters, and install nauti-agent in cluster 
 
   helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace \
   --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 \
-  --set tunnel.globalcidr=20.112.0.0/12 --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
+  --set tunnel.globalcidr={{ .Values.tunnel.cidr }} --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1

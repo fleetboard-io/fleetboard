@@ -20,11 +20,12 @@ cluster:
 hub:
   hubURL: https://121.41.31.123:6443
   bootstraptoken: re51os.131tn13kek2iaqoz
+  secretName: nauti
 
 serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: octopus
+  name: nauti
 
 service:
   type: NodePort

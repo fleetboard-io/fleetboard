@@ -7,6 +7,7 @@ import (
 
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
 	"github.com/nauti-io/nauti/pkg/known"
@@ -26,8 +27,9 @@ var (
 )
 
 type CNIPlugin struct {
-	Stub stub.Stub
-	Mask stub.EventMask
+	Stub       stub.Stub
+	Mask       stub.EventMask
+	kubeClient *kubernetes.Clientset
 }
 
 var (
@@ -35,7 +37,7 @@ var (
 	_   = stub.ConfigureInterface(&CNIPlugin{})
 )
 
-func InitNRIPlugin() {
+func InitNRIPlugin(kubeClient *kubernetes.Clientset) {
 	var (
 		err  error
 		opts []stub.Option
@@ -46,7 +48,9 @@ func InitNRIPlugin() {
 	pluginIdx := "00"
 	opts = append(opts, stub.WithPluginIdx(pluginIdx))
 
-	p := &CNIPlugin{}
+	p := &CNIPlugin{
+		kubeClient: kubeClient,
+	}
 	events := "runpodsandbox,stoppodsandbox,removepodsandbox"
 	klog.Info("nri start ....")
 
@@ -58,7 +62,7 @@ func InitNRIPlugin() {
 		klog.Errorf("nri failed to create nri stub: %v", err)
 	}
 
-	csh = createCniHandler()
+	csh = createCniHandler(kubeClient)
 	klog.Info(">>>>>>>>>>>>>>>>>>>>>  nri CNI Plugin Started - Version Tag 0.0.1 <<<<<<<<<<<<<<<<<<<<<<<<<<")
 
 	err = p.Stub.Run(context.Background())

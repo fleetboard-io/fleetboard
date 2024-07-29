@@ -8,12 +8,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kubeovn/kube-ovn/pkg/util"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/nauti-io/nauti/pkg/known"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -24,7 +26,7 @@ var ParallelIPKey string
 func init() {
 	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
 	if ParallelIPKey == "" {
-		ParallelIPKey = "ovn.kubernetes.io/ip_address"
+		ParallelIPKey = "router.nauti.io/dedicated_ip"
 	}
 }
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
@@ -100,7 +102,7 @@ func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool)
 }
 
 func PatchPodConfig(client kubernetes.Interface, cachedPod, pod *v1.Pod) error {
-	patch, err := util.GenerateMergePatchPayload(cachedPod, pod)
+	patch, err := GenerateMergePatchPayload(cachedPod, pod)
 	if err != nil {
 		klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
 		return err
@@ -115,6 +117,27 @@ func PatchPodConfig(client kubernetes.Interface, cachedPod, pod *v1.Pod) error {
 		return err
 	}
 	return nil
+}
+
+func GenerateMergePatchPayload(original, modified runtime.Object) ([]byte, error) {
+	originalJSON, err := json.Marshal(original)
+	if err != nil {
+		return nil, err
+	}
+
+	modifiedJSON, err := json.Marshal(modified)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := createMergePatch(originalJSON, modifiedJSON, modified)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+func createMergePatch(originalJSON, modifiedJSON []byte, _ interface{}) ([]byte, error) {
+	return jsonpatch.CreateMergePatch(originalJSON, modifiedJSON)
 }
 
 func setSpecificAnnotation(client kubernetes.Interface, pod *v1.Pod, annotationKey, annotationValue string,
