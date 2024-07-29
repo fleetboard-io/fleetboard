@@ -71,7 +71,7 @@ func DaemonConfigFromPod(pod *v1.Pod) *DaemonCNFTunnelConfig {
 		NodeID:        pod.Spec.NodeName,
 		PodID:         pod.Name,
 		endpointIP:    utils.GetEth0IP(pod),
-		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.DaemonCIDR, known.CNFCIDR),
+		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.DaemonCIDR),
 		port:          known.UDPPort,
 		PublicKey:     utils.GetSpecificAnnotation(pod, known.PublicKey),
 	}

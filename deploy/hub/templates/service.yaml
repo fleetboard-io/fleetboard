@@ -1,4 +1,3 @@
-{{- if .Values.cluster.hub -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -16,5 +15,4 @@ spec:
       nodePort: {{ .Values.service.nodePort }}
   selector:
     app: cnf-nauti
-    cnf-leader: "true"
-{{- end }}
+    router.nauti.io/leader: "true"

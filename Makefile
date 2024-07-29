@@ -29,7 +29,7 @@ ifdef HTTPS_PROXY
 endif
 
 lint: golangci-lint
-	golangci-lint run -c .golangci.yaml --timeout=10m
+	GOARCH=amd64 GOOS=linux golangci-lint run -c .golangci.yaml --timeout=10m
 
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -57,9 +57,6 @@ endif
 crossdns:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
 
-octopus:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/octopus cmd/octopus/main.go
-
 cnf:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/cnf cmd/cnf/main.go
 
@@ -69,17 +66,13 @@ ep-controller:
 
 images:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/octopus.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
 
 image-crossdns:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
-
-image-octopus:
-	docker build $(DOCKERARGS) -f ./build/octopus.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
 
 image-dedinic:
 	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
@@ -96,7 +89,7 @@ image-ep-controller:
 
 images-push:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/octopus:${IMAGE_TAG}
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/ep-controller:${IMAGE_TAG}
 
