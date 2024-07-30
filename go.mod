@@ -2,8 +2,6 @@ module github.com/nauti-io/nauti
 
 go 1.21
 
-toolchain go1.21.4
-
 require (
 	github.com/containerd/nri v0.3.0
 	github.com/containernetworking/plugins v1.3.0
@@ -29,7 +27,6 @@ require (
 	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubernetes v1.27.8
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/controller-runtime v0.16.3
 	sigs.k8s.io/mcs-api v0.1.1-0.20230217171204-d9e516ac3939
 )
 

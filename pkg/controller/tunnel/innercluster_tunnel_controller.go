@@ -86,6 +86,11 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 
 func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfter *time.Duration, err error) {
 	failedPeriod := 2 * time.Second
+	isLeader := false
+	// it may change when leader changed.
+	if ict.wireguard.Spec.PodName == ict.currentLeader {
+		isLeader = true
+	}
 	// get pod info
 	key := podKey.(string)
 	namespace, podName, err := cache.SplitMetaNamespaceKey(key)
@@ -100,7 +105,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 			return nil, nil
 		}
 	}
-	daemonConfig := tunnel.DaemonConfigFromPod(pod)
+	daemonConfig := tunnel.DaemonConfigFromPod(pod, isLeader)
 	klog.Infof("pod config info is %v", daemonConfig)
 	// pod is been deleting
 	if !utils.IsPodAlive(pod) {
@@ -115,7 +120,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 	// empty cidr on nri pod annotation
 	if len(daemonConfig.SecondaryCIDR) == 0 {
 		// in cnf pod, we can allocate
-		if ict.wireguard.Spec.PodName == ict.currentLeader {
+		if isLeader {
 			// prepare subnet in cluster
 			cidr, errSpawn := ict.SpawnNewCIDRForNRIPod(pod)
 			if errSpawn != nil {

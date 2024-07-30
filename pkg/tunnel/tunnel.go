@@ -6,7 +6,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/nauti-io/nauti/utils"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	v1 "k8s.io/api/core/v1"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
 	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/nauti-io/nauti/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -66,8 +66,8 @@ func (w *Wireguard) DeleteExistingInnerConnection(nodeID string) {
 	delete(w.innerConnections, nodeID)
 }
 
-func DaemonConfigFromPod(pod *v1.Pod) *DaemonCNFTunnelConfig {
-	return &DaemonCNFTunnelConfig{
+func DaemonConfigFromPod(pod *v1.Pod, isLeader bool) *DaemonCNFTunnelConfig {
+	daemonConfig := &DaemonCNFTunnelConfig{
 		NodeID:        pod.Spec.NodeName,
 		PodID:         pod.Name,
 		endpointIP:    utils.GetEth0IP(pod),
@@ -75,6 +75,10 @@ func DaemonConfigFromPod(pod *v1.Pod) *DaemonCNFTunnelConfig {
 		port:          known.UDPPort,
 		PublicKey:     utils.GetSpecificAnnotation(pod, known.PublicKey),
 	}
+	if !isLeader {
+		daemonConfig.SecondaryCIDR = utils.GetSpecificAnnotation(pod, known.CNFCIDR)
+	}
+	return daemonConfig
 }
 
 func NewTunnel(spec *Specification) (*Wireguard, error) {
