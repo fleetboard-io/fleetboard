@@ -136,6 +136,10 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 			return &failedPeriod, err
 		}
 	}
+	// itself shouldn't add tunnel connection with itself.
+	if ict.wireguard.Spec.PodName == podName {
+		return nil, nil
+	}
 
 	if errAddInnerTunnel := ict.wireguard.AddInnerClusterTunnel(daemonConfig); errAddInnerTunnel != nil {
 		klog.Infof("add inner cluster tunnel failed %v", daemonConfig)
