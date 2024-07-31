@@ -215,7 +215,8 @@ func (ch cniHandler) updateTheIPToPod(podName, podNamespace, ip string) error {
 	// Get the Pod
 	pod, err := ch.kubeClient.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		panic(err.Error())
+		klog.Errorf("can not find the pod: %v/%v", podNamespace, podName)
+		return err
 	}
 
 	// Add an annotation to the Pod
