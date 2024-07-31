@@ -233,6 +233,7 @@ func (p *PeerController) RecycleAllResources() {
 }
 
 func configHostRoutingRules(cidrs []string, operation known.RouteOperation) error {
+	klog.Infof("prepare to %v route with %s", operation, cidrs)
 	var ifaceIndex int
 	if wg, err := net.InterfaceByName(known.DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index

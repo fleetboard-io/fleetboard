@@ -72,10 +72,7 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	}
 
 	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
-	cachedPod := pod.DeepCopy()
-	pod.GetAnnotations()[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)] = secondaryCIDR
-	pod.GetAnnotations()[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)] = ict.globalCIDR
-	if err := utils.PatchPodConfig(ict.kubeClientSet, cachedPod, pod); err != nil {
+	if err := utils.PatchPodWithRetry(ict.kubeClientSet, pod, secondaryCIDR, ict.globalCIDR); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
 	}
