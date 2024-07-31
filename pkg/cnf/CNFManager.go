@@ -47,8 +47,16 @@ type Manager struct {
 }
 
 func (m *Manager) Run(ctx context.Context) error {
-	go m.startLeaderElection(m.leaderLock, ctx)
+	if !m.agentSpec.AsHub {
+		go m.startLeaderElection(m.leaderLock, ctx)
+		m.dedinicEngine(ctx)
+	} else {
+		m.startLeaderElection(m.leaderLock, ctx)
+	}
+	return nil
+}
 
+func (m *Manager) dedinicEngine(ctx context.Context) {
 	dedinic.CNFPodName = os.Getenv("NAUTI_PODNAME")
 	if dedinic.CNFPodName == "" {
 		klog.Fatalf("get self pod name failed")
@@ -68,7 +76,6 @@ func (m *Manager) Run(ctx context.Context) error {
 
 	klog.Info("start nri dedicated plugin run")
 	dedinic.InitNRIPlugin(m.localK8sClient)
-	return nil
 }
 
 // NewCNFManager returns a new CNFController.
