@@ -77,7 +77,8 @@ func (ch cniHandler) handleAdd(rq *CniRequest) error {
 }
 
 func isCNFSelf(podNamespace, podName string) bool {
-	if podName == CNFPodName && podNamespace == CNFPodNamespace {
+	if (podName == CNFPodName && podNamespace == CNFPodNamespace) ||
+		(podNamespace == CNFPodNamespace && strings.Contains(podName, "cnf")) {
 		return true
 	}
 	return false
@@ -134,10 +135,10 @@ func (ch cniHandler) handleDel(rq *CniRequest) error {
 	return ch.deleteNic(rq.NetNs, rq.IfName)
 }
 
-func (ch cniHandler) deleteNic(nsPath, ifName string) error {
-	klog.V(6).Infof("deleteNic nsPath: %s, ifName: %s", nsPath, ifName)
+func (ch cniHandler) deleteNic(podPath, ifName string) error {
+	klog.V(6).Infof("deleteNic podPath: %s, ifName: %s", podPath, ifName)
 
-	podNs, err := netns.GetFromPath(nsPath)
+	podNs, err := netns.GetFromPath(podPath)
 	if err != nil {
 		klog.Errorf("error get podNs: %v", err)
 		return err
@@ -149,7 +150,7 @@ func (ch cniHandler) deleteNic(nsPath, ifName string) error {
 		}
 	}(&podNs)
 
-	origns, err := netns.Get()
+	currentNs, err := netns.Get()
 	if err != nil {
 		klog.Errorf("Failed to get current namespace: %v", err)
 		return err
@@ -159,7 +160,7 @@ func (ch cniHandler) deleteNic(nsPath, ifName string) error {
 		if err != nil {
 			klog.Errorf("close cnf netns failed: %v", err)
 		}
-	}(&origns)
+	}(&currentNs)
 
 	if err = netns.Set(podNs); err != nil {
 		klog.Errorf("Failed to set namespace: %v", err)
@@ -170,15 +171,19 @@ func (ch cniHandler) deleteNic(nsPath, ifName string) error {
 		if err != nil {
 			klog.Errorf("change namespace to cnf pod failed: %v", err)
 		}
-	}(origns)
+	}(currentNs)
 	links, err := netlink.LinkList()
 	if err != nil {
 		klog.Errorf("Failed to list links: %v", err)
 		return err
 	}
 
-	for _, link := range links {
-		klog.V(6).Infof("links: %v/%v/%v", link.Attrs().NetNsID, link.Attrs().Name, link.Type())
+	if len(links) > 0 {
+		for _, link := range links {
+			klog.V(6).Infof("links: %v/%v/%v", link.Attrs().NetNsID, link.Attrs().Name, link.Type())
+		}
+	} else {
+		klog.Error("get links for exist pod failed!!!")
 	}
 
 	var iface netlink.Link
@@ -201,12 +206,11 @@ func (ch cniHandler) deleteNic(nsPath, ifName string) error {
 	peer, err := netlink.LinkByName(veth.PeerName)
 	if err != nil {
 		klog.Errorf("Failed to get peer link: %v", err)
-		return err
 	}
 	klog.Infof("the peer name is %v", peer)
 	if err := netlink.LinkDel(iface); err != nil {
 		klog.Errorf("Failed to delete link %s: %v", ifName, err)
-		return err
+		return nil
 	}
 	return nil
 }
