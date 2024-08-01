@@ -79,7 +79,9 @@ func (p *CNIPlugin) Configure(config, runtime, version string) (stub.EventMask, 
 
 func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Container) ([]*api.ContainerUpdate, error) {
 	for _, pod := range pods {
+		klog.Infof("[Synchronize]: %v/%v", pod.Namespace, pod.Name)
 		if isCNFSelf(pod.Namespace, pod.Name) {
+			klog.Infof("skip the cnf releated pod: %v/%v", pod.Namespace, pod.Name)
 			continue
 		}
 		nsPath, err := GetNSPathFromPod(pod)
@@ -100,11 +102,9 @@ func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Contai
 
 		if err := csh.handleDel(podRequest); err != nil {
 			klog.Errorf("delete exist network failed: %v", err)
-			continue
 		}
 		if err := csh.handleAdd(podRequest); err != nil {
 			klog.Errorf("add network failed: %v", err)
-			continue
 		}
 	}
 	return nil, nil
