@@ -4,10 +4,14 @@
 child cluster and has no limits of cluster IP CIDR or CNI types of kubernetes clusters and also
 provide service discovery ability.
 
+With ``Nauti``, you don't need to impose any specific requirements on the cluster or be aware of the cluster nodes. 
+Additionally, there are no intrusive modifications to the cluster. All tunnels and network policies are configured 
+within the containers.
+
 It consists of several parts for networking between clusters:
 
-- nri-controller add second network interface when pod created.
-- crossdns provides DNS discovery of Services across clusters.
+- `cnf` adds second network interface for pods and establishes VPN tunnels across inner-cluster and inter-cluster.
+- `crossdns` provides DNS discovery of Services across clusters.
 
 ## Architecture
 
@@ -17,22 +21,19 @@ It consists of several parts for networking between clusters:
 
 We use hub cluster to exchange MCS related resources for connecting clusters, and establish secure tunnels with
 all other participating clusters. Hub defines a set of ServiceAccount, Secrets and RBAC to enable `Syncer` and
-`octopus`to securely access the Hub cluster's API.
+`cnf`to securely access the Hub cluster's API.
 
-For develop guide, workflow show as.
+## Child cluster
 
-![](doc/pic/tunnel.png)
+For every service in the cluster that has a `ServiceExport` created, a new `EndpointSlice` will be generated to represent
+the running pods and include references to the endpoint's secondary IP. These `EndpointSlice` resources will be exported
+to the `Hub Cluster` and synchronized with other clusters.
 
-## Syncer、Cross DNS
+``Nauti`` deploys ``cnf`` as a `DaemonSet` in the child clusters. A leader pod in cnf will be elected to establish
+a VPN tunnel to the `Hub Cluster` and create tunnels to other cnf replicas on different nodes within the child cluster.
 
-We may merge the two components into one Service Discovery Component.
-
-For every service in cluster which has ServiceExport created for it. A new EndpointSlice will be generated to represent
-the running pods contain references to endpoint's secondary IP. These endpointSlice resources will be exported to
-`Hub Cluster` and will be copied to other clusters.
-
-![](doc/pic/servicediscovery.png)
-
+Additionally, all workload pods in the clusters will have a second network interface allocated by the ``cnf`` pod on the
+same node, with this second interface assigned to the ``cnf`` network namespace.
 
 ## Helm Chart Installation
 
@@ -134,19 +135,7 @@ Test it in another cluster.
 ## Clear All
   ```shell
   $ helm uninstall nauti -n nauti-system
-  $ kubectl delete -f local-pv.yaml
   $ kubectl delete ns nauti-system
-  $ for ns in $(kubectl get ns -o name |cut -c 11-); do
-      echo "annotating pods in  ns:$ns"
-      kubectl annotate pod --all nauti.io/cidr- -n "$ns"
-      kubectl annotate pod --all nauti.io/gateway- -n "$ns"
-      kubectl annotate pod --all nauti.io/ip_address- -n "$ns"
-      kubectl annotate pod --all nauti.io/logical_switch- -n "$ns"
-      kubectl annotate pod --all nauti.io/mac_address- -n "$ns"
-      kubectl annotate pod --all nauti.io/allocated- -n "$ns"
-      kubectl annotate pod --all nauti.io/pod_nic_type- -n "$ns"
-      kubectl annotate pod --all nauti.io/routes- -n "$ns"
-    done
   ```
 
 
