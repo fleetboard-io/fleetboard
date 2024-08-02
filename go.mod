@@ -50,9 +50,6 @@ require (
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-)
-
-require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/DataDog/appsec-internal-go v1.0.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.45.0-rc.1 // indirect
@@ -184,7 +181,6 @@ replace k8s.io/endpointslice => ./staging/k8s.io/endpointslice
 
 replace (
 	github.com/mdlayher/socket => github.com/mdlayher/socket v0.4.0
-	github.com/ovn-org/libovsdb => github.com/kubeovn/libovsdb v0.0.0-20230824051252-485a54fd6cb4
 	k8s.io/api => k8s.io/api v0.28.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.28.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.28.4
@@ -214,5 +210,7 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.28.4
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.28.4
 	k8s.io/sample-controller => k8s.io/sample-controller v0.28.4
-
+	k8s.io/cli-runtime => k8s.io/cli-runtime v0.28.4
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.28.4
+    k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.28.4
 )
