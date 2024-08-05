@@ -127,7 +127,3 @@ func generateSliceName(clusterName, namespace, name string) string {
 
 	return fmt.Sprintf("%s-%s-%s", namespacePart, namePart, hashPart[8:24])
 }
-
-// func (a *Syncer) getObjectNameWithClusterID(name, namespace string) string {
-// 	return generateSliceName(a.ClusterID, namespace, name)
-// }

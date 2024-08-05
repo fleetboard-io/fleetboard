@@ -4,6 +4,5 @@ Your release is named {{ .Release.Name }}.
 
 Continue to install nauti-agent on clusters, and install nauti-agent in cluster by:
 
-  helm install nauti-agent mcs/nauti-agent --namespace nauti-system  --create-namespace \
-  --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 \
-  --set tunnel.globalcidr={{ .Values.tunnel.cidr }} --set tunnel.cidr=10.113.0.0/16 --set cluster.clusterID=cluster1
+  helm install nauti-agent nauti/nauti-agent --namespace nauti-system  --create-namespace \
+  --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 --set cluster.clusterID=cluster1
