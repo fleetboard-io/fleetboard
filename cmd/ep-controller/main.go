@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -19,8 +17,10 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 
+	"github.com/google/uuid"
 	"github.com/nauti-io/nauti/pkg/controller/endpoint"
 	"github.com/nauti-io/nauti/pkg/controller/endpointslice"
+	"github.com/sirupsen/logrus"
 )
 
 var (

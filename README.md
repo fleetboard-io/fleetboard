@@ -38,7 +38,7 @@ same node, with this second interface assigned to the ``cnf`` network namespace.
 ## Helm Chart Installation and Clear
 
 `Nauti` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters,
-please refer to this installation guide. [Helm Chart Page](https://nauti-io.github.io/nauti-charts/）
+please refer to this installation guide [Helm Chart Page](https://nauti-io.github.io/nauti-charts/).
 
 After the installation, add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
 The `cluster-ip` of `crossdns` is a static cluster IP, usually `10.96.0.11` , check before setting.
