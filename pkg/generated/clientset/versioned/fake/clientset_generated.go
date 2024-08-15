@@ -1,5 +1,5 @@
 /*
-Copyright The Nauti Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,9 +18,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	octopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
-	fakeoctopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1/fake"
+	clientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	fleetboardv1alpha1 "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned/typed/fleetboard.io/v1alpha1"
+	fakefleetboardv1alpha1 "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned/typed/fleetboard.io/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -78,7 +78,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// OctopusV1alpha1 retrieves the OctopusV1alpha1Client
-func (c *Clientset) OctopusV1alpha1() octopusv1alpha1.OctopusV1alpha1Interface {
-	return &fakeoctopusv1alpha1.FakeOctopusV1alpha1{Fake: &c.Fake}
+// FleetboardV1alpha1 retrieves the FleetboardV1alpha1Client
+func (c *Clientset) FleetboardV1alpha1() fleetboardv1alpha1.FleetboardV1alpha1Interface {
+	return &fakefleetboardv1alpha1.FakeFleetboardV1alpha1{Fake: &c.Fake}
 }

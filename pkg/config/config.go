@@ -13,15 +13,15 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
-	"github.com/nauti-io/nauti/utils"
+	fleetboardClientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/utils"
 )
 
 // GetHubConfig will loop until we can get a valid secret.
 func GetHubConfig(kubeClientSet kubernetes.Interface, spec *tunnel.Specification) (*rest.Config, error) {
-	hubSecret, err := kubeClientSet.CoreV1().Secrets(known.NautiSystemNamespace).
+	hubSecret, err := kubeClientSet.CoreV1().Secrets(known.FleetboardSystemNamespace).
 		Get(context.TODO(), known.HubSecretName, metav1.GetOptions{})
 	if err != nil && apierrors.IsNotFound(err) {
 		// not exist, so create get bootstrap kube config from token
@@ -30,8 +30,8 @@ func GetHubConfig(kubeClientSet kubernetes.Interface, spec *tunnel.Specification
 			return nil, fmt.Errorf("error while creating kubeconfig from bootstrap token: %v", tokenGenerateErr)
 		}
 		bootClient := kubernetes.NewForConfigOrDie(clientConfig)
-		if secretList, secretListErr := bootClient.CoreV1().Secrets(known.NautiSystemNamespace).List(context.Background(),
-			metav1.ListOptions{}); tokenGenerateErr != nil {
+		if secretList, secretListErr := bootClient.CoreV1().Secrets(known.FleetboardSystemNamespace).
+			List(context.Background(), metav1.ListOptions{}); tokenGenerateErr != nil {
 			return nil, fmt.Errorf("can't list hubSecret list from hub cluster: %v", secretListErr)
 		} else {
 			hubSecret = nil
@@ -73,7 +73,7 @@ func storeHubClusterCredentials(kubeClientSet kubernetes.Interface, secret corev
 		ObjectMeta: metav1.ObjectMeta{
 			Name: known.HubSecretName,
 			Labels: map[string]string{
-				"created-by": "nauti-created",
+				"created-by": "fleetboard-created",
 			},
 		},
 		Data: map[string][]byte{
@@ -109,7 +109,7 @@ func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *tunnel.Spe
 	secretCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	secretName := known.HubSecretName
-	namespace := known.NautiSystemNamespace
+	namespace := known.FleetboardSystemNamespace
 	var globalCIDR, clusterCIDR string
 	wait.JitterUntilWithContext(secretCtx, func(ctx context.Context) {
 		secret, err := localClient.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
@@ -125,8 +125,8 @@ func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *tunnel.Spe
 			klog.Errorf("failed to get hub config from hub secret, loop next %v\n", configErr)
 			return
 		} else {
-			if octopusClient, oClientError := octopusClientset.NewForConfig(parentKubeConfig); oClientError == nil {
-				globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient,
+			if fleetboardClient, oClientError := fleetboardClientset.NewForConfig(parentKubeConfig); oClientError == nil {
+				globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, fleetboardClient,
 					spec.ShareNamespace, spec.ClusterID)
 				if err != nil {
 					return
@@ -144,13 +144,14 @@ func WaitGetGlobalNetworkInfo(localClient kubernetes.Interface, spec *tunnel.Spe
 	return globalCIDR, clusterCIDR
 }
 
-func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *tunnel.Specification) (string, string) {
+func WaitGetCIDRFromHubclient(fleetboardClient *fleetboardClientset.Clientset,
+	spec *tunnel.Specification) (string, string) {
 	cidrCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var globalCIDR, clusterCIDR string
 	var err error
 	wait.JitterUntilWithContext(cidrCtx, func(ctx context.Context) {
-		globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, octopusClient, spec.ShareNamespace,
+		globalCIDR, clusterCIDR, err = getGlobalAndClusterCIDRByHubClient(ctx, fleetboardClient, spec.ShareNamespace,
 			spec.ClusterID)
 		if err != nil {
 			return
@@ -164,10 +165,10 @@ func WaitGetCIDRFromHubclient(octopusClient *octopusClientset.Clientset, spec *t
 	return globalCIDR, clusterCIDR
 }
 
-func getGlobalAndClusterCIDRByHubClient(ctx context.Context, octopusClient *octopusClientset.Clientset, namespace,
+func getGlobalAndClusterCIDRByHubClient(ctx context.Context, fleetboardClient *fleetboardClientset.Clientset, namespace,
 	localClusterID string) (string, string, error) {
 	var globalCIDR, clusterCIDR string
-	peerList, listErr := octopusClient.OctopusV1alpha1().Peers(namespace).
+	peerList, listErr := fleetboardClient.FleetboardV1alpha1().Peers(namespace).
 		List(ctx, metav1.ListOptions{})
 	if listErr != nil {
 		klog.Errorf("failed to list peers from hub cluster, loop next %v\n", listErr)

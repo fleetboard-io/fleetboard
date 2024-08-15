@@ -17,16 +17,16 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 
+	"github.com/fleetboard-io/fleetboard/pkg/controller/endpoint"
+	"github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice"
 	"github.com/google/uuid"
-	"github.com/nauti-io/nauti/pkg/controller/endpoint"
-	"github.com/nauti-io/nauti/pkg/controller/endpointslice"
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	kubeconfig      string
 	processIdentify string
-	NAMESPACE       = "nauti"
+	NAMESPACE       = "fleetboard"
 )
 
 func main() {
@@ -97,7 +97,7 @@ func startLeaderElection(ctx context.Context, clientset *kubernetes.Clientset, s
 	klog.Infof("[%s]creat master lock for election", processIdentify)
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
-			Name:      "nauti-dedinic-controller",
+			Name:      "fleetboard-dedinic-controller",
 			Namespace: NAMESPACE,
 		},
 		Client: clientset.CoordinationV1(),

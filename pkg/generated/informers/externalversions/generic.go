@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package externalversions
 import (
 	"fmt"
 
-	v1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	v1alpha1 "github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -51,9 +51,9 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=octopus.io, Version=v1alpha1
+	// Group=fleetboard.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("peers"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Octopus().V1alpha1().Peers().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Fleetboard().V1alpha1().Peers().Informer()}, nil
 
 	}
 

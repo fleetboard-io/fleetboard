@@ -19,10 +19,11 @@ package endpointslice
 import (
 	"errors"
 	"fmt"
-	"k8s.io/klog/v2"
 	"net"
 	"os"
 	"time"
+
+	"k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -41,7 +42,7 @@ var ParallelIpKey string
 func init() {
 	ParallelIpKey = os.Getenv("PARALLEL_IP_ANNOTATION")
 	if ParallelIpKey == "" {
-		ParallelIpKey = "router.nauti.io/dedicated_ip"
+		ParallelIpKey = "router.fleetboard.io/dedicated_ip"
 	}
 }
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {

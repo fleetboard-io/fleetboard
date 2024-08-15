@@ -6,12 +6,12 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
-  name: peers.octopus.io
+  name: peers.fleetboard.io
 spec:
-  group: octopus.io
+  group: fleetboard.io
   names:
     categories:
-    - octopus
+    - fleetboard
     kind: Peer
     listKind: PeerList
     plural: peers

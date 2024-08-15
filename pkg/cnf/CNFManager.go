@@ -18,16 +18,16 @@ import (
 	"k8s.io/klog/v2"
 	mcsv1a1 "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
+	syncerConfig "github.com/fleetboard-io/fleetboard/pkg/config"
+	"github.com/fleetboard-io/fleetboard/pkg/controller/syncer"
+	tunnelcontroller "github.com/fleetboard-io/fleetboard/pkg/controller/tunnel"
+	"github.com/fleetboard-io/fleetboard/pkg/dedinic"
+	fleetboardClientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	kubeinformers "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/utils"
 	"github.com/kelseyhightower/envconfig"
-	syncerConfig "github.com/nauti-io/nauti/pkg/config"
-	"github.com/nauti-io/nauti/pkg/controller/syncer"
-	tunnelcontroller "github.com/nauti-io/nauti/pkg/controller/tunnel"
-	"github.com/nauti-io/nauti/pkg/dedinic"
-	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	kubeinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
-	"github.com/nauti-io/nauti/utils"
 )
 
 // Manager defines configuration for cnf-related controllers
@@ -41,7 +41,7 @@ type Manager struct {
 	currentLeader       string
 	innerControllerOnce sync.Once
 	hubKubeConfig       *rest.Config
-	octoClient          *octopusClientset.Clientset
+	octoClient          *fleetboardClientset.Clientset
 	interController     *tunnelcontroller.PeerController
 	syncerAgent         *syncer.Syncer
 }
@@ -57,11 +57,11 @@ func (m *Manager) Run(ctx context.Context) error {
 }
 
 func (m *Manager) dedinicEngine(ctx context.Context) {
-	dedinic.CNFPodName = os.Getenv("NAUTI_PODNAME")
+	dedinic.CNFPodName = os.Getenv("FLEETBOARD_PODNAME")
 	if dedinic.CNFPodName == "" {
 		klog.Fatalf("get self pod name failed")
 	}
-	dedinic.CNFPodNamespace = os.Getenv("NAUTI_PODNAMESPACE")
+	dedinic.CNFPodNamespace = os.Getenv("FLEETBOARD_PODNAMESPACE")
 	if dedinic.CNFPodName == "" {
 		klog.Fatalf("get self pod namespace failed")
 	}
@@ -71,7 +71,7 @@ func (m *Manager) dedinicEngine(ctx context.Context) {
 	// add bridge
 	err := dedinic.CreateBridge(dedinic.CNFBridgeName)
 	if err != nil {
-		klog.Fatalf("create nauti bridge failed: %v", err)
+		klog.Fatalf("create fleetboard bridge failed: %v", err)
 	}
 
 	klog.Info("start nri dedicated plugin run")
@@ -87,8 +87,8 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	agentSpec := tunnel.Specification{}
 	var w *tunnel.Wireguard
 	var hubKubeConfig *rest.Config
-	var octoClient *octopusClientset.Clientset
-	if err = envconfig.Process(known.NautiPrefix, &agentSpec); err != nil {
+	var octoClient *fleetboardClientset.Clientset
+	if err = envconfig.Process(known.FleetboardPrefix, &agentSpec); err != nil {
 		return nil, err
 	}
 	agentSpec.Options = *opts
@@ -104,7 +104,7 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      "cnf-leader-election",
-			Namespace: known.NautiSystemNamespace,
+			Namespace: known.FleetboardSystemNamespace,
 		},
 		Client: localK8sClient.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{
@@ -125,8 +125,8 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	} else {
 		hubKubeConfig = localConfig
 	}
-	if octoClient, err = octopusClientset.NewForConfig(hubKubeConfig); err != nil {
-		klog.Fatalf("get hub octopus client failed: %v", err)
+	if octoClient, err = fleetboardClientset.NewForConfig(hubKubeConfig); err != nil {
+		klog.Fatalf("get hub fleetboard client failed: %v", err)
 		return nil, err
 	}
 	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(octoClient, known.DefaultResync,
@@ -235,8 +235,8 @@ func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
 		if err == nil && pod != nil {
 			klog.Infof("cnf pod annotions: %v", pod.Annotations)
-			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)]
-			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)]
+			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.FleetboardPrefix)]
+			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.FleetboardPrefix)]
 			dedinic.CNFPodIP = pod.Status.PodIP
 		} else {
 			klog.Errorf("have not find the cnf pod")

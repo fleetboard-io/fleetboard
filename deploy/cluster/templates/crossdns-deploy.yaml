@@ -5,7 +5,7 @@ metadata:
     app: crossdns
     component: crossdns
   name: crossdns
-  namespace: nauti-system
+  namespace: fleetboard-system
 data:
   Corefile: |
     {{ .Values.cluster.zone }}:53 {
@@ -22,7 +22,7 @@ metadata:
     app: crossdns
     component: crossdns
   name: crossdns
-  namespace: nauti-system
+  namespace: fleetboard-system
 spec:
   clusterIP:
   {{- range (lookup "v1" "Service" "kube-system" "").items }}
@@ -45,7 +45,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: crossdns
-  namespace: nauti-system
+  namespace: fleetboard-system
   labels:
     app: crossdns
 spec:

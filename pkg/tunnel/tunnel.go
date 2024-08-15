@@ -13,9 +13,9 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
-	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/utils"
+	"github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/utils"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
@@ -176,8 +176,5 @@ func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec Specification)
 }
 
 func (w *Wireguard) Cleanup() error {
-	// return utils.DeletePeerWithRetry(w.octopusClient, w.Spec.ClusterID, w.Spec.ShareNamespace)
-	// it pretty hard to handle the case, when we update the deployment of the cnf pod, as to roll-update mechanism.
-
 	return nil
 }

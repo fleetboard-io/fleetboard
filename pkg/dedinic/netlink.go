@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/utils"
+	"github.com/fleetboard-io/fleetboard/utils"
 )
 
 func setupVethPair(containerID, ifName string) (string, string, error) {

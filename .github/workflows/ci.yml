@@ -4,7 +4,7 @@ on:
   pull_request:
 jobs:
   golangci:
-    name: pull-nauti-golang-ci
+    name: pull-fleetboard-golang-ci
     env:
       GOPATH: ${{ github.workspace }}
       GO111MODULE: on

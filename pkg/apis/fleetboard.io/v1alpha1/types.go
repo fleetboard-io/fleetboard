@@ -7,7 +7,7 @@ import (
 // +genclient
 // +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:resource:scope="Namespaced",shortName=peer;peers,categories=octopus
+// +kubebuilder:resource:scope="Namespaced",shortName=peer;peers,categories=fleetboard
 type Peer struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

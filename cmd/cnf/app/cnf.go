@@ -14,8 +14,8 @@ import (
 	"k8s.io/component-base/version/verflag"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/pkg/cnf"
-	"github.com/nauti-io/nauti/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/pkg/cnf"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
 	"github.com/spf13/cobra"
 )
 

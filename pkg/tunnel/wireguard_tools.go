@@ -7,8 +7,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )

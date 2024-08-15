@@ -17,7 +17,7 @@ endif
 
 IMAGE_TAG = ${GIT_VERSION}
 REGISTRY ?= ghcr.io
-REGISTRY_NAMESPACE ?= nauti-io
+REGISTRY_NAMESPACE ?= fleetboard-io
 
 
 DOCKERARGS?=
@@ -67,7 +67,6 @@ ep-controller:
 images:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/dedinic.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 
 image-crossdns:
@@ -90,7 +89,6 @@ image-ep-controller:
 images-push:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/dedinic:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 
 # find or download golangci-lint

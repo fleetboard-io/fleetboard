@@ -1,8 +1,8 @@
-# How to build Nauti 
+# How to build FleetBoard 
 
-## Build the Nauti image
+## Build the fleetboard image
 
-If you don't prefer to build `Nauti` images by yourself, you can directly pull images from the [ghcr.io/nauti-io](https://github.com/orgs/nauti-io/packages) registry.
+If you don't prefer to build `Fleetboard` images by yourself, you can directly pull images from the [ghcr.io/fleetboard-io](https://github.com/orgs/fleetboard-io/packages) registry.
 
 ### Prerequisites
 
@@ -22,8 +22,8 @@ echo $GHCR_PAT | docker login ghcr.io -u $GHCR_USER --password-stdin
 Clone the repo to local directory
 
 ```bash
-git clonehttps://github.com/nauti-io/nauti.git
-cd nauti
+git clone https://github.com/fleetboard-io/fleetboard.git
+cd fleetboard
 ```
 
 ### Build the all Images and push to registry (ghcr.io)
@@ -44,6 +44,6 @@ make ep-controller-image
 ```
 
 
-## Build the Nauti Binary
+## Build the Fleetboard Binary
 
 - todo

@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 const cniConf = `{

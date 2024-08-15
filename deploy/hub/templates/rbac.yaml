@@ -3,12 +3,12 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ .Values.serviceAccount.name }}
-  namespace: nauti-system
+  namespace: fleetboard-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: octopus-local-rolebinding
+  name: fleetboard-local-rolebinding
   namespace: {{ .Values.cluster.sharenamespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -17,7 +17,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
-    namespace: nauti-system
+    namespace: fleetboard-system
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -26,7 +26,7 @@ metadata:
   namespace: {{ .Values.cluster.sharenamespace }}
   name: mcs-syncer
 rules:
-  - apiGroups: ["octopus.io"]
+  - apiGroups: ["fleetboard.io"]
     resources: ["peers"]
     verbs: ["*"]
   - apiGroups: [ "discovery.k8s.io" ]
@@ -36,8 +36,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: octopus-manager-rolebinding
-  namespace: nauti-system
+  name: fleetboard-manager-rolebinding
+  namespace: fleetboard-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -45,7 +45,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
-    namespace: nauti-system
+    namespace: fleetboard-system
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -67,7 +67,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: {{ .Values.serviceAccount.name }}
-  namespace: nauti-system
+  namespace: fleetboard-system
   annotations:
     kubernetes.io/service-account.name: {{ .Values.serviceAccount.name | quote }}
 type: kubernetes.io/service-account-token
@@ -83,7 +83,7 @@ metadata:
 # Type MUST be 'bootstrap.kubernetes.io/token'
 type: bootstrap.kubernetes.io/token
 stringData:
-  description: "The bootstrap token used by nauti network first connection."
+  description: "The bootstrap token used by fleetboard network first connection."
   # Token ID and secret. Required.
   token-id: re51os
   token-secret: 131tn13kek2iaqoz
@@ -93,13 +93,13 @@ stringData:
   usage-bootstrap-authentication: "true"
   usage-bootstrap-signing: "true"
   # Extra groups to authenticate the token as. Must start with "system:bootstrappers:"
-  auth-extra-groups: system:bootstrappers:nauti:register-token
+  auth-extra-groups: system:bootstrappers:fleetboard:register-token
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: nauti:system:bootstrapping
-  namespace: nauti-system
+  name: fleetboard:system:bootstrapping
+  namespace: fleetboard-system
 rules:
   - apiGroups: [ "" ]
     resources: [ "secrets" ]
@@ -108,16 +108,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: nauti:system:bootstrapping
-  namespace: nauti-system
+  name: fleetboard:system:bootstrapping
+  namespace: fleetboard-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: nauti:system:bootstrapping
+  name: fleetboard:system:bootstrapping
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
-    name: system:bootstrappers:nauti:register-token
+    name: system:bootstrappers:fleetboard:register-token
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -125,7 +125,7 @@ kind: ClusterRole
 metadata:
   annotations:
     rbac.authorization.k8s.io/system-only: "true"
-  name: nauti:dedinic-cni
+  name: fleetboard:dedinic-cni
 rules:
   - apiGroups:
       - ""
@@ -178,10 +178,10 @@ kind: ClusterRoleBinding
 metadata:
   name: dedinic-cni
 roleRef:
-  name: nauti:dedinic-cni
+  name: fleetboard:dedinic-cni
   kind: ClusterRole
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
     name: {{ .Values.serviceAccount.name }}
-    namespace: nauti-system
+    namespace: fleetboard-system

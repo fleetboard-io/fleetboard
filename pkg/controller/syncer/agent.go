@@ -17,9 +17,9 @@ import (
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
-	"github.com/nauti-io/nauti/pkg/controller/mcs"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/pkg/controller/mcs"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
 	"github.com/pkg/errors"
 )
 

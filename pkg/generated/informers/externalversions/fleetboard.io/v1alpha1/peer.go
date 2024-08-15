@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import (
 	"context"
 	time "time"
 
-	octopusiov1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	versioned "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	internalinterfaces "github.com/nauti-io/nauti/pkg/generated/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
+	fleetboardiov1alpha1 "github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	versioned "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	internalinterfaces "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/fleetboard-io/fleetboard/pkg/generated/listers/fleetboard.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -61,16 +61,16 @@ func NewFilteredPeerInformer(client versioned.Interface, namespace string, resyn
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OctopusV1alpha1().Peers(namespace).List(context.TODO(), options)
+				return client.FleetboardV1alpha1().Peers(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.OctopusV1alpha1().Peers(namespace).Watch(context.TODO(), options)
+				return client.FleetboardV1alpha1().Peers(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&octopusiov1alpha1.Peer{},
+		&fleetboardiov1alpha1.Peer{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *peerInformer) defaultInformer(client versioned.Interface, resyncPeriod 
 }
 
 func (f *peerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&octopusiov1alpha1.Peer{}, f.defaultInformer)
+	return f.factory.InformerFor(&fleetboardiov1alpha1.Peer{}, f.defaultInformer)
 }
 
 func (f *peerInformer) Lister() v1alpha1.PeerLister {

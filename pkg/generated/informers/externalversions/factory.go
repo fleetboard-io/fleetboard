@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	internalinterfaces "github.com/nauti-io/nauti/pkg/generated/informers/externalversions/internalinterfaces"
-	octopusio "github.com/nauti-io/nauti/pkg/generated/informers/externalversions/octopus.io"
+	versioned "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	fleetboardio "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions/fleetboard.io"
+	internalinterfaces "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions/internalinterfaces"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -171,9 +171,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Octopus() octopusio.Interface
+	Fleetboard() fleetboardio.Interface
 }
 
-func (f *sharedInformerFactory) Octopus() octopusio.Interface {
-	return octopusio.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Fleetboard() fleetboardio.Interface {
+	return fleetboardio.New(f, f.namespace, f.tweakListOptions)
 }

@@ -1,9 +1,9 @@
-# Default values for nauti.
+# Default values for fleetboard.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 image:
   registry: ghcr.io
-  repository: nauti-io
+  repository: fleetboard-io
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -24,7 +24,7 @@ tunnel:
 serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
-  name: nauti
+  name: fleetboard
 
 service:
   type: NodePort
