@@ -14,8 +14,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/miekg/dns"
-	"github.com/nauti-io/nauti/pkg/known"
 	"github.com/pkg/errors"
 )
 

@@ -14,7 +14,7 @@ Once Vagrant is installed, it's possible to provision a vm using the following i
     $ vagrant up
 In-depth documentation and use cases of various Vagrant commands Vagrant commands is available on the Vagrant site.
 
-## Deploy k8s cluster with Nauti
+## Deploy k8s cluster with FleetBoard
 
 ```bash
 vagrant provision --provision-with deployment

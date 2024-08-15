@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	internalinterfaces "github.com/nauti-io/nauti/pkg/generated/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.

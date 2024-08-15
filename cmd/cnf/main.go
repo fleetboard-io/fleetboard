@@ -9,7 +9,7 @@ import (
 	"k8s.io/component-base/cli"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/cmd/cnf/app"
+	"github.com/fleetboard-io/fleetboard/cmd/cnf/app"
 )
 
 var gracefulStopCh = make(chan os.Signal, 2)

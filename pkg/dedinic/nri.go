@@ -10,11 +10,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 var (
-	CNFBridgeName = "nauti"
+	CNFBridgeName = "fleetboard"
 )
 
 var (
@@ -97,7 +97,7 @@ func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Contai
 			PodNamespace: pod.Namespace,
 			ContainerID:  pod.GetId(),
 			NetNs:        nsPath,
-			IfName:       "eth-nauti",
+			IfName:       "eth-fleetboard",
 		}
 
 		if err := csh.handleDel(podRequest); err != nil {
@@ -130,8 +130,8 @@ func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-nauti",
-		Provider:     known.NautiPrefix,
+		IfName:       "eth-fleetboard",
+		Provider:     known.FleetboardPrefix,
 	}
 
 	err = csh.handleAdd(podRequest)
@@ -154,7 +154,7 @@ func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-nauti",
+		IfName:       "eth-fleetboard",
 	}
 
 	return csh.handleDel(podRequest)

@@ -8,7 +8,7 @@ import (
 	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
-	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 type Specification struct {

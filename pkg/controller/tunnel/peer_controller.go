@@ -19,39 +19,39 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
-	v1alpha1app "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	octopusinformers "github.com/nauti-io/nauti/pkg/generated/informers/externalversions"
-	"github.com/nauti-io/nauti/pkg/generated/listers/octopus.io/v1alpha1"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
-	"github.com/nauti-io/nauti/utils"
+	v1alpha1app "github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	"github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	fleetboardInformers "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions"
+	"github.com/fleetboard-io/fleetboard/pkg/generated/listers/fleetboard.io/v1alpha1"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/utils"
 	"github.com/vishvananda/netlink"
 )
 
 type PeerController struct {
 	yachtController *yacht.Controller
 	// specific namespace.
-	peerLister     v1alpha1.PeerLister
-	octopusFactory octopusinformers.SharedInformerFactory
-	tunnel         *tunnel.Wireguard
-	octopusClient  *versioned.Clientset
-	spec           *tunnel.Specification
-	localK8sClient kubernetes.Interface
+	peerLister        v1alpha1.PeerLister
+	fleetboardFactory fleetboardInformers.SharedInformerFactory
+	tunnel            *tunnel.Wireguard
+	fleetboardClient  *versioned.Clientset
+	spec              *tunnel.Specification
+	localK8sClient    kubernetes.Interface
 }
 
 func NewPeerController(spec tunnel.Specification, localK8sClient kubernetes.Interface, w *tunnel.Wireguard,
-	octopusClient *versioned.Clientset,
-	octopusFactory octopusinformers.SharedInformerFactory) (*PeerController, error) {
+	fleetboardClient *versioned.Clientset,
+	fleetboardFactory fleetboardInformers.SharedInformerFactory) (*PeerController, error) {
 	peerController := &PeerController{
-		peerLister:     octopusFactory.Octopus().V1alpha1().Peers().Lister(),
-		octopusFactory: octopusFactory,
-		tunnel:         w,
-		octopusClient:  octopusClient,
-		spec:           &spec,
-		localK8sClient: localK8sClient,
+		peerLister:        fleetboardFactory.Fleetboard().V1alpha1().Peers().Lister(),
+		fleetboardFactory: fleetboardFactory,
+		tunnel:            w,
+		fleetboardClient:  fleetboardClient,
+		spec:              &spec,
+		localK8sClient:    localK8sClient,
 	}
-	peerInformer := octopusFactory.Octopus().V1alpha1().Peers()
+	peerInformer := fleetboardFactory.Fleetboard().V1alpha1().Peers()
 
 	yachtController := yacht.NewController("peer").
 		WithCacheSynced(peerInformer.Informer().HasSynced).
@@ -182,7 +182,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 
 	// 需要回写peer
 	if noCIDR {
-		_, err = p.octopusClient.OctopusV1alpha1().Peers(namespace).Update(context.TODO(),
+		_, err = p.fleetboardClient.FleetboardV1alpha1().Peers(namespace).Update(context.TODO(),
 			cachedPeer, metav1.UpdateOptions{})
 		if err != nil {
 			return &failedPeriod, err
@@ -200,7 +200,7 @@ func (p *PeerController) Start(ctx context.Context) {
 		return
 	}
 	utils.UpdatePodLabels(p.localK8sClient, p.tunnel.Spec.PodName, true)
-	p.octopusFactory.Start(ctx.Done())
+	p.fleetboardFactory.Start(ctx.Done())
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		p.yachtController.Run(ctx)
 	}, time.Duration(0))
@@ -221,7 +221,7 @@ func (p *PeerController) ApplyPeerConfig() error {
 	}
 	peer.Namespace = w.Spec.ShareNamespace
 	peer.Name = w.Spec.ClusterID
-	return utils.ApplyPeerWithRetry(p.octopusClient, peer)
+	return utils.ApplyPeerWithRetry(p.fleetboardClient, peer)
 }
 
 func (p *PeerController) RecycleAllResources() {
@@ -238,7 +238,7 @@ func configHostRoutingRules(cidrs []string, operation known.RouteOperation) erro
 	if wg, err := net.InterfaceByName(known.DefaultDeviceName); err == nil {
 		ifaceIndex = wg.Index
 	} else {
-		klog.Errorf("%s not found in octopus.", known.DefaultDeviceName)
+		klog.Errorf("%s not found in fleetboard.", known.DefaultDeviceName)
 		return err
 	}
 

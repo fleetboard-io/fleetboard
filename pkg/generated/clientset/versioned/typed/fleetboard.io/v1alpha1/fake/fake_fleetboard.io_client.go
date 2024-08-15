@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,22 +18,22 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
+	v1alpha1 "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned/typed/fleetboard.io/v1alpha1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeOctopusV1alpha1 struct {
+type FakeFleetboardV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeOctopusV1alpha1) Peers(namespace string) v1alpha1.PeerInterface {
+func (c *FakeFleetboardV1alpha1) Peers(namespace string) v1alpha1.PeerInterface {
 	return &FakePeers{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeOctopusV1alpha1) RESTClient() rest.Interface {
+func (c *FakeFleetboardV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

@@ -7,17 +7,17 @@ metadata:
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: cnf-nauti
-  namespace: nauti-system
+  name: cnf-fleetboard
+  namespace: fleetboard-system
 spec:
   selector:
     matchLabels:
-      app: cnf-nauti
+      app: cnf-fleetboard
   template:
     metadata:
       labels:
-        app: cnf-nauti
-        router.nauti.io/cnf: "true"
+        app: cnf-fleetboard
+        router.fleetboard.io/cnf: "true"
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       hostNetwork: false
@@ -31,7 +31,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: PARALLEL_IP_ANNOTATION
-              value: "router.nauti.io/dedicated_ip"
+              value: "router.fleetboard.io/dedicated_ip"
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}/controller:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           resources:
@@ -51,19 +51,19 @@ spec:
             - --local-namespace=syncer-operator
             - --as-hub={{ .Values.cluster.hub }}
             - --as-cluster=true
-            - --hub-secret-namespace=nauti-system
+            - --hub-secret-namespace=fleetboard-system
             - --hub-secret-name={{ .Values.hub.secretName }}
             - --hub-url={{ .Values.hub.hubURL }}
           env:
-            - name: NAUTI_CLUSTERID
+            - name: FLEETBOARD_CLUSTERID
               value: {{ .Values.cluster.clusterID }}
-            - name: NAUTI_BOOTSTRAPTOKEN
+            - name: FLEETBOARD_BOOTSTRAPTOKEN
               value: re51os.131tn13kek2iaqoz
-            - name: NAUTI_PODNAME
+            - name: FLEETBOARD_PODNAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: NAUTI_PODNAMESPACE
+            - name: FLEETBOARD_PODNAMESPACE
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace

@@ -25,8 +25,8 @@ import (
 	alpha1 "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"github.com/dixudx/yacht"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/utils"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/utils"
 )
 
 func init() {

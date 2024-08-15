@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package fake
 import (
 	"context"
 
-	v1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
+	v1alpha1 "github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,13 +31,13 @@ import (
 
 // FakePeers implements PeerInterface
 type FakePeers struct {
-	Fake *FakeOctopusV1alpha1
+	Fake *FakeFleetboardV1alpha1
 	ns   string
 }
 
-var peersResource = schema.GroupVersionResource{Group: "octopus.io", Version: "v1alpha1", Resource: "peers"}
+var peersResource = schema.GroupVersionResource{Group: "fleetboard.io", Version: "v1alpha1", Resource: "peers"}
 
-var peersKind = schema.GroupVersionKind{Group: "octopus.io", Version: "v1alpha1", Kind: "Peer"}
+var peersKind = schema.GroupVersionKind{Group: "fleetboard.io", Version: "v1alpha1", Kind: "Peer"}
 
 // Get takes name of the peer, and returns the corresponding peer object, and an error if there is any.
 func (c *FakePeers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Peer, err error) {

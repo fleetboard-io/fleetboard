@@ -7,8 +7,8 @@ import (
 	pkgruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
 
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/mattbaird/jsonpatch"
-	"github.com/nauti-io/nauti/pkg/known"
 )
 
 // current is deployed resource, modified is changed resource.

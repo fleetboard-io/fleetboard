@@ -227,10 +227,10 @@
       shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
       changed_when: false
 
-- name: Install Nauti on Hub
+- name: Install Fleetboard on Hub
   hosts: hub-node-0
   tasks:
-    - name: Deploy the nauti on hub
+    - name: Deploy the fleetboard on hub
       block:
         - name: "Deploy the ovn4nfv Pod network to the cluster : Copy YAML files to host"
           copy:

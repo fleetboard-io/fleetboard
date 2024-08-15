@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Chart.Name }}
-  namespace: nauti-system
+  namespace: fleetboard-system
   labels:
     app: {{ .Chart.Name }}
 spec:
@@ -14,5 +14,5 @@ spec:
       name: udp
       nodePort: {{ .Values.service.nodePort }}
   selector:
-    app: cnf-nauti
-    router.nauti.io/leader: "true"
+    app: cnf-fleetboard
+    router.fleetboard.io/leader: "true"

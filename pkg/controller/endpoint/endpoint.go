@@ -50,7 +50,7 @@ import (
 	utillabels "k8s.io/kubernetes/pkg/util/labels"
 	utilnet "k8s.io/utils/net"
 
-	"github.com/nauti-io/nauti/utils"
+	"github.com/fleetboard-io/fleetboard/utils"
 )
 
 const (

@@ -1,5 +1,5 @@
 /*
-Copyright The Octopus Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ import (
 	"context"
 	"time"
 
-	v1alpha1 "github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	scheme "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/scheme"
+	v1alpha1 "github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	scheme "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -55,7 +55,7 @@ type peers struct {
 }
 
 // newPeers returns a Peers
-func newPeers(c *OctopusV1alpha1Client, namespace string) *peers {
+func newPeers(c *FleetboardV1alpha1Client, namespace string) *peers {
 	return &peers{
 		client: c.RESTClient(),
 		ns:     namespace,

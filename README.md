@@ -1,10 +1,10 @@
-# Nauti
+# FleetBoard
 
-`Nauti` connects kubernetes clusters by a new build parallel network securely, it requires no public IP for
+`Fleetboard` connects kubernetes clusters by a new build parallel network securely, it requires no public IP for
 child cluster and has no limits of cluster IP CIDR or CNI types of kubernetes clusters and also
 provide service discovery ability.
 
-With ``Nauti``, you don't need to impose any specific requirements on the cluster or be aware of the cluster nodes. 
+With ``Fleetboard``, you don't need to impose any specific requirements on the cluster or be aware of the cluster nodes. 
 Additionally, there are no intrusive modifications to the cluster. All tunnels and network policies are configured 
 within the containers.
 
@@ -29,7 +29,7 @@ For every service in the cluster that has a `ServiceExport` created, a new `Endp
 the running pods and include references to the endpoint's secondary IP. These `EndpointSlice` resources will be exported
 to the `Hub Cluster` and synchronized with other clusters.
 
-``Nauti`` deploys ``cnf`` as a `DaemonSet` in the child clusters. A leader pod in cnf will be elected to establish
+``Fleetboard`` deploys ``cnf`` as a `DaemonSet` in the child clusters. A leader pod in cnf will be elected to establish
 a VPN tunnel to the `Hub Cluster` and create tunnels to other cnf replicas on different nodes within the child cluster.
 
 Additionally, all workload pods in the clusters will have a second network interface allocated by the ``cnf`` pod on the
@@ -37,8 +37,8 @@ same node, with this second interface assigned to the ``cnf`` network namespace.
 
 ## Helm Chart Installation and Clear
 
-`Nauti` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters,
-please refer to this installation guide [Helm Chart Page](https://nauti-io.github.io/nauti-charts/).
+`Fleetboard` is pretty easy to install with `Helm`. Make sure you already have at least 2 Kubernetes clusters,
+please refer to this installation guide [Helm Chart Page](https://fleetboard-io.github.io/fleetboard-charts/).
 
 After the installation, add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
 The `cluster-ip` of `crossdns` is a static cluster IP, usually `10.96.0.11` , check before setting.
@@ -55,7 +55,7 @@ The `cluster-ip` of `crossdns` is a static cluster IP, usually `10.96.0.11` , ch
 ### Test examples:
 Create this example in one cluster.
   ```shell
-  $ kubectl create -f https://raw.githubusercontent.com/nauti-io/nauti/main/examples/nginx-deploy.yaml
+  $ kubectl create -f https://raw.githubusercontent.com/fleetboard-io/fleetboard/main/examples/nginx-deploy.yaml
   ```
 Test it in another cluster.
   ```shell

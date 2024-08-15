@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/nauti-io/nauti/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +26,7 @@ var ParallelIPKey string
 func init() {
 	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
 	if ParallelIPKey == "" {
-		ParallelIPKey = "router.nauti.io/dedicated_ip"
+		ParallelIPKey = "router.fleetboard.io/dedicated_ip"
 	}
 }
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
@@ -62,8 +62,8 @@ func isPodStatusPhaseAlive(p *v1.Pod) bool {
 
 func AddAnnotationToSelf(client kubernetes.Interface, annotationKey, annotationValue string, override bool) error {
 	// Get the Pod's name and namespace from the environment variables
-	podName := os.Getenv("NAUTI_PODNAME")
-	namespace := os.Getenv("NAUTI_PODNAMESPACE")
+	podName := os.Getenv("FLEETBOARD_PODNAME")
+	namespace := os.Getenv("FLEETBOARD_PODNAMESPACE")
 
 	klog.Infof("podname is %s and namespace is %s ", podName, namespace)
 	return setSpecificAnnotation(client, namespace, podName, annotationKey, annotationValue, override)
@@ -71,7 +71,7 @@ func AddAnnotationToSelf(client kubernetes.Interface, annotationKey, annotationV
 
 func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool) {
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		pod, err := client.CoreV1().Pods(known.NautiSystemNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		pod, err := client.CoreV1().Pods(known.FleetboardSystemNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool)
 			delete(pod.Labels, known.LeaderCNFLabelKey)
 		}
 
-		_, err = client.CoreV1().Pods(known.NautiSystemNamespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+		_, err = client.CoreV1().Pods(known.FleetboardSystemNamespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
 		return err
 	})
 	if err != nil {
@@ -102,8 +102,8 @@ func PatchPodWithRetry(client kubernetes.Interface, pod *v1.Pod, secondaryCIDR, 
 		if pod.GetAnnotations() == nil {
 			pod.Annotations = make(map[string]string)
 		}
-		pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.NautiPrefix)] = secondaryCIDR
-		pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.NautiPrefix)] = globalCIDR
+		pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.FleetboardPrefix)] = secondaryCIDR
+		pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.FleetboardPrefix)] = globalCIDR
 		patch, err := GenerateMergePatchPayload(cachedPod, pod)
 		if err != nil {
 			klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
@@ -181,7 +181,7 @@ func setSpecificAnnotation(client kubernetes.Interface, namespace, podName, anno
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
-		annotationKey = fmt.Sprintf(annotationKey, known.NautiPrefix)
+		annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 
 		existingValues, ok := pod.Annotations[annotationKey]
 		if ok && !override {
@@ -213,7 +213,7 @@ func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	}
 
 	for _, item := range annotationKeys {
-		if val, ok := annotations[fmt.Sprintf(item, known.NautiPrefix)]; ok {
+		if val, ok := annotations[fmt.Sprintf(item, known.FleetboardPrefix)]; ok {
 			existingValuesSlice := strings.Split(val, ",")
 			allAnnoValue = append(allAnnoValue, existingValuesSlice...)
 		}

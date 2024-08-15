@@ -1,5 +1,5 @@
 /*
-Copyright The Nauti Authors.
+Copyright The Fleetboard Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package versioned
 import (
 	"fmt"
 
-	octopusv1alpha1 "github.com/nauti-io/nauti/pkg/generated/clientset/versioned/typed/octopus.io/v1alpha1"
+	fleetboardv1alpha1 "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned/typed/fleetboard.io/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -28,19 +28,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	OctopusV1alpha1() octopusv1alpha1.OctopusV1alpha1Interface
+	FleetboardV1alpha1() fleetboardv1alpha1.FleetboardV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	octopusV1alpha1 *octopusv1alpha1.OctopusV1alpha1Client
+	fleetboardV1alpha1 *fleetboardv1alpha1.FleetboardV1alpha1Client
 }
 
-// OctopusV1alpha1 retrieves the OctopusV1alpha1Client
-func (c *Clientset) OctopusV1alpha1() octopusv1alpha1.OctopusV1alpha1Interface {
-	return c.octopusV1alpha1
+// FleetboardV1alpha1 retrieves the FleetboardV1alpha1Client
+func (c *Clientset) FleetboardV1alpha1() fleetboardv1alpha1.FleetboardV1alpha1Interface {
+	return c.fleetboardV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -64,7 +64,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.octopusV1alpha1, err = octopusv1alpha1.NewForConfig(&configShallowCopy)
+	cs.fleetboardV1alpha1, err = fleetboardv1alpha1.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.octopusV1alpha1 = octopusv1alpha1.NewForConfigOrDie(c)
+	cs.fleetboardV1alpha1 = fleetboardv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -89,7 +89,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.octopusV1alpha1 = octopusv1alpha1.New(c)
+	cs.fleetboardV1alpha1 = fleetboardv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

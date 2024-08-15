@@ -9,8 +9,8 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 
-	"github.com/nauti-io/nauti/pkg/apis/octopus.io/v1alpha1"
-	clientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
+	"github.com/fleetboard-io/fleetboard/pkg/apis/fleetboard.io/v1alpha1"
+	clientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
 )
 
 // ApplyEndPointSliceWithRetry create or update existed slices.
@@ -18,7 +18,7 @@ func ApplyPeerWithRetry(client clientset.Interface, peer *v1alpha1.Peer) error {
 	return wait.ExponentialBackoffWithContext(context.TODO(), retry.DefaultBackoff,
 		func(ctx context.Context) (bool, error) {
 			var lastError error
-			_, lastError = client.OctopusV1alpha1().Peers(peer.GetNamespace()).
+			_, lastError = client.FleetboardV1alpha1().Peers(peer.GetNamespace()).
 				Create(context.TODO(), peer, metav1.CreateOptions{})
 			if lastError == nil {
 				klog.Infof("create peer %s successfully", peer.Name)
@@ -30,7 +30,7 @@ func ApplyPeerWithRetry(client clientset.Interface, peer *v1alpha1.Peer) error {
 				return false, lastError
 			}
 
-			curObj, err := client.OctopusV1alpha1().Peers(peer.GetNamespace()).
+			curObj, err := client.FleetboardV1alpha1().Peers(peer.GetNamespace()).
 				Get(context.TODO(), peer.GetName(), metav1.GetOptions{})
 			if err != nil || curObj.DeletionTimestamp != nil {
 				lastError = err
@@ -48,7 +48,7 @@ func ApplyPeerWithRetry(client clientset.Interface, peer *v1alpha1.Peer) error {
 				curObj.Spec.ClusterID = peer.Spec.ClusterID
 				curObj.Spec.IsPublic = peer.Spec.IsPublic
 				curObj.Spec.Port = peer.Spec.Port
-				_, lastError = client.OctopusV1alpha1().Peers(peer.GetNamespace()).
+				_, lastError = client.FleetboardV1alpha1().Peers(peer.GetNamespace()).
 					Update(context.TODO(), curObj, metav1.UpdateOptions{})
 			}
 			if lastError == nil {
@@ -63,7 +63,7 @@ func DeletePeerWithRetry(client clientset.Interface, name, namespace string) err
 	var err error
 	err = wait.ExponentialBackoffWithContext(context.TODO(), retry.DefaultBackoff,
 		func(ctx context.Context) (bool, error) {
-			if err = client.OctopusV1alpha1().Peers(namespace).
+			if err = client.FleetboardV1alpha1().Peers(namespace).
 				Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil {
 				return false, err
 			}

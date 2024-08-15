@@ -39,8 +39,8 @@ func createBasicKubeConfig(serverURL, clusterName, userName string, caCert []byt
 
 // CreateKubeConfigWithToken creates a KubeConfig object with access to the API server with a token
 func CreateKubeConfigWithToken(serverURL, token string, caCert []byte) *clientcmdapi.Config {
-	userName := "nauti"
-	clusterName := "nauti-cluster"
+	userName := "fleetboard"
+	clusterName := "fleetboard-cluster"
 	config := createBasicKubeConfig(serverURL, clusterName, userName, caCert)
 	config.AuthInfos[userName] = &clientcmdapi.AuthInfo{
 		Token: token,

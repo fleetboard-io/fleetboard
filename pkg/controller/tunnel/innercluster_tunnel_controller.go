@@ -19,11 +19,11 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/dixudx/yacht"
-	"github.com/nauti-io/nauti/pkg/config"
-	octopusClientset "github.com/nauti-io/nauti/pkg/generated/clientset/versioned"
-	"github.com/nauti-io/nauti/pkg/known"
-	"github.com/nauti-io/nauti/pkg/tunnel"
-	"github.com/nauti-io/nauti/utils"
+	"github.com/fleetboard-io/fleetboard/pkg/config"
+	fleetboardClientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
+	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/utils"
 )
 
 type InnerClusterTunnelController struct {
@@ -41,7 +41,7 @@ type InnerClusterTunnelController struct {
 }
 
 func (ict *InnerClusterTunnelController) EnqueueAdditionalInnerConnectionHandleObj(podName string) {
-	if pod, err := ict.kubeClientSet.CoreV1().Pods(known.NautiSystemNamespace).
+	if pod, err := ict.kubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
 		Get(context.TODO(), podName, metav1.GetOptions{}); err == nil {
 		ict.yachtController.Enqueue(pod)
 	} else {
@@ -50,7 +50,7 @@ func (ict *InnerClusterTunnelController) EnqueueAdditionalInnerConnectionHandleO
 }
 
 func (ict *InnerClusterTunnelController) EnqueueExistingAdditionalInnerConnectionHandle() {
-	if podList, err := ict.kubeClientSet.CoreV1().Pods(known.NautiSystemNamespace).
+	if podList, err := ict.kubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
 		List(context.TODO(), metav1.ListOptions{}); err == nil {
 		for _, podItem := range podList.Items {
 			pod := podItem
@@ -192,9 +192,9 @@ func (ict *InnerClusterTunnelController) recycleResources(podConfig *tunnel.Daem
 
 func NewInnerClusterTunnelController(w *tunnel.Wireguard,
 	kubeClientSet kubernetes.Interface) (*InnerClusterTunnelController, error) {
-	// only nauti system namespace pod is responsible for wire guard
+	// only fleetboard system namespace pod is responsible for wire guard
 	k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClientSet, 10*time.Minute,
-		informers.WithNamespace(known.NautiSystemNamespace),
+		informers.WithNamespace(known.FleetboardSystemNamespace),
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.LabelSelector = known.RouterCNFCreatedByLabel
 		}),
@@ -238,7 +238,6 @@ func NewInnerClusterTunnelController(w *tunnel.Wireguard,
 
 func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
-	// octopus has been started before.
 	ict.kubeInformerFactory.Start(ctx.Done())
 	klog.Info("Starting inner cluster tunnel controller...")
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
@@ -261,7 +260,7 @@ func (ict *InnerClusterTunnelController) ShouldHandlerPod(pod *v1.Pod) bool {
 }
 
 // ConfigWithExistingCIDR  only need invoke on cnf pod
-func (ict *InnerClusterTunnelController) ConfigWithExistingCIDR(oClient *octopusClientset.Clientset) error {
+func (ict *InnerClusterTunnelController) ConfigWithExistingCIDR(oClient *fleetboardClientset.Clientset) error {
 	existingCIDR, clusterCIDR, globalCIDR, err := getInnerClusterExistingCIDR(ict.kubeClientSet,
 		oClient, ict.wireguard.Spec)
 	if err != nil {
@@ -274,7 +273,7 @@ func (ict *InnerClusterTunnelController) ConfigWithExistingCIDR(oClient *octopus
 	return nil
 }
 
-func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *octopusClientset.Clientset,
+func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *fleetboardClientset.Clientset,
 	spec *tunnel.Specification) ([]string, string, string, error) {
 	existingCIDR := make([]string, 0)
 	globalCIDR, clusterCIDR := config.WaitGetCIDRFromHubclient(clientset, spec)
@@ -284,7 +283,7 @@ func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *octo
 	if err := utils.AddAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
 		return existingCIDR, "", "", err
 	}
-	if podList, errListPod := k8sClient.CoreV1().Pods(known.NautiSystemNamespace).List(context.TODO(),
+	if podList, errListPod := k8sClient.CoreV1().Pods(known.FleetboardSystemNamespace).List(context.TODO(),
 		metav1.ListOptions{LabelSelector: known.RouterCNFCreatedByLabel}); errListPod == nil {
 		for _, existingPod := range podList.Items {
 			pod := existingPod

@@ -3,7 +3,7 @@ package known
 import "time"
 
 const (
-	LabelValueManagedBy = "mcs.nauti.io"
+	LabelValueManagedBy = "mcs.fleetboard.io"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 
 // These are internal finalizer values must be qualified name.
 const (
-	AppFinalizer string = "apps.nauti.io/finalizer"
+	AppFinalizer string = "apps.fleetboard.io/finalizer"
 )
 
 // fields should be ignored when compared
@@ -41,19 +41,19 @@ const (
 )
 
 const (
-	HubSecretName        = "nauti"
-	NautiSystemNamespace = "nauti-system"
-	HubClusterName       = "hub"
+	HubSecretName             = "fleetboard"
+	FleetboardSystemNamespace = "fleetboard-system"
+	HubClusterName            = "hub"
 )
 
 // IPAM annotation const.
 const (
-	NautiPrefix = "nauti"
-	DaemonCIDR  = "%s.io/daemon_cidr"
-	CNFCIDR     = "%s.io/cnf_cidr"
-	CLUSTERCIDR = "%s.io/cluster_cidr"
-	PublicKey   = "%s.io/public_key"
-	DEDINICIP   = "router.nauti.io/dedicated_ip"
+	FleetboardPrefix = "fleetboard"
+	DaemonCIDR       = "%s.io/daemon_cidr"
+	CNFCIDR          = "%s.io/cnf_cidr"
+	CLUSTERCIDR      = "%s.io/cluster_cidr"
+	PublicKey        = "%s.io/public_key"
+	DEDINICIP        = "router.fleetboard.io/dedicated_ip"
 )
 
 const (
