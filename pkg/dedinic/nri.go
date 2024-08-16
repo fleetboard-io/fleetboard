@@ -97,7 +97,7 @@ func (p *CNIPlugin) Synchronize(pods []*api.PodSandbox, containers []*api.Contai
 			PodNamespace: pod.Namespace,
 			ContainerID:  pod.GetId(),
 			NetNs:        nsPath,
-			IfName:       "eth-fleetboard",
+			IfName:       known.DediNIC,
 		}
 
 		if err := csh.handleDel(podRequest); err != nil {
@@ -130,7 +130,7 @@ func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-fleetboard",
+		IfName:       known.DediNIC,
 		Provider:     known.FleetboardPrefix,
 	}
 
@@ -154,7 +154,7 @@ func (p *CNIPlugin) StopPodSandbox(pod *api.PodSandbox) error {
 		PodNamespace: pod.Namespace,
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
-		IfName:       "eth-fleetboard",
+		IfName:       known.DediNIC,
 	}
 
 	return csh.handleDel(podRequest)
