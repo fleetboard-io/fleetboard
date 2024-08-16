@@ -2,6 +2,7 @@ package known
 
 import "time"
 
+const DediNIC = "eth-fleet"
 const (
 	LabelValueManagedBy = "mcs.fleetboard.io"
 )
