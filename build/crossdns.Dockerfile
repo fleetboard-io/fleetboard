@@ -13,4 +13,4 @@ FROM scratch
 
 COPY --from=builder /workspace/bin/crossdns  /
 EXPOSE 53 53/udp
-ENTRYPOINT "/crossdns"
+ENTRYPOINT ["/crossdns"]
