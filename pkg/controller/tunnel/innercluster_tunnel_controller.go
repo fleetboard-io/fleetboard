@@ -85,9 +85,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 	failedPeriod := 2 * time.Second
 	isLeader := false
 	// it may change when leader changed.
-	if ict.wireguard.Spec.PodName == ict.currentLeader {
-		isLeader = true
-	}
+	isLeader = ict.wireguard.Spec.PodName == ict.currentLeader
 	// get pod info
 	key := podKey.(string)
 	namespace, podName, err := cache.SplitMetaNamespaceKey(key)
@@ -248,6 +246,22 @@ func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 func (ict *InnerClusterTunnelController) ShouldHandlerPod(pod *v1.Pod) bool {
 	var myPodName = ict.wireguard.Spec.PodName
 	var currentLeader = ict.GetCurrentLeader()
+	if currentLeader == "" {
+		if pod.Labels[known.LeaderCNFLabelKey] == "true" {
+			ict.SetCurrentLeader(pod.Name)
+			currentLeader = pod.Name
+		} else {
+			return false
+		}
+	} else {
+		if pod.Labels[known.LeaderCNFLabelKey] == "true" && currentLeader != pod.Name {
+			// leader changed
+			currentLeader = pod.Name
+			klog.Infof("leader has changed, recycle all tunnels and reconnect to new leader")
+			ict.RecycleAllResources()
+		}
+	}
+
 	// I am a leader, establish tunnel with non-leaders
 	if myPodName == currentLeader {
 		return true

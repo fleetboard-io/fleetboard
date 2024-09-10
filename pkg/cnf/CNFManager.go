@@ -47,8 +47,14 @@ type Manager struct {
 }
 
 func (m *Manager) Run(ctx context.Context) error {
+	// only cnf pod in master of control plane will be a candidate.
+	isCandidate := utils.CheckIfMasterOrControlNode(m.localK8sClient, m.agentSpec.NodeName)
 	if !m.agentSpec.AsHub {
-		go m.startLeaderElection(m.leaderLock, ctx)
+		if isCandidate {
+			go m.startLeaderElection(m.leaderLock, ctx)
+		} else {
+			go m.innerConnectionController.Start(ctx)
+		}
 		m.dedinicEngine(ctx)
 	} else {
 		m.startLeaderElection(m.leaderLock, ctx)
