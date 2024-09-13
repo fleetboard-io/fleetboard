@@ -221,3 +221,15 @@ func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 
 	return allAnnoValue
 }
+
+// CheckIfMasterOrControlNode return if node is master or controlPlane
+func CheckIfMasterOrControlNode(clientset *kubernetes.Clientset, nodeName string) bool {
+	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("Error getting node: %v\n", err)
+		return false
+	}
+	_, isMaster := node.Labels["node-role.kubernetes.io/master"]
+	_, isControlPlane := node.Labels["node-role.kubernetes.io/control-plane"]
+	return isMaster || isControlPlane
+}

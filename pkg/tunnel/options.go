@@ -98,7 +98,7 @@ func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
 
 	fs.BoolVar(&o.AsHub, "as-hub", false, "If true, run as hub. [default=false]")
 
-	fs.BoolVar(&o.AsCluster, "as-cluster", false, "If true, run as cluster. [default=true]")
+	fs.BoolVar(&o.AsCluster, "as-cluster", false, "If true, run as cluster. [default=false]")
 
 	fs.StringVar(&o.CIDR, "cidr", o.CIDR, "usually global cidr used in multi-cluster ipam,"+
 		" or your cluster local ip range")

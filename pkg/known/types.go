@@ -19,6 +19,7 @@ type SyncerConfig struct {
 
 type EnvConfig struct {
 	PodName        string
+	NodeName       string
 	Endpoint       string
 	ClusterID      string
 	BootStrapToken string
