@@ -1,8 +1,0 @@
-Thank you for installing {{ .Chart.Name }}.
-
-Your release is named {{ .Release.Name }}.
-
-Continue to install fleetboard-agent on clusters, and install fleetboard-agent in cluster by:
-
-  helm install fleetboard-agent fleetboard/fleetboard-agent --namespace fleetboard-system  --create-namespace \
-  --set hub.hubURL=https://{{ .Values.tunnel.endpoint }}:6443 --set cluster.clusterID=cluster1
