@@ -12,9 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	v1informers "k8s.io/client-go/informers/core/v1"
 	discoveryinformerv1 "k8s.io/client-go/informers/discovery/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	v1 "k8s.io/client-go/listers/core/v1"
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -43,17 +45,19 @@ type ServiceExportController struct {
 	// child cluster dedicated namespace
 	operatorNamespace    string
 	serviceExportLister  alpha1.ServiceExportLister
+	serviceLister        v1.ServiceLister
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 }
 
 func NewServiceExportController(clusteID string, epsInformer discoveryinformerv1.EndpointSliceInformer,
-	mcsClientset *mcsclientset.Clientset,
+	services v1informers.ServiceInformer, mcsClientset *mcsclientset.Clientset,
 	mcsInformerFactory mcsInformers.SharedInformerFactory) (*ServiceExportController, error) {
 	seInformer := mcsInformerFactory.Multicluster().V1alpha1().ServiceExports()
 	sec := &ServiceExportController{
 		localClusterID:       clusteID,
 		mcsClientset:         mcsClientset,
 		mcsInformerFactory:   mcsInformerFactory,
+		serviceLister:        services.Lister(),
 		endpointSlicesLister: epsInformer.Lister(),
 		serviceExportLister:  seInformer.Lister(),
 	}
@@ -105,22 +109,38 @@ func NewServiceExportController(clusteID string, epsInformer discoveryinformerv1
 func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
 	ctx := context.Background()
 	key := obj.(string)
+	isHeadless := "false"
 	namespace, seName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("invalid service export key: %s", key))
 		return nil, nil
 	}
 
-	cachedSe, err := c.serviceExportLister.ServiceExports(namespace).Get(seName)
-	if err != nil {
-		if errors.IsNotFound(err) {
+	cachedSe, errSe := c.serviceExportLister.ServiceExports(namespace).Get(seName)
+	if errSe != nil {
+		if errors.IsNotFound(errSe) {
 			utilruntime.HandleError(fmt.Errorf("service export '%s' in work queue no longer exists", key))
 			return nil, nil
 		}
-		return nil, err
+		return nil, errSe
+	}
+	cachaedSerice, errService := c.serviceLister.Services(namespace).Get(seName)
+	if errService != nil {
+		if errors.IsNotFound(errService) {
+			utilruntime.HandleError(fmt.Errorf("service related to ServiceExport '%s' not exists", key))
+			return nil, nil
+		}
+		return nil, errService
+	}
+	if cachaedSerice.Spec.ClusterIP == "None" {
+		isHeadless = "true"
 	}
 
 	se := cachedSe.DeepCopy()
+	if se.Labels == nil {
+		se.Labels = map[string]string{}
+	}
+	se.Labels[known.IsHeadlessKey] = isHeadless
 	seTerminating := se.DeletionTimestamp != nil
 
 	if !utils.ContainsString(se.Finalizers, known.AppFinalizer) && !seTerminating {
@@ -237,6 +257,7 @@ func constructEndpointSlice(slice *discoveryv1.EndpointSlice, se *v1alpha1.Servi
 	newSlice.Labels[known.LabelClusterID] = clusterID
 	newSlice.Labels[known.LabelServiceNameSpace] = se.Namespace
 	newSlice.Labels[discoveryv1.LabelServiceName] = utils.DerivedName(clusterID, se.Namespace, se.Name)
+	newSlice.Labels[known.IsHeadlessKey] = se.GetLabels()[known.IsHeadlessKey]
 
 	newSlice.Namespace = namespace
 	newSlice.Name = fmt.Sprintf("%s-%s-%s", clusterID, se.Namespace, slice.Name)

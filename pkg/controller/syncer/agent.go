@@ -53,7 +53,8 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *
 	mcsInformerFactory := mcsInformers.NewSharedInformerFactory(mcsClientSet, known.DefaultResync)
 
 	serviceExportController, err := mcs.NewServiceExportController(spec.ClusterID,
-		kubeInformerFactory.Discovery().V1().EndpointSlices(), mcsClientSet, mcsInformerFactory)
+		kubeInformerFactory.Discovery().V1().EndpointSlices(), kubeInformerFactory.Core().V1().Services(),
+		mcsClientSet, mcsInformerFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *
 
 	var epsController *mcs.EpsController
 	epsController, err = mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace,
-		hubInformerFactory.Discovery().V1().EndpointSlices(),
+		hubInformerFactory.Discovery().V1().EndpointSlices(), kubeInformerFactory.Discovery().V1().EndpointSlices(),
 		kubeClientSet, hubInformerFactory, serviceExportController, mcsClientSet)
 	if err != nil {
 		klog.Errorf("failed to create eps controller: %v", err)
@@ -81,6 +82,7 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *
 		ServiceExportController: serviceExportController,
 		HubKubeConfig:           kubeConfig,
 		EpsController:           epsController,
+		LocalNamespace:          syncerConf.LocalNamespace,
 	}
 
 	return syncer, nil
@@ -90,7 +92,15 @@ func (a *Syncer) Start(ctx context.Context) error {
 	defer utilruntime.HandleCrash()
 	a.KubeInformerFactory.Start(ctx.Done())
 	// Start the informer factories to begin populating the informer caches
-	klog.Info("Starting Syncer")
+	klog.Info("Starting Syncer and init virtual CIDR...")
+	// TODO change from hard code to dynamic get from cluster config.
+	if cidr, err := a.EpsController.IPAM.InitNewCIDR(a.KubeClientSet, a.LocalNamespace, "10.244.0.0/16",
+		"10.96.0.0/16"); err != nil {
+		klog.Errorf("we allocate for virtual service failed for %v", err)
+		return err
+	} else {
+		klog.Infof("we allocate %s for virtual service in this cluster", cidr)
+	}
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		if err := a.ServiceExportController.Run(ctx, a.HubKubeConfig, a.SyncerConf.RemoteNamespace); err != nil {
 			klog.Error(err)

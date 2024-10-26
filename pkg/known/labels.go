@@ -7,4 +7,6 @@ const (
 	LabelClusterID          = "services.fleetboard.io/multi-cluster-cluster-ID"
 	RouterCNFCreatedByLabel = "router.fleetboard.io/cnf=true"
 	LeaderCNFLabelKey       = "router.fleetboard.io/leader"
+	IsHeadlessKey           = "services.fleetboard.io/is-headless"
+	VirtualClusterIPKey     = "services.fleetboard.io/clusterip"
 )
