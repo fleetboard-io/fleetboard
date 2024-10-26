@@ -25,21 +25,25 @@ import (
 type EpsController struct {
 	yachtController *yacht.Controller
 	// specific namespace.
-	srcEndpointSlicesLister discoverylisterv1.EndpointSliceLister
-
-	targetK8sClient    kubernetes.Interface
-	targetNamespace    string
-	k8sInformerFactory kubeinformers.SharedInformerFactory
+	srcEndpointSlicesLister   discoverylisterv1.EndpointSliceLister
+	targetEndpointSliceLister discoverylisterv1.EndpointSliceLister
+	IPAM                      *utils.IPAM
+	targetK8sClient           kubernetes.Interface
+	targetNamespace           string
+	k8sInformerFactory        kubeinformers.SharedInformerFactory
 }
 
-func NewEpsController(clusteID, targetNamespace string, epsInformer discoveryinformerv1.EndpointSliceInformer,
-	kubeClientSet kubernetes.Interface, k8sInformerFactory kubeinformers.SharedInformerFactory,
-	seController *ServiceExportController, mcsSet *mcsclientset.Clientset) (*EpsController, error) {
+func NewEpsController(clusteID, targetNamespace string, epsInformer,
+	targetSlices discoveryinformerv1.EndpointSliceInformer, kubeClientSet kubernetes.Interface,
+	k8sInformerFactory kubeinformers.SharedInformerFactory, seController *ServiceExportController,
+	mcsSet *mcsclientset.Clientset) (*EpsController, error) {
 	epsController := &EpsController{
-		srcEndpointSlicesLister: epsInformer.Lister(),
-		targetK8sClient:         kubeClientSet,
-		targetNamespace:         targetNamespace,
-		k8sInformerFactory:      k8sInformerFactory,
+		srcEndpointSlicesLister:   epsInformer.Lister(),
+		targetEndpointSliceLister: targetSlices.Lister(),
+		targetK8sClient:           kubeClientSet,
+		targetNamespace:           targetNamespace,
+		k8sInformerFactory:        k8sInformerFactory,
+		IPAM:                      utils.NewIPAM(),
 	}
 
 	yachtcontroller := yacht.NewController("eps").
@@ -108,6 +112,16 @@ func (c *EpsController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 
 	// recycle corresponding endpoint slice.
 	if epsTerminating {
+		if tgtSlice, errT := c.targetEndpointSliceLister.EndpointSlices(c.targetNamespace).Get(epsName); errT == nil {
+			if ip, exist := tgtSlice.Labels[known.VirtualClusterIPKey]; exist {
+				allocateError := c.IPAM.ReleaseIP(ip)
+				if allocateError != nil {
+					d := time.Second
+					return &d, allocateError
+				}
+			}
+		}
+
 		if err = c.targetK8sClient.DiscoveryV1().EndpointSlices(c.targetNamespace).
 			Delete(ctx, epsName, metav1.DeleteOptions{}); err != nil {
 			// try next time, make sure we clear endpoint slice
@@ -124,11 +138,18 @@ func (c *EpsController) Handle(obj interface{}) (requeueAfter *time.Duration, er
 	newSlice.Labels = cachedEps.GetLabels()
 	newSlice.Namespace = c.targetNamespace
 	newSlice.Name = cachedEps.Name
-
-	if err = utils.ApplyEndPointSliceWithRetry(c.targetK8sClient, newSlice); err != nil {
-		klog.Infof("slice %s sync err: %s", newSlice.Name, err)
-		d := time.Second
-		return &d, err
+	if isHeadless, exist := newSlice.GetLabels()[known.IsHeadlessKey]; exist && isHeadless == "false" {
+		if err = utils.ApplyEndPointSliceWithRetryAndIP(c.targetK8sClient, newSlice, c.IPAM); err != nil {
+			klog.Infof("slice %s sync err: %s", newSlice.Name, err)
+			d := time.Second
+			return &d, err
+		}
+	} else {
+		if err = utils.ApplyEndPointSliceWithRetry(c.targetK8sClient, newSlice); err != nil {
+			klog.Infof("slice %s sync err: %s", newSlice.Name, err)
+			d := time.Second
+			return &d, err
+		}
 	}
 
 	klog.Infof("endpoint slice %s has been synced successfully", newSlice.Name)
