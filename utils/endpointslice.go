@@ -314,7 +314,7 @@ func RemoveNonexistentEndpointslice(
 		}
 	}
 	// remove endpoint slices exist in delicate ns but not in target ns
-	srcEndpointSliceMap := make(map[string]bool, 0)
+	srcEndpointSliceMap := make(map[string]bool)
 	for _, item := range srcEndpointSliceList {
 		srcEndpointSliceMap[fmt.Sprintf("%s-%s-%s", srcClusterID, item.Namespace, item.Name)] = true
 	}
