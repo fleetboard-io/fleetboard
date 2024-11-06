@@ -23,7 +23,7 @@ import (
 	tunnelcontroller "github.com/fleetboard-io/fleetboard/pkg/controller/tunnel"
 	"github.com/fleetboard-io/fleetboard/pkg/dedinic"
 	fleetboardClientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
-	kubeinformers "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions"
+	fleetinformers "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions"
 	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
 	"github.com/fleetboard-io/fleetboard/utils"
@@ -135,8 +135,8 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 		klog.Fatalf("get hub fleetboard client failed: %v", err)
 		return nil, err
 	}
-	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(octoClient, known.DefaultResync,
-		kubeinformers.WithNamespace(agentSpec.ShareNamespace))
+	hubInformerFactory := fleetinformers.NewSharedInformerFactoryWithOptions(octoClient, known.DefaultResync,
+		fleetinformers.WithNamespace(agentSpec.ShareNamespace))
 	interController, err := tunnelcontroller.NewPeerController(agentSpec, localK8sClient, w,
 		octoClient, hubInformerFactory)
 	if err != nil {

@@ -29,46 +29,49 @@ type AgentConfig struct {
 }
 
 type Syncer struct {
-	ClusterID               string
-	LocalNamespace          string
-	KubeClientSet           kubernetes.Interface
-	KubeInformerFactory     kubeinformers.SharedInformerFactory
-	ServiceExportController *mcs.ServiceExportController
+	ClusterID      string
+	LocalNamespace string
+
 	HubKubeConfig           *rest.Config
 	SyncerConf              known.SyncerConfig
-	EpsController           *mcs.EpsController
+	ServiceExportController *mcs.ServiceExportController
+	ServiceImportController *mcs.ServiceImportController
+	// local mcs related informer factory
+	McsInformerFactory mcsInformers.SharedInformerFactory
+	// local k8s informer factory
+	KubeInformerFactory kubeinformers.SharedInformerFactory
+	// hub k8s informer factory
+	HubInformerFactory kubeinformers.SharedInformerFactory
+	LocalmcsClientSet  *mcsclientset.Clientset
 }
 
 // New create a syncer client, it only works in cluster level
-func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *rest.Config) (*Syncer, error) {
+func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfig *rest.Config) (*Syncer, error) {
 	if errs := validations.IsDNS1123Label(spec.ClusterID); len(errs) > 0 {
 		return nil, errors.Errorf("%s is not a valid ClusterID %v", spec.ClusterID, errs)
 	}
 
-	kubeClientSet := kubernetes.NewForConfigOrDie(syncerConf.LocalRestConfig)
+	localKubeClientSet := kubernetes.NewForConfigOrDie(syncerConf.LocalRestConfig)
 	mcsClientSet := mcsclientset.NewForConfigOrDie(syncerConf.LocalRestConfig)
 
+	hubK8sClient := kubernetes.NewForConfigOrDie(hubKubeConfig)
+	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync,
+		kubeinformers.WithNamespace(spec.ShareNamespace))
 	// creates the informer factory
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClientSet, known.DefaultResync)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(localKubeClientSet, known.DefaultResync)
 	mcsInformerFactory := mcsInformers.NewSharedInformerFactory(mcsClientSet, known.DefaultResync)
 
-	serviceExportController, err := mcs.NewServiceExportController(spec.ClusterID,
+	serviceExportController, err := mcs.NewServiceExportController(spec.ClusterID, hubK8sClient,
 		kubeInformerFactory.Discovery().V1().EndpointSlices(), kubeInformerFactory.Core().V1().Services(),
 		mcsClientSet, mcsInformerFactory)
 	if err != nil {
 		return nil, err
 	}
 
-	hubK8sClient := kubernetes.NewForConfigOrDie(kubeConfig)
-	hubInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync,
-		kubeinformers.WithNamespace(spec.ShareNamespace))
-
-	var epsController *mcs.EpsController
-	epsController, err = mcs.NewEpsController(spec.ClusterID, syncerConf.LocalNamespace,
-		hubInformerFactory.Discovery().V1().EndpointSlices(), kubeInformerFactory.Discovery().V1().EndpointSlices(),
-		kubeClientSet, hubInformerFactory, serviceExportController, mcsClientSet)
+	serviceImportController, err := mcs.NewServiceImportController(localKubeClientSet,
+		hubInformerFactory.Discovery().V1().EndpointSlices(), mcsClientSet, mcsInformerFactory)
 	if err != nil {
-		klog.Errorf("failed to create eps controller: %v", err)
+		return nil, err
 	}
 
 	syncerConf.LocalNamespace = spec.LocalNamespace
@@ -77,24 +80,28 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, kubeConfig *
 
 	syncer := &Syncer{
 		SyncerConf:              syncerConf,
-		KubeClientSet:           kubeClientSet,
-		KubeInformerFactory:     kubeInformerFactory,
+		LocalmcsClientSet:       mcsClientSet,
+		HubKubeConfig:           hubKubeConfig,
 		ServiceExportController: serviceExportController,
-		HubKubeConfig:           kubeConfig,
-		EpsController:           epsController,
+		ServiceImportController: serviceImportController,
 		LocalNamespace:          syncerConf.LocalNamespace,
+		KubeInformerFactory:     kubeInformerFactory,
+		McsInformerFactory:      mcsInformerFactory,
+		HubInformerFactory:      hubInformerFactory,
 	}
 
 	return syncer, nil
 }
 
-func (a *Syncer) Start(ctx context.Context) error {
+func (s *Syncer) Start(ctx context.Context) error {
 	defer utilruntime.HandleCrash()
-	a.KubeInformerFactory.Start(ctx.Done())
+	s.KubeInformerFactory.Start(ctx.Done())
+	s.McsInformerFactory.Start(ctx.Done())
+	s.HubInformerFactory.Start(ctx.Done())
 	// Start the informer factories to begin populating the informer caches
 	klog.Info("Starting Syncer and init virtual CIDR...")
 	// TODO change from hard code to dynamic get from cluster config.
-	if cidr, err := a.EpsController.IPAM.InitNewCIDR(a.KubeClientSet, a.LocalNamespace, "10.244.0.0/16",
+	if cidr, err := s.ServiceImportController.IPAM.InitNewCIDR(s.LocalmcsClientSet, s.LocalNamespace, "10.244.0.0/16",
 		"10.96.0.0/16"); err != nil {
 		klog.Errorf("we allocate for virtual service failed for %v", err)
 		return err
@@ -102,16 +109,13 @@ func (a *Syncer) Start(ctx context.Context) error {
 		klog.Infof("we allocate %s for virtual service in this cluster", cidr)
 	}
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		if err := a.ServiceExportController.Run(ctx, a.HubKubeConfig, a.SyncerConf.RemoteNamespace); err != nil {
-			klog.Error(err)
-		}
+		s.ServiceExportController.Run(ctx, s.SyncerConf.RemoteNamespace)
 	}, time.Duration(0))
 
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
-		if err := a.EpsController.Run(ctx); err != nil {
-			klog.Error(err)
-		}
+		s.ServiceImportController.Run(ctx, s.SyncerConf.RemoteNamespace)
 	}, time.Duration(0))
+
 	<-ctx.Done()
 	return nil
 }
