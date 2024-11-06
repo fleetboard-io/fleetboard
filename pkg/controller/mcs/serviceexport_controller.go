@@ -18,7 +18,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/listers/core/v1"
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
@@ -49,14 +48,18 @@ type ServiceExportController struct {
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 }
 
-func NewServiceExportController(clusteID string, epsInformer discoveryinformerv1.EndpointSliceInformer,
-	services v1informers.ServiceInformer, mcsClientset *mcsclientset.Clientset,
+func NewServiceExportController(clusteID string,
+	hubClient *kubernetes.Clientset,
+	epsInformer discoveryinformerv1.EndpointSliceInformer,
+	services v1informers.ServiceInformer,
+	mcsClientset *mcsclientset.Clientset,
 	mcsInformerFactory mcsInformers.SharedInformerFactory) (*ServiceExportController, error) {
 	seInformer := mcsInformerFactory.Multicluster().V1alpha1().ServiceExports()
 	sec := &ServiceExportController{
 		localClusterID:       clusteID,
 		mcsClientset:         mcsClientset,
 		mcsInformerFactory:   mcsInformerFactory,
+		parentk8sClient:      hubClient,
 		serviceLister:        services.Lister(),
 		endpointSlicesLister: epsInformer.Lister(),
 		serviceExportLister:  seInformer.Lister(),
@@ -182,7 +185,7 @@ func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Du
 	// dst endpoint slice with label of derived service name combined with namespace and service export name
 	dstLabelMap := labels.Set{discoveryv1.LabelServiceName: utils.DerivedName(c.localClusterID, namespace, seName)}
 	endpointSliceList, err := utils.RemoveNonexistentEndpointslice(c.endpointSlicesLister, c.localClusterID, namespace,
-		srcLabelMap, c.parentk8sClient, c.operatorNamespace, dstLabelMap)
+		srcLabelMap, c.parentk8sClient, c.operatorNamespace, dstLabelMap, true)
 	if err != nil {
 		d := time.Second
 		return &d, err
@@ -220,17 +223,10 @@ func (c *ServiceExportController) Handle(obj interface{}) (requeueAfter *time.Du
 	return nil, nil
 }
 
-func (c *ServiceExportController) Run(ctx context.Context, parentDedicatedKubeConfig *rest.Config,
-	delicatedNamespace string) error {
-	c.mcsInformerFactory.Start(ctx.Done())
+func (c *ServiceExportController) Run(ctx context.Context, delicatedNamespace string) {
 	// set parent cluster related filed.
 	c.operatorNamespace = delicatedNamespace
-
-	parentClient := kubernetes.NewForConfigOrDie(parentDedicatedKubeConfig)
-	c.parentk8sClient = parentClient
-
 	c.YachtController.Run(ctx)
-	return nil
 }
 
 func (c *ServiceExportController) getServiceExportFromEndpointSlice(obj interface{}) (*v1alpha1.ServiceExport, error) {

@@ -10,7 +10,6 @@ import (
 	"net/netip"
 	"time"
 
-	"github.com/fleetboard-io/fleetboard/pkg/known"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +19,9 @@ import (
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
+	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/metal-stack/go-ipam"
 )
 
@@ -99,34 +100,31 @@ func GenerateRandomCIDR(existingCIDRs []string) (string, error) {
 	return "", errors.New("failed to generate a non-conflicting /24 CIDR after 100 attempts")
 }
 
-// InitNewCIDR init a CIDR from local multi-endpointslices first get CIDR from local ip.
-func (i *IPAM) InitNewCIDR(kubeClientSet kubernetes.Interface, targetNamespace, podCIDR,
-	serviceCIDR string) (string, error) {
-	lSelector := fmt.Sprintf("%s !=", known.VirtualClusterIPKey)
-	endpointSliceList, err := kubeClientSet.DiscoveryV1().EndpointSlices(targetNamespace).List(context.Background(),
-		metav1.ListOptions{
-			LabelSelector: lSelector,
-		})
+// InitNewCIDR init a CIDR from local multi serviceimports first get CIDR from local ip.
+func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace,
+	podCIDR, serviceCIDR string) (string, error) {
+	localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(targetNamespace).
+		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("failed to list EndpointSlices %v", err)
-		return "", fmt.Errorf("failed to list EndpointSlices: %v", err)
+		klog.Errorf("failed to list service import in this local cluster %v", err)
+		return "", fmt.Errorf("failed to list service import: %v", err)
 	}
 
-	var endpointIPs []string
-	for _, endpointSlice := range endpointSliceList.Items {
-		if vClusterIP, exist := endpointSlice.Labels[known.VirtualClusterIPKey]; exist {
-			endpointIPs = append(endpointIPs, vClusterIP)
+	var virtualServiceIPs []string
+	for _, localServiceImport := range localSIList.Items {
+		if len(localServiceImport.Spec.IPs) != 0 {
+			virtualServiceIPs = append(virtualServiceIPs, localServiceImport.Spec.IPs[0])
 		}
 	}
 
 	var newCIDR string
-	if len(endpointIPs) > 0 {
+	if len(virtualServiceIPs) > 0 {
 		// if we get one IP, use the first one to determine /24 CIDR
-		newCIDR, err = GetCIDRFromIP(endpointIPs[0])
+		newCIDR, err = GetCIDRFromIP(virtualServiceIPs[0])
 		if err != nil {
 			return "", fmt.Errorf("failed to get CIDR from IP: %v", err)
 		}
-		klog.Errorf("Using CIDR from existing EndpointSlice IP: %s", newCIDR)
+		klog.Errorf("Using CIDR from existing ServiceImport IP: %s", newCIDR)
 	} else {
 		// if there is no endpointslices random generate /24 CIDR
 		existingCIDRs := []string{podCIDR, serviceCIDR}
@@ -143,7 +141,7 @@ func (i *IPAM) InitNewCIDR(kubeClientSet kubernetes.Interface, targetNamespace, 
 		return "", err
 	}
 
-	initExistingErr := i.InitializeExistingIPs(endpointIPs)
+	initExistingErr := i.InitializeExistingIPs(virtualServiceIPs)
 	if initExistingErr != nil {
 		klog.Errorf("failed to initialize existing ips: %v", initExistingErr)
 		return "", initExistingErr
@@ -305,6 +303,7 @@ func RemoveNonexistentEndpointslice(
 	targetClient kubernetes.Interface,
 	targetNamespace string,
 	dstLabelMap labels.Set,
+	nameChanged bool,
 ) ([]*discoveryv1.EndpointSlice, error) {
 	srcEndpointSliceList, err := srcLister.EndpointSlices(srcNamespace).List(
 		labels.SelectorFromSet(labelMap))
@@ -316,7 +315,12 @@ func RemoveNonexistentEndpointslice(
 	// remove endpoint slices exist in delicate ns but not in target ns
 	srcEndpointSliceMap := make(map[string]bool, 0)
 	for _, item := range srcEndpointSliceList {
-		srcEndpointSliceMap[fmt.Sprintf("%s-%s-%s", srcClusterID, item.Namespace, item.Name)] = true
+		// change name in a pattern
+		if nameChanged {
+			srcEndpointSliceMap[fmt.Sprintf("%s-%s-%s", srcClusterID, item.Namespace, item.Name)] = true
+		} else {
+			srcEndpointSliceMap[item.Name] = true
+		}
 	}
 
 	var targetEndpointSliceList *discoveryv1.EndpointSliceList
