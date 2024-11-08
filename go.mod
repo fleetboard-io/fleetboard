@@ -8,6 +8,7 @@ require (
 	github.com/coredns/caddy v1.1.1
 	github.com/coredns/coredns v1.11.1
 	github.com/dixudx/yacht v0.8.0
+	github.com/google/cadvisor v0.47.3
 	github.com/google/uuid v1.6.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mattbaird/jsonpatch v0.0.0-20240118010651-0ba75a80ca38
@@ -26,6 +27,7 @@ require (
 	k8s.io/component-base v0.28.4
 	k8s.io/endpointslice v0.0.0
 	k8s.io/klog/v2 v2.110.1
+	k8s.io/kube-proxy v0.0.0
 	k8s.io/kubernetes v1.27.8
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/mcs-api v0.1.1-0.20230217171204-d9e516ac3939
@@ -33,14 +35,22 @@ require (
 
 require (
 	github.com/avast/retry-go/v4 v4.6.0 // indirect
+	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/distribution/reference v0.5.0 // indirect
+	github.com/go-logr/zapr v1.2.3 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
+	github.com/lithammer/dedent v1.1.0 // indirect
+	github.com/mistifyio/go-zfs v2.1.2-0.20190413222219-f784269be439+incompatible // indirect
+	github.com/moby/ipvs v1.1.0 // indirect
+	github.com/moby/sys/mountinfo v0.6.2 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
+	github.com/opencontainers/runc v1.1.11 // indirect
 	github.com/redis/go-redis/v9 v9.6.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
@@ -84,7 +94,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.7.0
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -137,7 +147,7 @@ require (
 	github.com/quic-go/quic-go v0.37.4 // indirect
 	github.com/safchain/ethtool v0.3.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.7.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.5
 	github.com/stoewer/go-strcase v1.2.1 // indirect
 	github.com/tinylib/msgp v1.1.8 // indirect
 	github.com/vishvananda/netlink v1.2.1-beta.2
@@ -182,7 +192,7 @@ require (
 	inet.af/netaddr v0.0.0-20220811202034-502d2d690317 // indirect
 	k8s.io/apiextensions-apiserver v0.28.3 // indirect
 	k8s.io/cloud-provider v0.28.4 // indirect
-	k8s.io/component-helpers v0.28.4 // indirect
+	k8s.io/component-helpers v0.28.4
 	k8s.io/controller-manager v0.28.4 // indirect
 	k8s.io/cri-api v0.28.4 // indirect
 	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
