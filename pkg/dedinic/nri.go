@@ -18,12 +18,13 @@ var (
 )
 
 var (
-	NodeCIDR        string
-	GlobalCIDR      string
-	CNFPodName      string
-	CNFPodNamespace string
-	CNFPodIP        string
-	CNFBridgeIP     string
+	NodeCIDR           string
+	GlobalCIDR         string
+	InnerClusterIPCIDR string
+	CNFPodName         string
+	CNFPodNamespace    string
+	CNFPodIP           string
+	CNFBridgeIP        string
 )
 
 type CNIPlugin struct {
