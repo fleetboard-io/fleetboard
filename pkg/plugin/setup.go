@@ -2,14 +2,16 @@ package plugin
 
 import (
 	"flag"
-	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
+	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
+	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/pkg/errors"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/clientcmd"
@@ -58,13 +60,19 @@ func CrossDNSParse(c *caddy.Controller) (*CrossDNS, error) {
 	cd := &CrossDNS{}
 
 	kubeClient := kubernetes.NewForConfigOrDie(cfg)
-	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Hour*2)
+	mcsClientSet := mcsclientset.NewForConfigOrDie(cfg)
+	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, known.DefaultResync)
+	mcsInformerFactory := mcsInformers.NewSharedInformerFactory(mcsClientSet, known.DefaultResync)
 	endpointSlicesInformer := kubeInformerFactory.Discovery().V1().EndpointSlices()
+	siInformer := mcsInformerFactory.Multicluster().V1alpha1().ServiceImports()
 
 	cd.endpointSlicesLister = endpointSlicesInformer.Lister()
+	cd.SILister = siInformer.Lister()
 	cd.epsSynced = endpointSlicesInformer.Informer().HasSynced
+	cd.SISynced = siInformer.Informer().HasSynced
 
 	kubeInformerFactory.Start(stopChannel)
+	mcsInformerFactory.Start(stopChannel)
 
 	c.OnShutdown(func() error {
 		close(stopChannel)

@@ -10,6 +10,8 @@ import (
 	discoverylisterv1 "k8s.io/client-go/listers/discovery/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+	alpha1 "sigs.k8s.io/mcs-api/pkg/client/listers/apis/v1alpha1"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
@@ -25,6 +27,8 @@ type CrossDNS struct {
 	Zones                []string
 	endpointSlicesLister discoverylisterv1.EndpointSliceLister
 	epsSynced            cache.InformerSynced
+	SILister             alpha1.ServiceImportLister
+	SISynced             cache.InformerSynced
 }
 
 type DNSRecord struct {
@@ -67,36 +71,54 @@ func (c *CrossDNS) getDNSRecord(ctx context.Context, _ string, state *request.Re
 	r *dns.Msg, pReq *recordRequest,
 ) (int, error) {
 	// wait for endpoint slice synced.
-	if !cache.WaitForCacheSync(ctx.Done(), c.epsSynced) {
-		klog.Fatal("unable to sync caches for endpointslices")
+	if !cache.WaitForCacheSync(ctx.Done(), c.epsSynced, c.SISynced) {
+		klog.Fatal("unable to sync caches for endpointslices or service import")
+	}
+
+	si, errGetSI := c.SILister.ServiceImports("syncer-operator").List(labels.SelectorFromSet(
+		labels.Set{
+			known.LabelServiceNameSpace: pReq.namespace,
+			known.LabelServiceName:      pReq.service,
+		}))
+	if errGetSI != nil {
+		klog.Errorf("Failed to get service import %v", errGetSI)
+		return dns.RcodeServerFailure, errors.New("failed to write response")
 	}
 
 	var dnsRecords []DNSRecord
 	var err error
 	var srcEndpointSliceList []*v1.EndpointSlice
-	if pReq.cluster != "" {
-		srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
-			labels.SelectorFromSet(
-				labels.Set{
-					known.LabelServiceNameSpace: pReq.namespace,
-					known.LabelServiceName:      pReq.service,
-					known.LabelClusterID:        pReq.cluster,
-				}))
+	if si[0].Spec.Type == v1alpha1.ClusterSetIP {
+		if len(si[0].Spec.IPs) != 0 {
+			record := DNSRecord{
+				IP: si[0].Spec.IPs[0],
+			}
+			dnsRecords = append(dnsRecords, record)
+		}
 	} else {
-		srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
-			labels.SelectorFromSet(
-				labels.Set{
-					known.LabelServiceNameSpace: pReq.namespace,
-					known.LabelServiceName:      pReq.service,
-				}))
+		if pReq.cluster != "" {
+			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
+				labels.SelectorFromSet(
+					labels.Set{
+						known.LabelServiceNameSpace: pReq.namespace,
+						known.LabelServiceName:      pReq.service,
+						known.LabelClusterID:        pReq.cluster,
+					}))
+		} else {
+			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
+				labels.SelectorFromSet(
+					labels.Set{
+						known.LabelServiceNameSpace: pReq.namespace,
+						known.LabelServiceName:      pReq.service,
+					}))
+		}
+		if err != nil {
+			klog.Errorf("Failed to write message %v", err)
+			return dns.RcodeServerFailure, errors.New("failed to write response")
+		}
+		record := c.getAllRecordsFromEndpointslice(srcEndpointSliceList)
+		dnsRecords = append(dnsRecords, record...)
 	}
-
-	if err != nil {
-		klog.Errorf("Failed to write message %v", err)
-		return dns.RcodeServerFailure, errors.New("failed to write response")
-	}
-	record := c.getAllRecordsFromEndpointslice(srcEndpointSliceList)
-	dnsRecords = append(dnsRecords, record...)
 	if len(dnsRecords) == 0 {
 		klog.Infof("Couldn't find a connected cluster or valid IPs for %q", state.QName())
 		return c.emptyResponse(state)
