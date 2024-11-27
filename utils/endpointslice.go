@@ -52,7 +52,7 @@ func GetCIDRFromIP(ip string) (string, error) {
 	return ipNet.String(), nil
 }
 
-func GenerateRandomCIDR(existingCIDRs []string) (string, error) {
+func GenerateRandomCIDR(existingCIDRs ...string) (string, error) {
 	// RFC1918 private address pool
 	privateRanges := []string{
 		"10.0.0.0/8",
@@ -101,8 +101,8 @@ func GenerateRandomCIDR(existingCIDRs []string) (string, error) {
 }
 
 // InitNewCIDR init a CIDR from local multi serviceimports first get CIDR from local ip.
-func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace,
-	podCIDR, serviceCIDR string) (string, error) {
+func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
+	kubeClientSet kubernetes.Interface) (string, error) {
 	localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(targetNamespace).
 		List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -127,8 +127,20 @@ func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace
 		klog.Errorf("Using CIDR from existing ServiceImport IP: %s", newCIDR)
 	} else {
 		// if there is no endpointslices random generate /24 CIDR
-		existingCIDRs := []string{podCIDR, serviceCIDR}
-		newCIDR, err = GenerateRandomCIDR(existingCIDRs)
+		var serviceCIDR, podCIDR string
+		serviceCIDR, err = FindServiceIPRange(kubeClientSet)
+		if err != nil {
+			// TODO: consider kubeadm default service cidr 10.96.0.0/16
+			return "", fmt.Errorf("failed to find service CIDR: %v", err)
+		}
+		podCIDR, err = FindPodIPRange(kubeClientSet)
+		if err != nil {
+			// TODO: pod cidr is not required by all cni, although most cni requires it
+			return "", fmt.Errorf("failed to find pod CIDR: %v", err)
+		}
+		klog.Infof("Detected cluster service/pod CIDR: %s, %s", serviceCIDR, podCIDR)
+
+		newCIDR, err = GenerateRandomCIDR(serviceCIDR, podCIDR)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate random CIDR: %v", err)
 		}
@@ -313,7 +325,7 @@ func RemoveNonexistentEndpointslice(
 		}
 	}
 	// remove endpoint slices exist in delicate ns but not in target ns
-	srcEndpointSliceMap := make(map[string]bool, 0)
+	srcEndpointSliceMap := make(map[string]bool)
 	for _, item := range srcEndpointSliceList {
 		// change name in a pattern
 		if nameChanged {
