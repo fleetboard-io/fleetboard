@@ -37,7 +37,8 @@ import (
 //
 //   - An indication of whether the service has any endpoints reachable from anywhere in the
 //     cluster. (This may be true even if allReachableEndpoints is empty.)
-func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels map[string]string) (clusterEndpoints, localEndpoints, allReachableEndpoints []Endpoint, hasAnyEndpoints bool) {
+func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels map[string]string) (clusterEndpoints,
+	localEndpoints, allReachableEndpoints []Endpoint, hasAnyEndpoints bool) {
 	var useTopology, useServingTerminatingEndpoints bool
 
 	if svcInfo.UsesClusterEndpoints() {
@@ -74,7 +75,7 @@ func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels m
 
 	if !svcInfo.UsesLocalEndpoints() {
 		allReachableEndpoints = clusterEndpoints
-		return
+		return //nolint:all
 	}
 
 	// Pre-scan the endpoints, to figure out which type of endpoint Local
@@ -108,7 +109,7 @@ func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels m
 
 	if !svcInfo.UsesClusterEndpoints() {
 		allReachableEndpoints = localEndpoints
-		return
+		return //nolint:all
 	}
 
 	if !useTopology && !useServingTerminatingEndpoints {
@@ -116,7 +117,7 @@ func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels m
 		// Ready endpoints. !useTopology means that clusterEndpoints contains *every*
 		// Ready endpoint. So clusterEndpoints must be a superset of localEndpoints.
 		allReachableEndpoints = clusterEndpoints
-		return
+		return //nolint:all
 	}
 
 	// clusterEndpoints may contain remote endpoints that aren't in localEndpoints, while
@@ -134,7 +135,7 @@ func CategorizeEndpoints(endpoints []Endpoint, svcInfo ServicePort, nodeLabels m
 		allReachableEndpoints = append(allReachableEndpoints, ep)
 	}
 
-	return
+	return //nolint:all
 }
 
 // canUseTopology returns true if topology aware routing is enabled and properly configured
@@ -156,7 +157,8 @@ func canUseTopology(endpoints []Endpoint, svcInfo ServicePort, nodeLabels map[st
 
 	zone, ok := nodeLabels[v1.LabelTopologyZone]
 	if !ok || zone == "" {
-		klog.V(2).InfoS("Skipping topology aware endpoint filtering since node is missing label", "label", v1.LabelTopologyZone)
+		klog.V(2).InfoS("Skipping topology aware endpoint filtering since node is missing label",
+			"label", v1.LabelTopologyZone)
 		return false
 	}
 
@@ -166,7 +168,8 @@ func canUseTopology(endpoints []Endpoint, svcInfo ServicePort, nodeLabels map[st
 			continue
 		}
 		if endpoint.GetZoneHints().Len() == 0 {
-			klog.V(2).InfoS("Skipping topology aware endpoint filtering since one or more endpoints is missing a zone hint", "endpoint", endpoint)
+			klog.V(2).InfoS("Skipping topology aware endpoint filtering since one or more"+
+				"endpoints is missing a zone hint", "endpoint", endpoint)
 			return false
 		}
 

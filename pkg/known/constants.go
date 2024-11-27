@@ -44,6 +44,7 @@ const (
 const (
 	HubSecretName             = "fleetboard"
 	FleetboardSystemNamespace = "fleetboard-system"
+	SyncNamespace             = "syncer-operator"
 	HubClusterName            = "hub"
 )
 

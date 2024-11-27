@@ -18,21 +18,21 @@ package proxy
 
 import (
 	"fmt"
-	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"net"
 	"reflect"
 	"strconv"
 	"sync"
 
-	"k8s.io/client-go/tools/events"
-	"k8s.io/klog/v2"
-	netutils "k8s.io/utils/net"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/proxy/metrics"
+	netutils "k8s.io/utils/net"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
+
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 // BaseServicePortInfo contains base information that defines a service.
@@ -139,7 +139,8 @@ func (bsvcPortInfo *BaseServicePortInfo) HintsAnnotation() string {
 
 // ExternallyAccessible is part of ServicePort interface.
 func (bsvcPortInfo *BaseServicePortInfo) ExternallyAccessible() bool {
-	return bsvcPortInfo.nodePort != 0 || len(bsvcPortInfo.loadBalancerStatus.Ingress) != 0 || len(bsvcPortInfo.externalIPs) != 0
+	return bsvcPortInfo.nodePort != 0 ||
+		len(bsvcPortInfo.loadBalancerStatus.Ingress) != 0 || len(bsvcPortInfo.externalIPs) != 0
 }
 
 // UsesClusterEndpoints is part of ServicePort interface.
@@ -155,9 +156,8 @@ func (bsvcPortInfo *BaseServicePortInfo) UsesLocalEndpoints() bool {
 	return bsvcPortInfo.internalPolicyLocal || (bsvcPortInfo.externalPolicyLocal && bsvcPortInfo.ExternallyAccessible())
 }
 
-func (sct *ServiceImportChangeTracker) newBaseServiceInfo(port *v1.ServicePort, serviceImport *v1alpha1.ServiceImport) *BaseServicePortInfo {
-
-	//clusterIP := proxyutil.GetClusterIPByFamily(sct.ipFamily, service)
+func (sct *ServiceImportChangeTracker) newBaseServiceInfo(port *v1.ServicePort, serviceImport *v1alpha1.ServiceImport,
+) *BaseServicePortInfo {
 	clusterIP := serviceImport.Spec.IPs[0]
 	klog.V(4).InfoS("newBaseServiceInfo", "clusterIP", clusterIP, "serviceImport", serviceImport)
 	info := &BaseServicePortInfo{
@@ -165,11 +165,11 @@ func (sct *ServiceImportChangeTracker) newBaseServiceInfo(port *v1.ServicePort, 
 		port:      int(port.Port),
 		protocol:  port.Protocol,
 		nodePort:  int(port.NodePort),
-		//sessionAffinityType:   service.Spec.SessionAffinity,
-		//stickyMaxAgeSeconds:   stickyMaxAgeSeconds,
-		//externalPolicyLocal:   externalPolicyLocal,
-		//internalPolicyLocal:   internalPolicyLocal,
-		//internalTrafficPolicy: service.Spec.InternalTrafficPolicy,
+		// sessionAffinityType:   service.Spec.SessionAffinity,
+		// stickyMaxAgeSeconds:   stickyMaxAgeSeconds,
+		// externalPolicyLocal:   externalPolicyLocal,
+		// internalPolicyLocal:   internalPolicyLocal,
+		// internalTrafficPolicy: service.Spec.InternalTrafficPolicy,
 	}
 	return info
 }
@@ -180,7 +180,8 @@ type makeServicePortFunc func(*v1.ServicePort, *v1alpha1.ServiceImport, *BaseSer
 // ServicePortMap's but just use the changes for any Proxier specific cleanup.
 type processServiceMapChangeFunc func(previous, current ServicePortMap)
 
-// serviceImportChange contains all changes to services that happened since proxy rules were synced.  For a single object,
+// serviceImportChange contains all changes to services that happened since proxy rules were synced.
+// For a single object,
 // changes are accumulated, i.e. previous is state from before applying the changes,
 // current is state after applying all of the changes.
 type serviceImportChange struct {
@@ -204,7 +205,8 @@ type ServiceImportChangeTracker struct {
 }
 
 // NewServiceImportChangeTracker initializes a ServiceImportChangeTracker
-func NewServiceImportChangeTracker(makeServiceInfo makeServicePortFunc, ipFamily v1.IPFamily, recorder events.EventRecorder, processServiceMapChange processServiceMapChangeFunc) *ServiceImportChangeTracker {
+func NewServiceImportChangeTracker(makeServiceInfo makeServicePortFunc, ipFamily v1.IPFamily,
+	recorder events.EventRecorder, processServiceMapChange processServiceMapChangeFunc) *ServiceImportChangeTracker {
 	return &ServiceImportChangeTracker{
 		items:                   make(map[types.NamespacedName]*serviceImportChange),
 		makeServiceInfo:         makeServiceInfo,
@@ -214,7 +216,10 @@ func NewServiceImportChangeTracker(makeServiceInfo makeServicePortFunc, ipFamily
 	}
 }
 
-// Update updates given service's change map based on the <previous, current> service pair.  It returns true if items changed,
+// Update updates given service's change map based on the <previous, current> service pair.
+//
+//	It returns true if items changed,
+//
 // otherwise return false.  Update can be used to add/update/delete items of ServiceChangeMap.  For example,
 // Add item
 //   - pass <nil, service> as the <previous, current> pair.
@@ -251,7 +256,8 @@ func (sct *ServiceImportChangeTracker) Update(previous, current *v1alpha1.Servic
 	if reflect.DeepEqual(change.previous, change.current) {
 		delete(sct.items, namespacedName)
 	} else {
-		klog.V(4).InfoS("Service updated ports", "service", klog.KObj(svc), "portCount", len(change.current))
+		klog.V(4).InfoS("Service updated ports", "service",
+			klog.KObj(svc), "portCount", len(change.current))
 	}
 	metrics.ServiceChangesPending.Set(float64(len(sct.items)))
 	return len(sct.items) > 0
@@ -271,11 +277,11 @@ type UpdateServiceMapResult struct {
 
 // HealthCheckNodePorts returns a map of Service names to HealthCheckNodePort values
 // for all Services in sm with non-zero HealthCheckNodePort.
-func (sm ServicePortMap) HealthCheckNodePorts() map[types.NamespacedName]uint16 {
+func (spm ServicePortMap) HealthCheckNodePorts() map[types.NamespacedName]uint16 {
 	// TODO: If this will appear to be computationally expensive, consider
 	// computing this incrementally similarly to svcPortMap.
 	ports := make(map[types.NamespacedName]uint16)
-	for svcPortName, info := range sm {
+	for svcPortName, info := range spm {
 		if info.HealthCheckNodePort() != 0 {
 			ports[svcPortName.NamespacedName] = uint16(info.HealthCheckNodePort())
 		}
@@ -308,7 +314,6 @@ func (sct *ServiceImportChangeTracker) serviceImportToServiceMap(serviceImport *
 		klog.ErrorS(nil, "ServiceImport has no clusterIP", "serviceImport", klog.KObj(serviceImport))
 		return nil
 	}
-	//clusterIP := serviceImport.Spec.IPs[0]
 
 	// get service name and namespace
 	nameLabel, ok := serviceImport.Labels[known.LabelServiceName]
@@ -329,7 +334,6 @@ func (sct *ServiceImportChangeTracker) serviceImportToServiceMap(serviceImport *
 
 		svcV1Port := svcImportPortToV1Port(servicePort)
 		// use the port index as the port name to mapping the service port to endpoint
-		//svcPortName := ServicePortName{NamespacedName: svcName, Port: servicePort.Name, Protocol: servicePort.Protocol}
 		svcPortName := ServicePortName{NamespacedName: svcName, Port: strconv.Itoa(i), Protocol: servicePort.Protocol}
 		baseSvcInfo := sct.newBaseServiceInfo(svcV1Port, serviceImport)
 		if sct.makeServiceInfo != nil {
@@ -352,7 +356,7 @@ func svcImportPortToV1Port(svcImportPort v1alpha1.ServicePort) *v1.ServicePort {
 // Update updates ServicePortMap base on the given changes, returns information about the
 // diff since the last Update, triggers processServiceMapChange on every change, and
 // clears the changes map.
-func (sm ServicePortMap) Update(sct *ServiceImportChangeTracker) UpdateServiceMapResult {
+func (spm ServicePortMap) Update(sct *ServiceImportChangeTracker) UpdateServiceMapResult {
 	klog.V(4).InfoS("ServicePortMap Update")
 	sct.lock.Lock()
 	defer sct.lock.Unlock()
@@ -368,11 +372,11 @@ func (sm ServicePortMap) Update(sct *ServiceImportChangeTracker) UpdateServiceMa
 		}
 		result.UpdatedServices.Insert(nn)
 
-		sm.merge(change.current)
+		spm.merge(change.current)
 		// filter out the Update event of current changes from previous changes
 		// before calling unmerge() so that can skip deleting the Update events.
 		change.previous.filter(change.current)
-		sm.unmerge(change.previous, result.DeletedUDPClusterIPs)
+		spm.unmerge(change.previous, result.DeletedUDPClusterIPs)
 	}
 	// clear changes after applying them to ServicePortMap.
 	sct.items = make(map[types.NamespacedName]*serviceImportChange)
@@ -384,7 +388,10 @@ func (sm ServicePortMap) Update(sct *ServiceImportChangeTracker) UpdateServiceMa
 // merge adds other ServicePortMap's elements to current ServicePortMap.
 // If collision, other ALWAYS win. Otherwise add the other to current.
 // In other words, if some elements in current collisions with other, update the current by other.
-// It returns a string type set which stores all the newly merged services' identifier, ServicePortName.String(), to help users
+// It returns a string type set which stores all the newly merged services' identifier,
+//
+//	ServicePortName.String(), to help users
+//
 // tell if a service is deleted or updated.
 // The returned value is one of the arguments of ServicePortMap.unmerge().
 // ServicePortMap A Merge ServicePortMap B will do following 2 things:
@@ -402,44 +409,46 @@ func (sm ServicePortMap) Update(sct *ServiceImportChangeTracker) UpdateServiceMa
 //	B{{"ns", "cluster-ip", "http"}: {"172.16.55.10", 1234, "TCP"}}
 //	  A updated to be {{"ns", "cluster-ip", "http"}: {"172.16.55.10", 1234, "TCP"}}
 //	  produce string set {"ns/cluster-ip:http"}
-func (sm *ServicePortMap) merge(other ServicePortMap) sets.Set[string] {
+func (spm *ServicePortMap) merge(other ServicePortMap) sets.Set[string] {
 	// existingPorts is going to store all identifiers of all services in `other` ServicePortMap.
 	existingPorts := sets.New[string]()
 	for svcPortName, info := range other {
 		// Take ServicePortName.String() as the newly merged service's identifier and put it into existingPorts.
 		existingPorts.Insert(svcPortName.String())
-		_, exists := (*sm)[svcPortName]
+		_, exists := (*spm)[svcPortName]
 		if !exists {
-			klog.V(4).InfoS("Adding new service port", "portName", svcPortName, "servicePort", info)
+			klog.V(4).InfoS("Adding new service port", "portName",
+				svcPortName, "servicePort", info)
 		} else {
-			klog.V(4).InfoS("Updating existing service port", "portName", svcPortName, "servicePort", info)
+			klog.V(4).InfoS("Updating existing service port", "portName",
+				svcPortName, "servicePort", info)
 		}
-		(*sm)[svcPortName] = info
+		(*spm)[svcPortName] = info
 	}
 	return existingPorts
 }
 
 // filter filters out elements from ServicePortMap base on given ports string sets.
-func (sm *ServicePortMap) filter(other ServicePortMap) {
-	for svcPortName := range *sm {
+func (spm *ServicePortMap) filter(other ServicePortMap) {
+	for svcPortName := range *spm {
 		// skip the delete for Update event.
 		if _, ok := other[svcPortName]; ok {
-			delete(*sm, svcPortName)
+			delete(*spm, svcPortName)
 		}
 	}
 }
 
 // unmerge deletes all other ServicePortMap's elements from current ServicePortMap and
 // updates deletedUDPClusterIPs with all the newly-deleted UDP cluster IPs.
-func (sm *ServicePortMap) unmerge(other ServicePortMap, deletedUDPClusterIPs sets.Set[string]) {
+func (spm *ServicePortMap) unmerge(other ServicePortMap, deletedUDPClusterIPs sets.Set[string]) {
 	for svcPortName := range other {
-		info, exists := (*sm)[svcPortName]
+		info, exists := (*spm)[svcPortName]
 		if exists {
 			klog.V(4).InfoS("Removing service port", "portName", svcPortName)
 			if info.Protocol() == v1.ProtocolUDP {
 				deletedUDPClusterIPs.Insert(info.ClusterIP().String())
 			}
-			delete(*sm, svcPortName)
+			delete(*spm, svcPortName)
 		} else {
 			klog.ErrorS(nil, "Service port does not exists", "portName", svcPortName)
 		}

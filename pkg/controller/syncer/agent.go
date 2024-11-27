@@ -47,8 +47,6 @@ type Syncer struct {
 	// hub k8s informer factory
 	HubInformerFactory kubeinformers.SharedInformerFactory
 	LocalMcsClientSet  *mcsclientset.Clientset
-	LocalmcsClientSet  *mcsclientset.Clientset
-	ClientSet          *kubernetes.Clientset
 }
 
 // New create a syncer client, it only works in cluster level
@@ -95,7 +93,6 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 		KubeClientSet:           localKubeClientSet,
 		McsInformerFactory:      mcsInformerFactory,
 		HubInformerFactory:      hubInformerFactory,
-		ClientSet:               clientSet,
 	}
 
 	return syncer, nil
@@ -139,7 +136,7 @@ func (s *Syncer) Start(ctx context.Context) (err error) {
 
 func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr string) error {
 	// update cidr to all the cnf pod
-	results, err := s.ClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).List(ctx, metav1.ListOptions{
+	results, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: known.LabelCNFPod,
 	})
 	if err != nil {
@@ -150,7 +147,7 @@ func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr stri
 	var errs error
 	for _, pod := range results.Items {
 		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			newPod, err := s.ClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
+			newPod, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
 			if err != nil {
 				klog.Errorf("Failed to get latest version cnf pood: %v", err)
 				return err
@@ -159,7 +156,8 @@ func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr stri
 				newPod.Annotations = make(map[string]string)
 			}
 			newPod.Annotations[fmt.Sprintf(known.InnerClusterIPCIDR, known.FleetboardPrefix)] = cidr
-			_, updateErr := s.ClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).Update(ctx, newPod, metav1.UpdateOptions{})
+			_, updateErr := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
+				Update(ctx, newPod, metav1.UpdateOptions{})
 			return updateErr
 		})
 		if retryErr != nil {

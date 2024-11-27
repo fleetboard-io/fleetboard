@@ -80,14 +80,6 @@ func (q *graceTerminateRSList) remove(rs *listItem) bool {
 	return false
 }
 
-// return the size of the list
-func (q *graceTerminateRSList) len() int {
-	q.lock.Lock()
-	defer q.lock.Unlock()
-
-	return len(q.list)
-}
-
 func (q *graceTerminateRSList) flushList(handler func(rsToDelete *listItem) (bool, error)) bool {
 	q.lock.Lock()
 	defer q.lock.Unlock()
@@ -177,7 +169,8 @@ func (m *GracefulTerminationManager) deleteRsFunc(rsToDelete *listItem) (bool, e
 			//     (existing connections will be deleted on the next packet because sysctlExpireNoDestConn=1)
 			// For other protocols, don't delete until all connections have expired)
 			if utilipvs.IsRsGracefulTerminationNeeded(rsToDelete.VirtualServer.Protocol) && rs.ActiveConn+rs.InactiveConn != 0 {
-				klog.V(5).InfoS("Skip deleting real server till all connection have expired", "realServer", rsToDelete, "activeConnection", rs.ActiveConn, "inactiveConnection", rs.InactiveConn)
+				klog.V(5).InfoS("Skip deleting real server till all connection have expired",
+					"realServer", rsToDelete, "activeConnection", rs.ActiveConn, "inactiveConnection", rs.InactiveConn)
 				return false, nil
 			}
 			klog.V(5).InfoS("Deleting real server", "realServer", rsToDelete)

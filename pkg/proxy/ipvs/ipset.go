@@ -55,8 +55,9 @@ const (
 	kubeLoadBalancerSourceIPSetComment = "Kubernetes service load balancer ip + port + source IP for packet filter purpose"
 	kubeLoadBalancerSourceIPSet        = "KUBE-LOAD-BALANCER-SOURCE-IP"
 
-	kubeLoadBalancerSourceCIDRSetComment = "Kubernetes service load balancer ip + port + source cidr for packet filter purpose"
-	kubeLoadBalancerSourceCIDRSet        = "KUBE-LOAD-BALANCER-SOURCE-CIDR"
+	kubeLoadBalancerSourceCIDRSetComment = "Kubernetes service load balancer " +
+		"ip + port + source cidr for packet filter purpose"
+	kubeLoadBalancerSourceCIDRSet = "KUBE-LOAD-BALANCER-SOURCE-CIDR"
 
 	kubeNodePortSetTCPComment = "Kubernetes nodeport TCP port for masquerade purpose"
 	kubeNodePortSetTCP        = "KUBE-NODE-PORT-TCP"
@@ -73,8 +74,9 @@ const (
 	kubeNodePortSetSCTPComment = "Kubernetes nodeport SCTP port for masquerade purpose with type 'hash ip:port'"
 	kubeNodePortSetSCTP        = "KUBE-NODE-PORT-SCTP-HASH"
 
-	kubeNodePortLocalSetSCTPComment = "Kubernetes nodeport SCTP port with externalTrafficPolicy=local with type 'hash ip:port'"
-	kubeNodePortLocalSetSCTP        = "KUBE-NODE-PORT-LOCAL-SCTP-HASH"
+	kubeNodePortLocalSetSCTPComment = "Kubernetes nodeport SCTP port " +
+		"with externalTrafficPolicy=local with type 'hash ip:port'"
+	kubeNodePortLocalSetSCTP = "KUBE-NODE-PORT-LOCAL-SCTP-HASH"
 
 	kubeHealthCheckNodePortSetComment = "Kubernetes health check node port"
 	kubeHealthCheckNodePortSet        = "KUBE-HEALTH-CHECK-NODE-PORT"
@@ -165,18 +167,22 @@ func (set *IPSet) syncIPSetEntries() {
 		for _, entry := range currentIPSetEntries.Difference(set.activeEntries).UnsortedList() {
 			if err := set.handle.DelEntry(entry, set.Name); err != nil {
 				if !utilipset.IsNotFoundError(err) {
-					klog.ErrorS(err, "Failed to delete ip set entry from ip set", "ipSetEntry", entry, "ipSet", set.Name)
+					klog.ErrorS(err, "Failed to delete ip set entry from ip set",
+						"ipSetEntry", entry, "ipSet", set.Name)
 				}
 			} else {
-				klog.V(3).InfoS("Successfully deleted legacy ip set entry from ip set", "ipSetEntry", entry, "ipSet", set.Name)
+				klog.V(3).InfoS("Successfully deleted legacy ip set entry from ip set",
+					"ipSetEntry", entry, "ipSet", set.Name)
 			}
 		}
 		// Create active entries
 		for _, entry := range set.activeEntries.Difference(currentIPSetEntries).UnsortedList() {
 			if err := set.handle.AddEntry(entry, &set.IPSet, true); err != nil {
-				klog.ErrorS(err, "Failed to add ip set entry to ip set", "ipSetEntry", entry, "ipSet", set.Name)
+				klog.ErrorS(err, "Failed to add ip set entry to ip set",
+					"ipSetEntry", entry, "ipSet", set.Name)
 			} else {
-				klog.V(3).InfoS("Successfully added ip set entry to ip set", "ipSetEntry", entry, "ipSet", set.Name)
+				klog.V(3).InfoS("Successfully added ip set entry to ip set",
+					"ipSetEntry", entry, "ipSet", set.Name)
 			}
 		}
 	}

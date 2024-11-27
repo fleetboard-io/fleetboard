@@ -18,13 +18,13 @@ package app
 
 import (
 	"errors"
-	"k8s.io/utils/mount"
 	"os"
 	"strconv"
 	"strings"
 
 	"k8s.io/component-helpers/node/util/sysctl"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/mount"
 )
 
 // Conntracker is an interface to the global sysctl. Descriptions of the various
@@ -139,5 +139,5 @@ func readIntStringFile(filename string) (int, error) {
 }
 
 func writeIntStringFile(filename string, value int) error {
-	return os.WriteFile(filename, []byte(strconv.Itoa(value)), 0640)
+	return os.WriteFile(filename, []byte(strconv.Itoa(value)), 0640) //nolint:all
 }

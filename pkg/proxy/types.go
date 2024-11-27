@@ -18,12 +18,13 @@ package proxy
 
 import (
 	"fmt"
-	"github.com/fleetboard-io/fleetboard/pkg/proxy/config"
 	"net"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/fleetboard-io/fleetboard/pkg/proxy/config"
 )
 
 // Provider is the interface provided by proxier implementations.

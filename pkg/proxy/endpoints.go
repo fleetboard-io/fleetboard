@@ -135,11 +135,10 @@ func (info *BaseEndpointInfo) GetZone() string {
 	return info.Zone
 }
 
-func newBaseEndpointInfo(IP, nodeName, zone string, port int, isLocal bool,
+func newBaseEndpointInfo(ip, nodeName, zone string, port int, isLocal bool,
 	ready, serving, terminating bool, zoneHints sets.Set[string]) *BaseEndpointInfo {
-
 	return &BaseEndpointInfo{
-		Endpoint:    net.JoinHostPort(IP, strconv.Itoa(port)),
+		Endpoint:    net.JoinHostPort(ip, strconv.Itoa(port)),
 		IsLocal:     isLocal,
 		Ready:       ready,
 		Serving:     serving,
@@ -176,7 +175,8 @@ type EndpointChangeTracker struct {
 }
 
 // NewEndpointChangeTracker initializes an EndpointsChangeMap
-func NewEndpointChangeTracker(hostname string, makeEndpointInfo makeEndpointFunc, ipFamily v1.IPFamily, recorder events.EventRecorder, processEndpointsMapChange processEndpointsMapChangeFunc) *EndpointChangeTracker {
+func NewEndpointChangeTracker(hostname string, makeEndpointInfo makeEndpointFunc, ipFamily v1.IPFamily,
+	recorder events.EventRecorder, processEndpointsMapChange processEndpointsMapChangeFunc) *EndpointChangeTracker {
 	return &EndpointChangeTracker{
 		lastChangeTriggerTimes:    make(map[types.NamespacedName][]time.Time),
 		trackerStartTime:          time.Now(),
@@ -190,7 +190,8 @@ func NewEndpointChangeTracker(hostname string, makeEndpointInfo makeEndpointFunc
 // If removeSlice is true, slice will be removed, otherwise it will be added or updated.
 func (ect *EndpointChangeTracker) EndpointSliceUpdate(endpointSlice *discovery.EndpointSlice, removeSlice bool) bool {
 	if !supportedEndpointSliceAddressTypes.Has(string(endpointSlice.AddressType)) {
-		klog.V(4).InfoS("EndpointSlice address type not supported by kube-proxy", "addressType", endpointSlice.AddressType)
+		klog.V(4).InfoS("EndpointSlice address type not supported by kube-proxy",
+			"addressType", endpointSlice.AddressType)
 		return false
 	}
 
@@ -312,9 +313,9 @@ type UpdateEndpointMapResult struct {
 // EndpointsMap maps a service name to a list of all its Endpoints.
 type EndpointsMap map[ServicePortName][]Endpoint
 
-func (ep *EndpointsMap) Strings() string {
+func (epm *EndpointsMap) Strings() string {
 	epList := ""
-	for servicePortName, endpoints := range *ep {
+	for servicePortName, endpoints := range *epm {
 		epList += fmt.Sprintf("ServicePortName: %v, endpoints: %v \n", servicePortName.String(), endpoints)
 	}
 	return epList
@@ -323,7 +324,7 @@ func (ep *EndpointsMap) Strings() string {
 // Update updates em based on the changes in ect, returns information about the diff since
 // the last Update, triggers processEndpointsMapChange on every change, and clears the
 // changes map.
-func (em EndpointsMap) Update(ect *EndpointChangeTracker) UpdateEndpointMapResult {
+func (epm EndpointsMap) Update(ect *EndpointChangeTracker) UpdateEndpointMapResult {
 	klog.V(4).InfoS("EndpointsMap Update")
 	result := UpdateEndpointMapResult{
 		UpdatedServices:        sets.New[types.NamespacedName](),
@@ -342,9 +343,10 @@ func (em EndpointsMap) Update(ect *EndpointChangeTracker) UpdateEndpointMapResul
 		}
 		result.UpdatedServices.Insert(nn)
 
-		em.unmerge(change.previous)
-		em.merge(change.current)
-		detectStaleConntrackEntries(change.previous, change.current, &result.DeletedUDPEndpoints, &result.NewlyActiveUDPServices)
+		epm.unmerge(change.previous)
+		epm.merge(change.current)
+		detectStaleConntrackEntries(change.previous, change.current, &result.DeletedUDPEndpoints,
+			&result.NewlyActiveUDPServices)
 	}
 	ect.checkoutTriggerTimes(&result.LastChangeTriggerTimes)
 
@@ -352,23 +354,25 @@ func (em EndpointsMap) Update(ect *EndpointChangeTracker) UpdateEndpointMapResul
 }
 
 // Merge ensures that the current EndpointsMap contains all <service, endpoints> pairs from the EndpointsMap passed in.
-func (em EndpointsMap) merge(other EndpointsMap) {
+func (epm EndpointsMap) merge(other EndpointsMap) {
 	for svcPortName := range other {
-		em[svcPortName] = other[svcPortName]
+		epm[svcPortName] = other[svcPortName]
 	}
 }
 
-// Unmerge removes the <service, endpoints> pairs from the current EndpointsMap which are contained in the EndpointsMap passed in.
-func (em EndpointsMap) unmerge(other EndpointsMap) {
+// Unmerge removes the <service, endpoints> pairs from the current
+// EndpointsMap which are contained in the EndpointsMap passed in.
+func (epm EndpointsMap) unmerge(other EndpointsMap) {
 	for svcPortName := range other {
-		delete(em, svcPortName)
+		delete(epm, svcPortName)
 	}
 }
 
-// getLocalEndpointIPs returns endpoints IPs if given endpoint is local - local means the endpoint is running in same host as kube-proxy.
-func (em EndpointsMap) getLocalReadyEndpointIPs() map[types.NamespacedName]sets.Set[string] {
+// getLocalEndpointIPs returns endpoints IPs if given endpoint is local -
+// local means the endpoint is running in same host as kube-proxy.
+func (epm EndpointsMap) getLocalReadyEndpointIPs() map[types.NamespacedName]sets.Set[string] {
 	localIPs := make(map[types.NamespacedName]sets.Set[string])
-	for svcPortName, epList := range em {
+	for svcPortName, epList := range epm {
 		for _, ep := range epList {
 			// Only add ready endpoints for health checking. Terminating endpoints may still serve traffic
 			// but the health check signal should fail if there are only terminating endpoints on a node.
@@ -390,7 +394,7 @@ func (em EndpointsMap) getLocalReadyEndpointIPs() map[types.NamespacedName]sets.
 
 // LocalReadyEndpoints returns a map of Service names to the number of local ready
 // endpoints for that service.
-func (em EndpointsMap) LocalReadyEndpoints() map[types.NamespacedName]int {
+func (epm EndpointsMap) LocalReadyEndpoints() map[types.NamespacedName]int {
 	// TODO: If this will appear to be computationally expensive, consider
 	// computing this incrementally similarly to endpointsMap.
 
@@ -400,7 +404,7 @@ func (em EndpointsMap) LocalReadyEndpoints() map[types.NamespacedName]int {
 	// not 2.)
 
 	eps := make(map[types.NamespacedName]int)
-	localIPs := em.getLocalReadyEndpointIPs()
+	localIPs := epm.getLocalReadyEndpointIPs()
 	for nsn, ips := range localIPs {
 		eps[nsn] = len(ips)
 	}
@@ -409,7 +413,8 @@ func (em EndpointsMap) LocalReadyEndpoints() map[types.NamespacedName]int {
 
 // detectStaleConntrackEntries detects services that may be associated with stale conntrack entries.
 // (See UpdateEndpointMapResult.DeletedUDPEndpoints and .NewlyActiveUDPServices.)
-func detectStaleConntrackEntries(oldEndpointsMap, newEndpointsMap EndpointsMap, deletedUDPEndpoints *[]ServiceEndpoint, newlyActiveUDPServices *[]ServicePortName) {
+func detectStaleConntrackEntries(oldEndpointsMap, newEndpointsMap EndpointsMap,
+	deletedUDPEndpoints *[]ServiceEndpoint, newlyActiveUDPServices *[]ServicePortName) {
 	// Find the UDP endpoints that we were sending traffic to in oldEndpointsMap, but
 	// are no longer sending to newEndpointsMap. The proxier should make sure that
 	// conntrack does not accidentally route any new connections to them.
@@ -436,8 +441,10 @@ func detectStaleConntrackEntries(oldEndpointsMap, newEndpointsMap EndpointsMap, 
 				}
 			}
 			if deleted {
-				klog.V(4).InfoS("Deleted endpoint may have stale conntrack entries", "portName", svcPortName, "endpoint", ep)
-				*deletedUDPEndpoints = append(*deletedUDPEndpoints, ServiceEndpoint{Endpoint: ep.String(), ServicePortName: svcPortName})
+				klog.V(4).InfoS("Deleted endpoint may have stale conntrack entries",
+					"portName", svcPortName, "endpoint", ep)
+				*deletedUDPEndpoints = append(*deletedUDPEndpoints, ServiceEndpoint{Endpoint: ep.String(),
+					ServicePortName: svcPortName})
 			}
 		}
 	}

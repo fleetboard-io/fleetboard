@@ -19,6 +19,7 @@ limitations under the License.
 package ipvs
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -41,7 +42,8 @@ func NewNetLinkHandle(isIPv6 bool) NetLinkHandle {
 	return &netlinkHandle{netlink.Handle{}, isIPv6}
 }
 
-// EnsureAddressBind checks if address is bound to the interface and, if not, binds it. If the address is already bound, return true.
+// EnsureAddressBind checks if address is bound to the interface and, if not, binds it.
+// If the address is already bound, return true.
 func (h *netlinkHandle) EnsureAddressBind(address, devName string) (exist bool, err error) {
 	dev, err := h.LinkByName(devName)
 	if err != nil {
@@ -53,7 +55,7 @@ func (h *netlinkHandle) EnsureAddressBind(address, devName string) (exist bool, 
 	}
 	if err := h.AddrAdd(dev, &netlink.Addr{IPNet: netlink.NewIPNet(addr)}); err != nil {
 		// "EEXIST" will be returned if the address is already bound to device
-		if err == unix.EEXIST {
+		if errors.Is(err, unix.EEXIST) {
 			return true, nil
 		}
 		return false, fmt.Errorf("error bind address: %s to interface: %s, err: %v", address, devName, err)
@@ -72,7 +74,7 @@ func (h *netlinkHandle) UnbindAddress(address, devName string) error {
 		return fmt.Errorf("error parse ip address: %s", address)
 	}
 	if err := h.AddrDel(dev, &netlink.Addr{IPNet: netlink.NewIPNet(addr)}); err != nil {
-		if err != unix.ENXIO {
+		if !errors.Is(err, unix.ENXIO) {
 			return fmt.Errorf("error unbind address: %s from interface: %s, err: %v", address, devName, err)
 		}
 	}
@@ -96,7 +98,8 @@ func (h *netlinkHandle) EnsureDummyDevice(devName string) (bool, error) {
 func (h *netlinkHandle) DeleteDummyDevice(devName string) error {
 	link, err := h.LinkByName(devName)
 	if err != nil {
-		_, ok := err.(netlink.LinkNotFoundError)
+		var linkNotFoundError netlink.LinkNotFoundError
+		ok := errors.As(err, &linkNotFoundError)
 		if ok {
 			return nil
 		}
@@ -132,7 +135,7 @@ func (h *netlinkHandle) ListBindAddress(devName string) ([]string, error) {
 func (h *netlinkHandle) GetAllLocalAddresses() (sets.Set[string], error) {
 	addr, err := net.InterfaceAddrs()
 	if err != nil {
-		return nil, fmt.Errorf("Could not get addresses: %v", err)
+		return nil, fmt.Errorf("could not get addresses: %v", err)
 	}
 	return proxyutil.AddressSet(h.isValidForSet, addr), nil
 }
@@ -143,11 +146,11 @@ func (h *netlinkHandle) GetAllLocalAddresses() (sets.Set[string], error) {
 func (h *netlinkHandle) GetLocalAddresses(dev string) (sets.Set[string], error) {
 	ifi, err := net.InterfaceByName(dev)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get interface %s: %v", dev, err)
+		return nil, fmt.Errorf("could not get interface %s: %v", dev, err)
 	}
 	addr, err := ifi.Addrs()
 	if err != nil {
-		return nil, fmt.Errorf("Can't get addresses from %s: %v", ifi.Name, err)
+		return nil, fmt.Errorf("can't get addresses from %s: %v", ifi.Name, err)
 	}
 	return proxyutil.AddressSet(h.isValidForSet, addr), nil
 }
