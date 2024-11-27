@@ -40,9 +40,11 @@ type Syncer struct {
 	McsInformerFactory mcsInformers.SharedInformerFactory
 	// local k8s informer factory
 	KubeInformerFactory kubeinformers.SharedInformerFactory
+	// local k8s clientset
+	KubeClientSet kubernetes.Interface
 	// hub k8s informer factory
 	HubInformerFactory kubeinformers.SharedInformerFactory
-	LocalmcsClientSet  *mcsclientset.Clientset
+	LocalMcsClientSet  *mcsclientset.Clientset
 }
 
 // New create a syncer client, it only works in cluster level
@@ -80,12 +82,13 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 
 	syncer := &Syncer{
 		SyncerConf:              syncerConf,
-		LocalmcsClientSet:       mcsClientSet,
+		LocalMcsClientSet:       mcsClientSet,
 		HubKubeConfig:           hubKubeConfig,
 		ServiceExportController: serviceExportController,
 		ServiceImportController: serviceImportController,
 		LocalNamespace:          syncerConf.LocalNamespace,
 		KubeInformerFactory:     kubeInformerFactory,
+		KubeClientSet:           localKubeClientSet,
 		McsInformerFactory:      mcsInformerFactory,
 		HubInformerFactory:      hubInformerFactory,
 	}
@@ -95,14 +98,15 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 
 func (s *Syncer) Start(ctx context.Context) error {
 	defer utilruntime.HandleCrash()
+
+	// Start the informer factories to begin populating the informer caches
 	s.KubeInformerFactory.Start(ctx.Done())
 	s.McsInformerFactory.Start(ctx.Done())
 	s.HubInformerFactory.Start(ctx.Done())
-	// Start the informer factories to begin populating the informer caches
+
 	klog.Info("Starting Syncer and init virtual CIDR...")
-	// TODO change from hard code to dynamic get from cluster config.
-	if cidr, err := s.ServiceImportController.IPAM.InitNewCIDR(s.LocalmcsClientSet, s.LocalNamespace, "10.244.0.0/16",
-		"10.96.0.0/16"); err != nil {
+	if cidr, err := s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet,
+		s.LocalNamespace, s.KubeClientSet); err != nil {
 		klog.Errorf("we allocate for virtual service failed for %v", err)
 		return err
 	} else {
