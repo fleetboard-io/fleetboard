@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	validations "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
@@ -96,7 +98,7 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 	return syncer, nil
 }
 
-func (s *Syncer) Start(ctx context.Context) error {
+func (s *Syncer) Start(ctx context.Context) (err error) {
 	defer utilruntime.HandleCrash()
 
 	// Start the informer factories to begin populating the informer caches
@@ -105,13 +107,21 @@ func (s *Syncer) Start(ctx context.Context) error {
 	s.HubInformerFactory.Start(ctx.Done())
 
 	klog.Info("Starting Syncer and init virtual CIDR...")
-	if cidr, err := s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet,
+	var cidr string
+	if cidr, err = s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet,
 		s.LocalNamespace, s.KubeClientSet); err != nil {
 		klog.Errorf("we allocate for virtual service failed for %v", err)
 		return err
 	} else {
 		klog.Infof("we allocate %s for virtual service in this cluster", cidr)
 	}
+
+	err = s.updateInnerClusterIPCIDRToCNFPod(ctx, cidr)
+	if err != nil {
+		klog.Errorf("Failed to update cnf pod : %v with inner cluster ip cidr", err)
+		return err
+	}
+
 	go wait.UntilWithContext(ctx, func(ctx context.Context) {
 		s.ServiceExportController.Run(ctx, s.SyncerConf.RemoteNamespace)
 	}, time.Duration(0))
@@ -122,6 +132,40 @@ func (s *Syncer) Start(ctx context.Context) error {
 
 	<-ctx.Done()
 	return nil
+}
+
+func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr string) error {
+	// update cidr to all the cnf pod
+	results, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).List(ctx, metav1.ListOptions{
+		LabelSelector: known.LabelCNFPod,
+	})
+	if err != nil {
+		klog.Errorf("Failed to get latest version cnf pood: %v", err)
+		return err
+	}
+
+	var errs error
+	for _, pod := range results.Items {
+		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			newPod, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
+			if err != nil {
+				klog.Errorf("Failed to get latest version cnf pood: %v", err)
+				return err
+			}
+			if newPod.Annotations == nil {
+				newPod.Annotations = make(map[string]string)
+			}
+			newPod.Annotations[fmt.Sprintf(known.InnerClusterIPCIDR, known.FleetboardPrefix)] = cidr
+			_, updateErr := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
+				Update(ctx, newPod, metav1.UpdateOptions{})
+			return updateErr
+		})
+		if retryErr != nil {
+			klog.Errorf("Failed to update cnf pod %s: %v", pod.Name, retryErr)
+			errs = fmt.Errorf("%v; %v", errs, retryErr)
+		}
+	}
+	return errs
 }
 
 func generateSliceName(clusterName, namespace, name string) string {

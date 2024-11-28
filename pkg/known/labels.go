@@ -1,6 +1,7 @@
 package known
 
 const (
+	LabelCNFPod             = "app=cnf-fleetboard"
 	LabelServiceName        = "services.fleetboard.io/multi-cluster-service-name"
 	LabelServiceNameSpace   = "services.fleetboard.io/multi-cluster-service-LocalNamespace"
 	ObjectCreatedByLabel    = "fleetboard.io/created-by"

@@ -6,7 +6,7 @@ COPY ../go.mod ../go.sum ./
 COPY ../staging ./staging
 RUN go mod download
 COPY .. .
-RUN make cnf
+RUN make proxy
 
 
 FROM alpine:latest
@@ -21,7 +21,9 @@ RUN apk update && apk add --no-cache \
     wget \
     openresolv \
     iptables \
-    vim
+    vim \
+    ipvsadm \
+    ipset
 
-WORKDIR /cnf
-COPY --from=builder /workspace/bin/cnf ./
+WORKDIR /proxy
+COPY --from=builder /workspace/bin/proxy ./

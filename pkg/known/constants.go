@@ -44,17 +44,19 @@ const (
 const (
 	HubSecretName             = "fleetboard"
 	FleetboardSystemNamespace = "fleetboard-system"
+	SyncNamespace             = "syncer-operator"
 	HubClusterName            = "hub"
 )
 
 // IPAM annotation const.
 const (
-	FleetboardPrefix = "fleetboard"
-	DaemonCIDR       = "%s.io/daemon_cidr"
-	CNFCIDR          = "%s.io/cnf_cidr"
-	CLUSTERCIDR      = "%s.io/cluster_cidr"
-	PublicKey        = "%s.io/public_key"
-	DEDINICIP        = "router.fleetboard.io/dedicated_ip"
+	FleetboardPrefix   = "fleetboard"
+	DaemonCIDR         = "%s.io/daemon_cidr"
+	CNFCIDR            = "%s.io/cnf_cidr"
+	CLUSTERCIDR        = "%s.io/cluster_cidr"
+	InnerClusterIPCIDR = "%s.io/inner_cluster_ip_cidr"
+	PublicKey          = "%s.io/public_key"
+	DEDINICIP          = "router.fleetboard.io/dedicated_ip"
 )
 
 const (

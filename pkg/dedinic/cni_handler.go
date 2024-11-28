@@ -60,11 +60,16 @@ func (ch cniHandler) handleAdd(rq *CniRequest) error {
 	}
 
 	ipStr := ip.IPs[0].Address.String()
-	route := Route{
-		Destination: GlobalCIDR,
-		Gateway:     CNFBridgeIP,
-	}
-	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, []Route{route})
+	routes := []Route{
+		{
+			Destination: GlobalCIDR,
+			Gateway:     CNFBridgeIP,
+		},
+		{
+			Destination: InnerClusterIPCIDR,
+			Gateway:     CNFBridgeIP,
+		}}
+	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, routes)
 	if err != nil {
 		klog.Errorf("add nic failed: %v", err)
 	}
