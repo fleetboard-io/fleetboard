@@ -53,11 +53,18 @@ The `cluster-ip` of `crossdns` is a static cluster IP, usually `10.96.0.11` , ch
   ```
 
 ### Test examples:
-Create this example in one cluster.
+Create the server example in a cluster.
   ```shell
-  $ kubectl create -f https://raw.githubusercontent.com/fleetboard-io/fleetboard/main/examples/nginx-deploy.yaml
+  $ kubectl create -f https://raw.githubusercontent.com/fleetboard-io/fleetboard/main/examples/server-export.yaml
   ```
-Test it in another cluster.
+
+Create the client example in another cluster.
+  ```shell
+  $ kubectl create -f https://raw.githubusercontent.com/fleetboard-io/fleetboard/main/examples/client-import.yaml
+  ```
+
+
+Test it in client cluster.
   ```shell
   $ kubectl exec -it nginx-app-xxx  -c alpine -- curl nginx-svc.default.svc.hyperos.local
   <!DOCTYPE html>

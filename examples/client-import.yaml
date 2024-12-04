@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-app
+  template:
+    metadata:
+      labels:
+        app: nginx-app
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.14.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+        - name: busybox
+          command: [ "/bin/ash", "-c", "trap : TERM INT; sleep infinity " ]
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: false
+            capabilities:
+              add: [ "NET_ADMIN", "NET_RAW" ]
+        - name: alpine
+          command: [ "sleep","infinity" ]
+          image: alpine/curl
+          imagePullPolicy: IfNotPresent
+
+---
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceImport
+metadata:
+  name: nginx-svc
+  namespace: syncer-operator
+  labels:
+    services.fleetboard.io/multi-cluster-service-LocalNamespace: default
+    services.fleetboard.io/multi-cluster-service-name: nginx-svc
+spec:
+  type: "ClusterSetIP"
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+  sessionAffinity: None
