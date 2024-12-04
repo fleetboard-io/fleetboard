@@ -101,12 +101,14 @@ func TestFindPodCommandParameter(t *testing.T) {
 
 		podLister, err := buildKubeClientSet(pod)
 		if err != nil {
-			t.Errorf("new kube clientset error: %v", err)
+			t.Errorf("test for %s error: %v", test.description, err)
 			continue
 		}
 
-		result := FindPodCommandParameter(podLister, labelSelector, parameter)
-		if result != expected {
+		result, err := FindPodCommandParameter(podLister, labelSelector, parameter)
+		if err != nil {
+			t.Errorf("test for %s error: %v", test.description, err)
+		} else if result != expected {
 			t.Errorf("test for %s: expected %s, got %s", test.description, expected, result)
 		}
 	}

@@ -23,9 +23,9 @@ func FindServiceIPRange(kubeClientSet kubernetes.Interface) (string, error) {
 	for _, labelValue := range labelValues {
 		for _, labelKey := range labelKeys {
 			labelSelector := labels.SelectorFromSet(labels.Set{labelKey: labelValue})
-			serviceIPRange := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
-			if serviceIPRange != "" {
-				return serviceIPRange, nil
+			serviceIPRange, err := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
+			if err != nil || serviceIPRange != "" { // if err is not nil, meaning something wrong, return it directly
+				return serviceIPRange, err
 			}
 		}
 	}
@@ -47,9 +47,9 @@ func FindPodIPRange(kubeClientSet kubernetes.Interface) (string, error) {
 	for _, labelValue := range labelValues {
 		for _, labelKey := range labelKeys {
 			labelSelector := labels.SelectorFromSet(labels.Set{labelKey: labelValue})
-			podIPRange := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
-			if podIPRange != "" {
-				return podIPRange, nil
+			podIPRange, err := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
+			if err != nil || podIPRange != "" {
+				return podIPRange, err
 			}
 		}
 	}
@@ -57,9 +57,9 @@ func FindPodIPRange(kubeClientSet kubernetes.Interface) (string, error) {
 	// Try to find the pod ip range from the kube-proxy
 	labelKey, labelValue := "k8s-app", "kube-proxy"
 	labelSelector := labels.SelectorFromSet(labels.Set{labelKey: labelValue})
-	podIPRange := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
-	if podIPRange != "" {
-		return podIPRange, nil
+	podIPRange, err := FindPodCommandParameter(kubeClientSet, labelSelector, parameter)
+	if err != nil || podIPRange != "" {
+		return podIPRange, err
 	}
 
 	// Try to find the pod ip range from the env.
@@ -72,24 +72,24 @@ func FindPodIPRange(kubeClientSet kubernetes.Interface) (string, error) {
 
 // FindPodCommandParameter returns the pod container command parameter by the given labelSelector.
 func FindPodCommandParameter(kubeClientSet kubernetes.Interface, labelSelector labels.Selector,
-	parameter string) string {
+	parameter string) (string, error) {
 	pods, err := findPods(kubeClientSet, labelSelector)
 	if err != nil {
-		return ""
+		return "", err
 	}
 
 	for _, pod := range pods {
 		for _, container := range pod.Spec.Containers {
 			if val := getParameterValue(container.Command, parameter); val != "" {
-				return val
+				return val, nil
 			}
 			if val := getParameterValue(container.Args, parameter); val != "" {
-				return val
+				return val, nil
 			}
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
 // findPods returns the pods filter by the given labelSelector.
