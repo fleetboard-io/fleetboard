@@ -85,7 +85,174 @@ func TestHosts(t *testing.T) {
 	}
 }
 
-func Test_findAvailableCIDR(t *testing.T) {
+func TestFindClusterAvailableCIDR(t *testing.T) {
+	type args struct {
+		networkCIDR   string
+		existingPeers []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "test /24~/21 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/24",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/25",
+			wantErr: false,
+		},
+		{
+			name: "test /20~/15 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/20",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/22",
+			wantErr: false,
+		},
+		{
+			name: "test /14~/9 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/14",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/17",
+			wantErr: false,
+		},
+		{
+			name: "test >=/8 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/8",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/12",
+			wantErr: false,
+		},
+		{
+			name: "test /30 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/30",
+				existingPeers: []string{},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "test /16 CIDR",
+			args: args{
+				networkCIDR:   "10.0.0.0/16",
+				existingPeers: []string{"10.0.0.0/18"},
+			},
+			want:    "10.0.64.0/18",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindTunnelAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindTunnelAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("FindTunnelAvailableCIDR() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindNodeAvailableCIDR(t *testing.T) {
+	type args struct {
+		tunnelCIDR    string // consistent test
+		networkCIDR   string
+		existingPeers []string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "test /24~/21 CIDR",
+			args: args{
+				tunnelCIDR:    "10.0.0.0/24",
+				networkCIDR:   "10.0.0.0/25",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/26",
+			wantErr: false,
+		},
+		{
+			name: "test /20~/9 CIDR",
+			args: args{
+				tunnelCIDR:    "10.0.0.0/20",
+				networkCIDR:   "10.0.0.0/22",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/24",
+			wantErr: false,
+		},
+		{
+			name: "test >=/8 CIDR",
+			args: args{
+				tunnelCIDR:    "10.0.0.0/8",
+				networkCIDR:   "10.0.0.0/12",
+				existingPeers: []string{},
+			},
+			want:    "10.0.0.0/22",
+			wantErr: false,
+		},
+		{
+			name: "test /30 CIDR",
+			args: args{
+				tunnelCIDR:    "10.0.0.0/30",
+				networkCIDR:   "10.0.0.0/30",
+				existingPeers: []string{},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "test /16 CIDR",
+			args: args{
+				tunnelCIDR:    "10.0.0.0/16",
+				networkCIDR:   "10.0.0.0/18",
+				existingPeers: []string{"10.0.0.0/24"},
+			},
+			want:    "10.0.1.0/24",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// consistent checking ahead
+			clusterCIDR, err := FindTunnelAvailableCIDR(tt.args.tunnelCIDR, []string{})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindTunnelAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && clusterCIDR != tt.args.networkCIDR {
+				t.Errorf("invalid test case")
+			}
+
+			got, err := FindClusterAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindClusterAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("FindClusterAvailableCIDR() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindAvailableCIDR(t *testing.T) {
 	type args struct {
 		networkCIDR   string
 		existingPeers []string
@@ -160,13 +327,13 @@ func Test_findAvailableCIDR(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := FindAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers, tt.args.networkBits)
+			got, err := findAvailableCIDR(tt.args.networkCIDR, tt.args.existingPeers, tt.args.networkBits)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("FindAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("findAvailableCIDR() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("FindAvailableCIDR() got = %v, want %v", got, tt.want)
+				t.Errorf("findAvailableCIDR() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
