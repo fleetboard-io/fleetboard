@@ -43,7 +43,7 @@ please refer to this installation guide [Helm Chart Page](https://fleetboard-io.
 After the installation, add cross cluster DNS config segment, in `coredns` configmap, and restart coredns pods.
 The `cluster-ip` of `crossdns` is a static cluster IP, usually `10.96.0.11` , check before setting.
   ```yaml
-    hyperos.local:53 {
+    fleetboard.local:53 {
         forward . 10.96.0.11
      }
   ```
@@ -66,7 +66,7 @@ Create the client example in another cluster.
 
 Test it in client cluster.
   ```shell
-  $ kubectl exec -it nginx-app-xxx  -c alpine -- curl nginx-svc.default.svc.hyperos.local
+  $ kubectl exec -it nginx-app-xxx  -c alpine -- curl nginx-svc.default.svc.fleetboard.local
   <!DOCTYPE html>
   <html>
   <head>
