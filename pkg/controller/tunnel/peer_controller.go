@@ -162,7 +162,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		}
 		// cidr allocation here.
 		cachedPeer.Spec.PodCIDR = make([]string, 1)
-		cachedPeer.Spec.PodCIDR[0], err = utils.FindAvailableCIDR(p.spec.CIDR, existingCIDR, 16)
+		cachedPeer.Spec.PodCIDR[0], err = utils.FindTunnelAvailableCIDR(p.spec.CIDR, existingCIDR)
 		if err != nil {
 			klog.Infof("allocate peer cidr failed %v", err)
 			return &failedPeriod, err
