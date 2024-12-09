@@ -65,7 +65,7 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	ict.Lock()
 	defer ict.Unlock()
 	existingCIDR := ict.existingCIDR
-	secondaryCIDR, allocateError := utils.FindAvailableCIDR(ict.clusterCIDR, existingCIDR, 24)
+	secondaryCIDR, allocateError := utils.FindClusterAvailableCIDR(ict.clusterCIDR, existingCIDR)
 	if allocateError != nil {
 		klog.Errorf("allocate form %s with error %v", existingCIDR, allocateError)
 		return "", allocateError
