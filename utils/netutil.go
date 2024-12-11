@@ -37,7 +37,74 @@ func inc(ipA net.IP) {
 	}
 }
 
-func FindAvailableCIDR(networkCIDR string, existingPeers []string, networkBits int) (string, error) {
+func FindTunnelAvailableCIDR(tunnelCIDR string, existingCIDRs []string) (string, error) {
+	networkBits, err := divideTunnelNetwork(tunnelCIDR)
+	if err != nil {
+		return "", err
+	}
+	return findAvailableCIDR(tunnelCIDR, existingCIDRs, networkBits)
+}
+
+func FindClusterAvailableCIDR(clusterCIDR string, existingCIDRs []string) (string, error) {
+	networkBits, err := divideClusterNetwork(clusterCIDR)
+	if err != nil {
+		return "", err
+	}
+	return findAvailableCIDR(clusterCIDR, existingCIDRs, networkBits)
+}
+
+/*
+divideTunnelNetwork and divideClusterNetwork divide network cidr for peer clusters and nodes in cluster
+as dynamically as possibly.
+Generally speaking, divided into 3 parts by cidr size for clusters, nodes per cluster, and pods per node.
+
+dividing table is as follows:
+| network-cidr | host-bits | peer-cluster-bits | peer-cluster-cidr | node-pod-bits | node-cidr | cluster-node-bits |
+| -----------: | --------: | ----------------: | ----------------: | ------------: | --------: | ----------------: |
+|      /16~/13 |     16~19 |                 2 |           /18~/15 |             8 |       /24 |               6~9 |
+|       /12~/9 |     20-23 |                 4 |           /16~/13 |             8 |       /24 |              6~11 |
+|         >=/8 |      >=24 |                 4 |             >=/12 |            10 |       /22 |             10~18 |
+*/
+func divideTunnelNetwork(networkCIDR string) (subnetNetworkBits int, err error) {
+	_, network, err := net.ParseCIDR(networkCIDR)
+	if err != nil {
+		return 0, err
+	}
+
+	networkBits, _ := network.Mask.Size()
+	switch {
+	case networkBits >= 13 && networkBits <= 16:
+		subnetNetworkBits = networkBits + 2
+	case networkBits >= 9 && networkBits <= 12:
+		subnetNetworkBits = networkBits + 4
+	case networkBits <= 8:
+		subnetNetworkBits = networkBits + 4
+
+	default:
+		err = errors.New("network cidr is too small")
+	}
+	return
+}
+func divideClusterNetwork(networkCIDR string) (subnetNetworkBits int, err error) {
+	_, network, err := net.ParseCIDR(networkCIDR)
+	if err != nil {
+		return 0, err
+	}
+
+	networkBits, _ := network.Mask.Size()
+	switch {
+	case networkBits > 13 && networkBits <= 18: // overlapping tunnel cidr but same node cidr
+		subnetNetworkBits = 24
+	case networkBits <= 12:
+		subnetNetworkBits = 22
+
+	default:
+		err = errors.New("network cidr is too small")
+	}
+	return
+}
+
+func findAvailableCIDR(networkCIDR string, existingCIDRs []string, networkBits int) (string, error) {
 	// Split networkCIDR into 16 size blocks
 	hostBits := 32 - networkBits // 主机位数
 	_, network, err := net.ParseCIDR(networkCIDR)
@@ -47,15 +114,15 @@ func FindAvailableCIDR(networkCIDR string, existingPeers []string, networkBits i
 	}
 
 	// Create a map to store existing CIDRs
-	existingCIDRs := make(map[string]bool)
-	for _, cidr := range existingPeers {
+	existingCIDRSet := make(map[string]bool)
+	for _, cidr := range existingCIDRs {
 		// Trim existing CIDR to 16 bits network
 		if len(cidr) == 0 {
 			continue
 		}
 		_, ipNet, _ := net.ParseCIDR(cidr)
 		ipNet.IP = ipNet.IP.Mask(net.CIDRMask(networkBits, 32))
-		existingCIDRs[ipNet.String()] = true
+		existingCIDRSet[ipNet.String()] = true
 	}
 
 	// Iterate over available blocks and find an unused one
@@ -70,7 +137,7 @@ func FindAvailableCIDR(networkCIDR string, existingPeers []string, networkBits i
 
 		// Check if the generated CIDR overlaps with existing ones
 		overlapping := false
-		for cidr := range existingCIDRs {
+		for cidr := range existingCIDRSet {
 			if isOverlappingCIDR(cidr, newCIDR) {
 				overlapping = true
 				break
