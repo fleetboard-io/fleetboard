@@ -20,8 +20,8 @@ import (
 	"math"
 	"sync"
 
+	endpointsliceutil "github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice/util"
 	"k8s.io/apimachinery/pkg/types"
-	endpointsliceutil "k8s.io/endpointslice/util"
 )
 
 // NewCache returns a new Cache with the specified endpointsPerSlice.
@@ -132,12 +132,11 @@ func (c *Cache) DeleteService(serviceNN types.NamespacedName) {
 
 	if spCache, ok := c.cache[serviceNN]; ok {
 		actualSlices, desiredSlices, endpoints := spCache.totals(int(c.maxEndpointsPerSlice))
-		c.numEndpoints = c.numEndpoints - endpoints
+		c.numEndpoints -= endpoints
 		c.numSlicesDesired -= desiredSlices
 		c.numSlicesActual -= actualSlices
 		c.updateMetrics()
 		delete(c.cache, serviceNN)
-
 	}
 }
 

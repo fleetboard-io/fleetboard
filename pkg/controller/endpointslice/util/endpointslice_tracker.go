@@ -177,7 +177,8 @@ func (est *EndpointSliceTracker) HandleDeletion(endpointSlice *discovery.Endpoin
 // GenerationsForSliceUnsafe returns the generations for the Service
 // corresponding to the provided EndpointSlice, and a bool to indicate if it
 // exists. A lock must be applied before calling this function.
-func (est *EndpointSliceTracker) GenerationsForSliceUnsafe(endpointSlice *discovery.EndpointSlice) (GenerationsBySlice, bool) {
+func (est *EndpointSliceTracker) GenerationsForSliceUnsafe(endpointSlice *discovery.EndpointSlice,
+) (GenerationsBySlice, bool) {
 	serviceNN := getServiceNN(endpointSlice)
 	generations, ok := est.generationsByService[serviceNN]
 	return generations, ok
@@ -186,6 +187,6 @@ func (est *EndpointSliceTracker) GenerationsForSliceUnsafe(endpointSlice *discov
 // getServiceNN returns a namespaced name for the Service corresponding to the
 // provided EndpointSlice.
 func getServiceNN(endpointSlice *discovery.EndpointSlice) types.NamespacedName {
-	serviceName, _ := endpointSlice.Labels[discovery.LabelServiceName]
+	serviceName := endpointSlice.Labels[discovery.LabelServiceName]
 	return types.NamespacedName{Name: serviceName, Namespace: endpointSlice.Namespace}
 }

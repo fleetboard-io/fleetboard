@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:all
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -49,8 +49,8 @@ var semanticIgnoreResourceVersion = conversion.EqualitiesOrDie(
 
 // GetPodServiceMemberships returns a set of Service keys for Services that have
 // a selector matching the given pod.
-func GetPodServiceMemberships(serviceLister v1listers.ServiceLister, pod *v1.Pod) (sets.String, error) {
-	set := sets.String{}
+func GetPodServiceMemberships(serviceLister v1listers.ServiceLister, pod *v1.Pod) (sets.Set[string], error) {
+	set := sets.Set[string]{}
 	services, err := serviceLister.Services(pod.Namespace).List(labels.Everything())
 	if err != nil {
 		return set, err
@@ -83,7 +83,7 @@ func NewPortMapKey(endpointPorts []discovery.EndpointPort) PortMapKey {
 
 // deepHashObjectToString creates a unique hash string from a go object.
 func deepHashObjectToString(objectToWrite interface{}) string {
-	hasher := md5.New()
+	hasher := md5.New() //nolint:all
 	deepHashObject(hasher, objectToWrite)
 	return hex.EncodeToString(hasher.Sum(nil)[0:])
 }
@@ -159,32 +159,34 @@ func podEndpointsChanged(oldPod, newPod *v1.Pod) (bool, bool) {
 
 // GetServicesToUpdateOnPodChange returns a set of Service keys for Services
 // that have potentially been affected by a change to this pod.
-func GetServicesToUpdateOnPodChange(serviceLister v1listers.ServiceLister, old, cur interface{}) sets.String {
+func GetServicesToUpdateOnPodChange(serviceLister v1listers.ServiceLister, old, cur interface{}) sets.Set[string] {
 	newPod := cur.(*v1.Pod)
 	oldPod := old.(*v1.Pod)
 	if newPod.ResourceVersion == oldPod.ResourceVersion {
 		// Periodic resync will send update events for all known pods.
 		// Two different versions of the same pod will always have different RVs
-		return sets.String{}
+		return sets.Set[string]{}
 	}
 
 	podChanged, labelsChanged := podEndpointsChanged(oldPod, newPod)
 
 	// If both the pod and labels are unchanged, no update is needed
 	if !podChanged && !labelsChanged {
-		return sets.String{}
+		return sets.Set[string]{}
 	}
 
 	services, err := GetPodServiceMemberships(serviceLister, newPod)
 	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v", newPod.Namespace, newPod.Name, err))
-		return sets.String{}
+		utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v",
+			newPod.Namespace, newPod.Name, err))
+		return sets.Set[string]{}
 	}
 
 	if labelsChanged {
 		oldServices, err := GetPodServiceMemberships(serviceLister, oldPod)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v", oldPod.Namespace, oldPod.Name, err))
+			utilruntime.HandleError(fmt.Errorf("unable to get pod %s/%s's service memberships: %v",
+				oldPod.Namespace, oldPod.Name, err))
 		}
 		services = determineNeededServiceUpdates(oldServices, services, podChanged)
 	}
@@ -219,7 +221,7 @@ func hostNameAndDomainAreEqual(pod1, pod2 *v1.Pod) bool {
 		pod1.Spec.Subdomain == pod2.Spec.Subdomain
 }
 
-func determineNeededServiceUpdates(oldServices, services sets.String, podChanged bool) sets.String {
+func determineNeededServiceUpdates(oldServices, services sets.Set[string], podChanged bool) sets.Set[string] {
 	if podChanged {
 		// if the labels and pod changed, all services need to be updated
 		services = services.Union(oldServices)

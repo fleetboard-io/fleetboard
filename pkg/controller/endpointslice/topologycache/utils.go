@@ -29,7 +29,7 @@ import (
 // updated lists of EndpointSlices to create and update.
 func RemoveHintsFromSlices(si *SliceInfo) ([]*discovery.EndpointSlice, []*discovery.EndpointSlice) {
 	// Remove hints on all EndpointSlices we were already going to change.
-	slices := append(si.ToCreate, si.ToUpdate...)
+	slices := append(si.ToCreate, si.ToUpdate...) //nolint:all
 	for _, slice := range slices {
 		for i := range slice.Endpoints {
 			slice.Endpoints[i].Hints = nil
@@ -76,7 +76,8 @@ func FormatWithAddressType(s string, addressType discovery.AddressType) string {
 // It allocates endpoints from the provided givingZones to the provided
 // receivingZones. This returns a map that represents the changes in allocated
 // endpoints by zone.
-func redistributeHints(logger klog.Logger, slices []*discovery.EndpointSlice, givingZones, receivingZones map[string]int) map[string]int {
+func redistributeHints(logger klog.Logger, slices []*discovery.EndpointSlice, givingZones,
+	receivingZones map[string]int) map[string]int {
 	redistributions := map[string]int{}
 
 	for _, slice := range slices {
@@ -127,14 +128,15 @@ func redistributeHints(logger klog.Logger, slices []*discovery.EndpointSlice, gi
 // give to other zones along with the number of endpoints each zone should
 // receive from other zones. This is calculated with the provided allocations
 // (desired state) and allocatedHintsByZone (current state).
-func getGivingAndReceivingZones(allocations map[string]allocation, allocatedHintsByZone map[string]int) (map[string]int, map[string]int) {
+func getGivingAndReceivingZones(allocations map[string]allocation, allocatedHintsByZone map[string]int,
+) (map[string]int, map[string]int) {
 	// 1. Determine the precise number of additional endpoints each zone has
 	//    (giving) or needs (receiving).
 	givingZonesDesired := map[string]float64{}
 	receivingZonesDesired := map[string]float64{}
 
 	for zone, allocation := range allocations {
-		allocatedHints, _ := allocatedHintsByZone[zone]
+		allocatedHints := allocatedHintsByZone[zone]
 		target := allocation.desired
 		if float64(allocatedHints) > target {
 			givingZonesDesired[zone] = float64(allocatedHints) - target
@@ -156,7 +158,8 @@ func getGivingAndReceivingZones(allocations map[string]allocation, allocatedHint
 		// - giving OR receiving zone are unspecified
 		// - giving AND receiving zones have less than 1 endpoint left to give or receive
 		// - giving OR receiving zones have less than 0.5 endpoints left to give or receive
-		if givingZone == "" || receivingZone == "" || (numToGive < 1.0 && numToReceive < 1.0) || numToGive < 0.5 || numToReceive < 0.5 {
+		if givingZone == "" || receivingZone == "" || (numToGive < 1.0 && numToReceive < 1.0) ||
+			numToGive < 0.5 || numToReceive < 0.5 {
 			break
 		}
 
@@ -192,7 +195,8 @@ func getMost(zones map[string]float64) (string, float64) {
 // - A hint for a zone that no longer requires any allocations.
 // - An endpoint with no hints.
 // - Hints that would make minimum allocations impossible.
-func getHintsByZone(slice *discovery.EndpointSlice, allocatedHintsByZone EndpointZoneInfo, allocations map[string]allocation) map[string]int {
+func getHintsByZone(slice *discovery.EndpointSlice, allocatedHintsByZone EndpointZoneInfo,
+	allocations map[string]allocation) map[string]int {
 	hintsByZone := map[string]int{}
 	for _, endpoint := range slice.Endpoints {
 		if !EndpointReady(endpoint) {
@@ -212,7 +216,7 @@ func getHintsByZone(slice *discovery.EndpointSlice, allocatedHintsByZone Endpoin
 	}
 
 	for zone, numHints := range hintsByZone {
-		alreadyAllocated, _ := allocatedHintsByZone[zone]
+		alreadyAllocated := allocatedHintsByZone[zone]
 		allocation, ok := allocations[zone]
 		if !ok || (numHints+alreadyAllocated) > allocation.maximum {
 			return nil

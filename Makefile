@@ -54,6 +54,8 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 
+all: crossdns cnf proxy ep-controller
+
 crossdns:
 	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
 
@@ -70,10 +72,13 @@ images:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	docker build $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
 
 image-crossdns:
 	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:latest
+	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:latest
 
 image-cnf:
 	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
@@ -94,10 +99,7 @@ image-ep-controller:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
 
 
-images-push:
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+images-push: image-crossdns image-cnf image-proxy image-ep-controller
 
 # find or download golangci-lint
 # download golangci-lint if necessary

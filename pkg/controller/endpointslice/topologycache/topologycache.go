@@ -87,7 +87,8 @@ func (t *TopologyCache) GetOverloadedServices() []string {
 
 // AddHints adds or updates topology hints on EndpointSlices and returns updated
 // lists of EndpointSlices to create and update.
-func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discovery.EndpointSlice, []*discovery.EndpointSlice, []*EventBuilder) {
+func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discovery.EndpointSlice,
+	[]*discovery.EndpointSlice, []*EventBuilder) {
 	totalEndpoints := si.getTotalReadyEndpoints()
 	allocations, allocationsEvent := t.getAllocations(totalEndpoints)
 	events := []*EventBuilder{}
@@ -103,9 +104,7 @@ func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discover
 	allocatedHintsByZone := si.getAllocatedHintsByZone(allocations)
 
 	allocatableSlices := si.ToCreate
-	for _, slice := range si.ToUpdate {
-		allocatableSlices = append(allocatableSlices, slice)
-	}
+	allocatableSlices = append(allocatableSlices, si.ToUpdate...)
 
 	// step 1: assign same-zone hints for all endpoints as a starting point.
 	for _, slice := range allocatableSlices {
@@ -115,7 +114,8 @@ func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discover
 				continue
 			}
 			if endpoint.Zone == nil || *endpoint.Zone == "" {
-				logger.Info("Endpoint found without zone specified, removing hints", "key", si.ServiceKey, "addressType", si.AddressType)
+				logger.Info("Endpoint found without zone specified, removing hints",
+					"key", si.ServiceKey, "addressType", si.AddressType)
 				events = append(events, &EventBuilder{
 					EventType: v1.EventTypeWarning,
 					Reason:    "TopologyAwareHintsDisabled",
@@ -142,7 +142,8 @@ func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discover
 	}
 
 	if len(allocatedHintsByZone) == 0 {
-		logger.V(2).Info("No hints allocated for zones, removing them", "key", si.ServiceKey, "addressType", si.AddressType)
+		logger.V(2).Info("No hints allocated for zones, removing them",
+			"key", si.ServiceKey, "addressType", si.AddressType)
 		events = append(events, &EventBuilder{
 			EventType: v1.EventTypeWarning,
 			Reason:    "TopologyAwareHintsDisabled",
@@ -160,7 +161,8 @@ func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discover
 
 	// if hints were not enabled before, we publish an event to indicate we enabled them.
 	if !hintsEnabled {
-		logger.Info("Topology Aware Hints has been enabled, adding hints.", "key", si.ServiceKey, "addressType", si.AddressType)
+		logger.Info("Topology Aware Hints has been enabled, adding hints.",
+			"key", si.ServiceKey, "addressType", si.AddressType)
 		events = append(events, &EventBuilder{
 			EventType: v1.EventTypeNormal,
 			Reason:    "TopologyAwareHintsEnabled",
@@ -172,14 +174,16 @@ func (t *TopologyCache) AddHints(logger klog.Logger, si *SliceInfo) ([]*discover
 
 // SetHints sets topology hints for the provided serviceKey and addrType in this
 // cache.
-func (t *TopologyCache) SetHints(serviceKey string, addrType discovery.AddressType, allocatedHintsByZone EndpointZoneInfo) {
+func (t *TopologyCache) SetHints(serviceKey string, addrType discovery.AddressType,
+	allocatedHintsByZone EndpointZoneInfo) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	t.setHintsLocked(serviceKey, addrType, allocatedHintsByZone)
 }
 
-func (t *TopologyCache) setHintsLocked(serviceKey string, addrType discovery.AddressType, allocatedHintsByZone EndpointZoneInfo) {
+func (t *TopologyCache) setHintsLocked(serviceKey string, addrType discovery.AddressType,
+	allocatedHintsByZone EndpointZoneInfo) {
 	_, ok := t.endpointsByService[serviceKey]
 	if !ok {
 		t.endpointsByService[serviceKey] = map[discovery.AddressType]EndpointZoneInfo{}
@@ -250,15 +254,14 @@ func (t *TopologyCache) SetNodes(logger klog.Logger, nodes []*v1.Node) {
 	defer t.lock.Unlock()
 
 	if totalCPU.IsZero() || !sufficientNodeInfo || len(cpuByZone) < 2 {
-		logger.V(2).Info("Insufficient node info for topology hints", "totalZones", len(cpuByZone), "totalCPU", totalCPU.String(), "sufficientNodeInfo", sufficientNodeInfo)
+		logger.V(2).Info("Insufficient node info for topology hints",
+			"totalZones", len(cpuByZone), "totalCPU", totalCPU.String(), "sufficientNodeInfo", sufficientNodeInfo)
 		t.sufficientNodeInfo = false
 		t.cpuByZone = nil
 		t.cpuRatiosByZone = nil
-
 	} else {
 		t.sufficientNodeInfo = sufficientNodeInfo
 		t.cpuByZone = cpuByZone
-
 		t.cpuRatiosByZone = map[string]float64{}
 		for zone, cpu := range cpuByZone {
 			t.cpuRatiosByZone[zone] = float64(cpu.MilliValue()) / float64(totalCPU.MilliValue())
@@ -304,7 +307,8 @@ func (t *TopologyCache) getAllocations(numEndpoints int) (map[string]allocation,
 		return nil, &EventBuilder{
 			EventType: v1.EventTypeWarning,
 			Reason:    "TopologyAwareHintsDisabled",
-			Message:   fmt.Sprintf("%s (%d endpoints, %d zones)", InsufficientNumberOfEndpoints, numEndpoints, len(t.cpuRatiosByZone)),
+			Message: fmt.Sprintf("%s (%d endpoints, %d zones)", InsufficientNumberOfEndpoints,
+				numEndpoints, len(t.cpuRatiosByZone)),
 		}
 	}
 
@@ -325,7 +329,8 @@ func (t *TopologyCache) getAllocations(numEndpoints int) (map[string]allocation,
 			return nil, &EventBuilder{
 				EventType: v1.EventTypeWarning,
 				Reason:    "TopologyAwareHintsDisabled",
-				Message:   fmt.Sprintf("%s (%d endpoints, %d zones)", MinAllocationExceedsOverloadThreshold, numEndpoints, len(t.cpuRatiosByZone)),
+				Message: fmt.Sprintf("%s (%d endpoints, %d zones)", MinAllocationExceedsOverloadThreshold,
+					numEndpoints, len(t.cpuRatiosByZone)),
 			}
 		}
 	}

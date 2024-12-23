@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
@@ -17,10 +19,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog/v2"
 
-	"github.com/fleetboard-io/fleetboard/pkg/controller/endpoint"
 	"github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice"
-	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -70,13 +69,6 @@ func main() {
 func controllerRun(clientset *kubernetes.Clientset, stop chan struct{}, ctx context.Context) {
 	factory := informers.NewSharedInformerFactory(clientset, time.Second*5)
 	factory.Start(stop)
-	ep := endpoint.NewEndpointController(
-		factory.Core().V1().Pods(),
-		factory.Core().V1().Services(),
-		factory.Core().V1().Endpoints(),
-		clientset,
-		1*time.Second,
-	)
 	eps := endpointslice.NewController(ctx,
 		factory.Core().V1().Pods(),
 		factory.Core().V1().Services(),
@@ -88,7 +80,6 @@ func controllerRun(clientset *kubernetes.Clientset, stop chan struct{}, ctx cont
 
 	factory.Start(wait.NeverStop)
 
-	go ep.Run(ctx, 1)
 	go eps.Run(ctx, 1)
 }
 

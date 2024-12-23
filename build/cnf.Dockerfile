@@ -3,7 +3,6 @@ FROM golang:1.21-alpine AS builder
 WORKDIR /workspace
 RUN apk update && apk add --no-cache make git
 COPY ../go.mod ../go.sum ./
-COPY ../staging ./staging
 RUN go mod download
 COPY .. .
 RUN make cnf

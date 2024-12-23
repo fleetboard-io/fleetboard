@@ -84,7 +84,7 @@ require (
 	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -94,7 +94,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.7.0
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 // indirect
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
@@ -205,8 +205,6 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace k8s.io/endpointslice => ./staging/k8s.io/endpointslice
-
 replace (
 	github.com/mdlayher/socket => github.com/mdlayher/socket v0.4.0
 	k8s.io/api => k8s.io/api v0.28.4
@@ -222,8 +220,10 @@ replace (
 	k8s.io/component-helpers => k8s.io/component-helpers v0.28.4
 	k8s.io/controller-manager => k8s.io/controller-manager v0.28.4
 	k8s.io/cri-api => k8s.io/cri-api v0.28.4
+	k8s.io/cri-client => k8s.io/cri-client v0.28.0-beta.0
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.28.4
 	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.28.4
+	k8s.io/endpointslice => k8s.io/endpointslice v0.28.4
 
 	k8s.io/kms => k8s.io/kms v0.28.4
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.28.4

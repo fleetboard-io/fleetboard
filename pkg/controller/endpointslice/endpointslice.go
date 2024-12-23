@@ -39,14 +39,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	endpointslicerec "k8s.io/endpointslice"
-	endpointslicemetrics "k8s.io/endpointslice/metrics"
-	"k8s.io/endpointslice/topologycache"
-	endpointsliceutil "k8s.io/endpointslice/util"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller"
 	endpointslicepkg "k8s.io/kubernetes/pkg/controller/util/endpointslice"
 	"k8s.io/kubernetes/pkg/features"
+
+	endpointslicemetrics "github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice/metrics"
+	"github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice/topologycache"
+	endpointsliceutil "github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice/util"
 )
 
 const (
@@ -174,7 +174,7 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 		c.topologyCache = topologycache.NewTopologyCache()
 	}
 
-	c.reconciler = endpointslicerec.NewReconciler(
+	c.reconciler = NewReconciler(
 		c.client,
 		c.nodeLister,
 		c.maxEndpointsPerSlice,
@@ -226,7 +226,7 @@ type Controller struct {
 	nodesSynced cache.InformerSynced
 
 	// reconciler is an util used to reconcile EndpointSlice changes.
-	reconciler *endpointslicerec.Reconciler
+	reconciler *Reconciler
 
 	// triggerTimeTracker is an util used to compute and export the
 	// EndpointsLastChangeTriggerTime annotation.
@@ -493,7 +493,7 @@ func (c *Controller) onEndpointSliceDelete(obj interface{}) {
 // queueServiceForEndpointSlice attempts to queue the corresponding Service for
 // the provided EndpointSlice.
 func (c *Controller) queueServiceForEndpointSlice(endpointSlice *discovery.EndpointSlice) {
-	key, err := endpointslicerec.ServiceControllerKey(endpointSlice)
+	key, err := ServiceControllerKey(endpointSlice)
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("couldn't get key for endpointSlice %v: %v", endpointSlice, err))
 		return
