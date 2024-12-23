@@ -37,30 +37,30 @@ import (
 	utilnet "k8s.io/utils/net"
 )
 
-var ParallelIpKey string
+var ParallelIPKey string
 
 func init() {
-	ParallelIpKey = os.Getenv("PARALLEL_IP_ANNOTATION")
-	if ParallelIpKey == "" {
-		ParallelIpKey = "router.fleetboard.io/dedicated_ip"
+	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
+	if ParallelIPKey == "" {
+		ParallelIPKey = "router.fleetboard.io/dedicated_ip"
 	}
 }
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
-	if val, ok := pod.Annotations[ParallelIpKey]; ok && len(val) > 0 {
+	if val, ok := pod.Annotations[ParallelIPKey]; ok && len(val) > 0 {
 		return net.ParseIP(val), nil
 	}
 	return nil, errors.New("there is no dedicated ip")
 }
 
 // podToEndpoint returns an Endpoint object generated from a Pod, a Node, and a Service for a particular addressType.
-func podToEndpoint(pod *v1.Pod, node *v1.Node, service *v1.Service, addressType discovery.AddressType) discovery.Endpoint {
+func podToEndpoint(pod *v1.Pod, node *v1.Node, service *v1.Service) discovery.Endpoint {
 	serving := endpointutil.IsPodReady(pod)
 	terminating := pod.DeletionTimestamp != nil
 	// For compatibility reasons, "ready" should never be "true" if a pod is terminatng, unless
 	// publishNotReadyAddresses was set.
 	ready := service.Spec.PublishNotReadyAddresses || (serving && !terminating)
 	ep := discovery.Endpoint{
-		Addresses: getEndpointAddresses(pod, service, addressType),
+		Addresses: getEndpointAddresses(pod),
 		Conditions: discovery.EndpointConditions{
 			Ready:       &ready,
 			Serving:     &serving,
@@ -124,22 +124,19 @@ func getEndpointPorts(logger klog.Logger, service *v1.Service, pod *v1.Pod) []di
 }
 
 // getEndpointAddresses returns a list of addresses generated from a pod status.
-func getEndpointAddresses(pod *v1.Pod, service *v1.Service, addressType discovery.AddressType) []string {
-
+func getEndpointAddresses(pod *v1.Pod) []string {
 	addresses := []string{}
-
 	ip, err := GetDedicatedCNIIP(pod)
 	if err != nil {
 		return addresses
 	}
-
 	return append(addresses, ip.String())
-
 }
 
 // newEndpointSlice returns an EndpointSlice generated from a service and
 // endpointMeta.
-func newEndpointSlice(logger klog.Logger, service *v1.Service, endpointMeta *endpointMeta, controllerName string) *discovery.EndpointSlice {
+func newEndpointSlice(logger klog.Logger, service *v1.Service, endpointMeta *endpointMeta, controllerName string,
+) *discovery.EndpointSlice {
 	gvk := schema.GroupVersionKind{Version: "v1", Kind: "Service"}
 	ownerRef := metav1.NewControllerRef(service, gvk)
 	epSlice := &discovery.EndpointSlice{
@@ -185,7 +182,8 @@ func ownedBy(endpointSlice *discovery.EndpointSlice, svc *v1.Service) bool {
 // getSliceToFill will return the EndpointSlice that will be closest to full
 // when numEndpoints are added. If no EndpointSlice can be found, a nil pointer
 // will be returned.
-func getSliceToFill(endpointSlices []*discovery.EndpointSlice, numEndpoints, maxEndpoints int) (slice *discovery.EndpointSlice) {
+func getSliceToFill(endpointSlices []*discovery.EndpointSlice, numEndpoints, maxEndpoints int,
+) (slice *discovery.EndpointSlice) {
 	closestDiff := maxEndpoints
 	var closestSlice *discovery.EndpointSlice
 	for _, endpointSlice := range endpointSlices {
@@ -228,9 +226,12 @@ func ServiceControllerKey(endpointSlice *discovery.EndpointSlice) (string, error
 }
 
 // setEndpointSliceLabels returns a map with the new endpoint slices labels and true if there was an update.
-// Slices labels must be equivalent to the Service labels except for the reserved IsHeadlessService, LabelServiceName and LabelManagedBy labels
-// Changes to IsHeadlessService, LabelServiceName and LabelManagedBy labels on the Service do not result in updates to EndpointSlice labels.
-func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice, service *v1.Service, controllerName string) (map[string]string, bool) {
+// Slices labels must be equivalent to the Service labels except for the reserved IsHeadlessService,
+// LabelServiceName and LabelManagedBy labels.
+// Changes to IsHeadlessService, LabelServiceName and LabelManagedBy labels on the Service do not result
+// in updates to EndpointSlice labels.
+func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice, service *v1.Service,
+	controllerName string) (map[string]string, bool) {
 	updated := false
 	epLabels := make(map[string]string)
 	svcLabels := make(map[string]string)
@@ -247,7 +248,8 @@ func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice
 
 	for key, value := range service.Labels {
 		if isReservedLabelKey(key) {
-			logger.Info("Service using reserved endpoint slices label", "service", klog.KObj(service), "skipping", key, "label", value)
+			logger.Info("Service using reserved endpoint slices label", "service",
+				klog.KObj(service), "skipping", key, "label", value)
 			continue
 		}
 		// copy service labels
@@ -333,7 +335,10 @@ func getAddressTypesForService(logger klog.Logger, service *v1.Service) sets.Set
 			addrType = discovery.AddressTypeIPv6
 		}
 		serviceSupportedAddresses.Insert(addrType)
-		logger.V(2).Info("Couldn't find ipfamilies for service. This could happen if controller manager is connected to an old apiserver that does not support ip families yet. EndpointSlices for this Service will use addressType as the IP Family based on familyOf(ClusterIP).", "service", klog.KObj(service), "addressType", addrType, "clusterIP", service.Spec.ClusterIP)
+		logger.V(2).Info("Couldn't find ipfamilies for service. This could happen if controller manager is"+
+			" connected to an old apiserver that does not support ip families yet. EndpointSlices for this Service will"+
+			" use addressType as the IP Family based on familyOf(ClusterIP).", "service",
+			klog.KObj(service), "addressType", addrType, "clusterIP", service.Spec.ClusterIP)
 		return serviceSupportedAddresses
 	}
 
@@ -344,11 +349,14 @@ func getAddressTypesForService(logger klog.Logger, service *v1.Service) sets.Set
 	// since kubelet will need to restart in order to start patching pod status with multiple ips
 	serviceSupportedAddresses.Insert(discovery.AddressTypeIPv4)
 	serviceSupportedAddresses.Insert(discovery.AddressTypeIPv6)
-	logger.V(2).Info("Couldn't find ipfamilies for headless service, likely because controller manager is likely connected to an old apiserver that does not support ip families yet. The service endpoint slice will use dual stack families until api-server default it correctly", "service", klog.KObj(service))
+	logger.V(2).Info("Couldn't find ipfamilies for headless service, likely because controller manager is "+
+		"likely connected to an old apiserver that does not support ip families yet. The service endpoint slice will"+
+		" use dual stack families until api-server default it correctly", "service", klog.KObj(service))
 	return serviceSupportedAddresses
 }
 
-func unchangedSlices(existingSlices, slicesToUpdate, slicesToDelete []*discovery.EndpointSlice) []*discovery.EndpointSlice {
+func unchangedSlices(existingSlices, slicesToUpdate, slicesToDelete []*discovery.EndpointSlice,
+) []*discovery.EndpointSlice {
 	changedSliceNames := sets.New[string]()
 	for _, slice := range slicesToUpdate {
 		changedSliceNames.Insert(slice.Name)
@@ -379,13 +387,6 @@ func hintsEnabled(annotations map[string]string) bool {
 		}
 	}
 	return val == "Auto" || val == "auto"
-}
-
-// isServiceIPSet aims to check if the service's ClusterIP is set or not
-// the objective is not to perform validation here
-// copied from k8s.io/kubernetes/pkg/apis/core/v1/helper
-func isServiceIPSet(service *v1.Service) bool {
-	return service.Spec.ClusterIP != v1.ClusterIPNone && service.Spec.ClusterIP != ""
 }
 
 // findPort locates the container port for the given pod and portName.  If the
