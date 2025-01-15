@@ -68,7 +68,7 @@ func (m *Manager) dedinicEngine(ctx context.Context) {
 		klog.Fatalf("get self pod name failed")
 	}
 	dedinic.CNFPodNamespace = os.Getenv("FLEETBOARD_PODNAMESPACE")
-	if dedinic.CNFPodName == "" {
+	if dedinic.CNFPodNamespace == "" {
 		klog.Fatalf("get self pod namespace failed")
 	}
 	waitForCIDRReady(ctx, m.localK8sClient)
