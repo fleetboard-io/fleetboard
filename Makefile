@@ -29,7 +29,7 @@ ifdef HTTPS_PROXY
 endif
 
 lint: golangci-lint
-	GOARCH=amd64 GOOS=linux golangci-lint run -c .golangci.yaml --timeout=10m
+	golangci-lint run -c .golangci.yaml --timeout=10m
 
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -57,43 +57,43 @@ endif
 all: crossdns cnf proxy ep-controller
 
 crossdns:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
+	CGO_ENABLED=0 go build -ldflags="-s -w" -a -installsuffix cgo -o bin/crossdns cmd/crossdns/main.go
 
 cnf:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/cnf cmd/cnf/main.go
+	CGO_ENABLED=0 go build -ldflags "-w -s" -a -installsuffix cgo -o bin/cnf cmd/cnf/main.go
 
 proxy:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/proxy cmd/proxy/main.go
+	CGO_ENABLED=0 go build -ldflags "-w -s" -a -installsuffix cgo -o bin/proxy cmd/proxy/main.go
 
 ep-controller:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ep-controller cmd/ep-controller/main.go
+	CGO_ENABLED=0 go build -ldflags "-w -s" -a -installsuffix cgo -o bin/ep-controller cmd/ep-controller/main.go
 
 images:
-	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
-	docker build $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
 
 image-crossdns:
-	docker build $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/crossdns.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG}
 	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:latest
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:latest
 
 image-cnf:
-	docker build $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
 	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
 
 image-proxy:
-	docker build $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
 	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:latest
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:latest
 
 image-ep-controller:
-	docker build $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
 	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
