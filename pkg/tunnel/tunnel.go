@@ -31,6 +31,7 @@ type DaemonCNFTunnelConfig struct {
 	PodID         string
 	endpointIP    string
 	SecondaryCIDR []string
+	ServiceCIDR   []string
 	port          int
 	PublicKey     []string `json:"public_key"` // wire-guard public key
 }
@@ -72,6 +73,7 @@ func DaemonConfigFromPod(pod *v1.Pod, isLeader bool) *DaemonCNFTunnelConfig {
 		PodID:         pod.Name,
 		endpointIP:    utils.GetEth0IP(pod),
 		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.DaemonCIDR),
+		ServiceCIDR:   utils.GetSpecificAnnotation(pod, known.InnerClusterIPCIDR),
 		port:          known.UDPPort,
 		PublicKey:     utils.GetSpecificAnnotation(pod, known.PublicKey),
 	}

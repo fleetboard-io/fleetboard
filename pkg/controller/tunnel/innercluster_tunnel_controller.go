@@ -51,7 +51,9 @@ func (ict *InnerClusterTunnelController) EnqueueAdditionalInnerConnectionHandleO
 
 func (ict *InnerClusterTunnelController) EnqueueExistingAdditionalInnerConnectionHandle() {
 	if podList, err := ict.kubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
-		List(context.TODO(), metav1.ListOptions{}); err == nil {
+		List(context.TODO(), metav1.ListOptions{
+			LabelSelector: known.LabelCNFPod,
+		}); err == nil {
 		for _, podItem := range podList.Items {
 			pod := podItem
 			ict.yachtController.Enqueue(&pod)
@@ -67,12 +69,13 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	existingCIDR := ict.existingCIDR
 	secondaryCIDR, allocateError := utils.FindClusterAvailableCIDR(ict.clusterCIDR, existingCIDR)
 	if allocateError != nil {
-		klog.Errorf("allocate form %s with error %v", existingCIDR, allocateError)
+		klog.Errorf("allocate from %s with error %v", existingCIDR, allocateError)
 		return "", allocateError
 	}
 
 	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
-	if err := utils.PatchPodWithRetry(ict.kubeClientSet, pod, secondaryCIDR, ict.globalCIDR); err != nil {
+	if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod, []string{known.CNFCIDR, known.DaemonCIDR},
+		[]string{ict.globalCIDR, secondaryCIDR}, true); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
 	}
@@ -81,8 +84,8 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	return secondaryCIDR, nil
 }
 
-func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfter *time.Duration, err error) {
-	failedPeriod := 2 * time.Second
+func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (*time.Duration, error) {
+	requestAfter := 2 * time.Second
 	isLeader := false
 	// it may change when leader changed.
 	isLeader = ict.wireguard.Spec.PodName == ict.currentLeader
@@ -91,62 +94,87 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (requeueAfte
 	namespace, podName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid endpointslice key: %s", key))
-		return nil, nil
+		return nil, err
 	}
 	pod, err := ict.podLister.Pods(namespace).Get(podName)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			runtime.HandleError(fmt.Errorf("pods '%s' no longer exists, we must has handle delete event", key))
+			runtime.HandleError(fmt.Errorf("pods '%s' no longer exists, we must have handled deletion event", key))
 			return nil, nil
 		}
+		return nil, err
 	}
 	daemonConfig := tunnel.DaemonConfigFromPod(pod, isLeader)
-	klog.Infof("pod config info is %v", daemonConfig)
+	klog.Infof("inner cluster controller handle pod: %+v", daemonConfig)
 	// pod is been deleting
 	if !utils.IsPodAlive(pod) {
+		klog.Infof("pod %s is not alive", key)
 		// recycle related resources.
-		errRecycle := ict.recycleResources(daemonConfig)
-		if errRecycle != nil {
-			d := 2 * time.Second
-			return &d, errRecycle
+		if err := ict.recycleResources(daemonConfig); err != nil {
+			return &requestAfter, err
 		}
 		return nil, nil
 	}
-	// empty cidr on nri pod annotation
+	// empty cidr on cnf pod annotation
 	if len(daemonConfig.SecondaryCIDR) == 0 {
 		// in cnf pod, we can allocate
 		if isLeader {
 			// prepare subnet in cluster
-			cidr, errSpawn := ict.SpawnNewCIDRForNRIPod(pod)
-			if errSpawn != nil {
-				return &failedPeriod, err
+			klog.Infof("pod %s has no secondary cidr, allocating", key)
+			cidr, err := ict.SpawnNewCIDRForNRIPod(pod)
+			if err != nil {
+				klog.Errorf("allocate pod %s secondary cidr failed: %v, retrying", key, err)
+				return &requestAfter, err
 			}
+			klog.Infof("allocate pod %s secondary cidr successfully", key)
 			if daemonConfig.PodID == ict.wireguard.Spec.PodName {
 				// coming pod is leader, only allocate cidr no need to establish tunnels.
 				return nil, nil
 			}
 			daemonConfig.SecondaryCIDR = []string{cidr}
 		} else {
-			// in nri pod, wait next time
-			return &failedPeriod, err
+			// in cnf pod, wait next time
+			return &requestAfter, nil
+		}
+	}
+	if len(daemonConfig.ServiceCIDR) == 0 {
+		if isLeader {
+			klog.Infof("pod %s has no service cidr, getting", key)
+			cidr, err := utils.GetServiceCIDRFromCNFPod(ict.kubeClientSet)
+			if err != nil || len(cidr) == 0 {
+				klog.Errorf("get service cidr failed: %v, retrying", err)
+				return &requestAfter, err
+			}
+			if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod,
+				[]string{known.InnerClusterIPCIDR}, []string{cidr}, true); err != nil {
+				// must patch virtual service annotation ahead for cnf pod to start
+				klog.Errorf("set service cidr annotation failed: %v, retrying", err)
+				return &requestAfter, err
+			}
+			klog.Infof("set pod %s service cidr %s successfully", key, cidr)
+			daemonConfig.ServiceCIDR = []string{cidr}
+		} else {
+			// in cnf pod, wait next time
+			return &requestAfter, nil
 		}
 	}
 	// itself shouldn't add tunnel connection with itself.
 	if ict.wireguard.Spec.PodName == podName {
+		klog.Infof("pod %s is itself, skip", key)
 		return nil, nil
 	}
 
 	if errAddInnerTunnel := ict.wireguard.AddInnerClusterTunnel(daemonConfig); errAddInnerTunnel != nil {
-		klog.Infof("add inner cluster tunnel failed %v", daemonConfig)
-		return &failedPeriod, errAddInnerTunnel
+		klog.Errorf("add inner cluster tunnel failed: %v", errAddInnerTunnel)
+		return &requestAfter, errAddInnerTunnel
 	}
-	klog.Infof("inner cluster tunnel with pod: %s has been added successfully", pod.Name)
+	klog.Infof("pod %s inner cluster tunnel has been added successfully", key)
 
 	// add route for target inner cluster tunnel pod
 	if errRoute := configHostRoutingRules(daemonConfig.SecondaryCIDR, known.Add); errRoute != nil {
 		klog.Infof("add route inner cluster in cnf failed for %s, with error %v",
 			daemonConfig.SecondaryCIDR, errRoute)
-		return &failedPeriod, errRoute
+		return &requestAfter, errRoute
 	}
 	return nil, nil
 }
@@ -307,7 +335,7 @@ func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *flee
 			}
 		}
 	} else {
-		klog.Errorf("list all nri pod error with %v", errListPod)
+		klog.Errorf("list all cnf pod error with %v", errListPod)
 		return existingCIDR, "", "", errListPod
 	}
 

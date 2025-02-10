@@ -14,7 +14,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	mcsclientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned"
 	mcsInformers "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions"
@@ -22,6 +21,7 @@ import (
 	"github.com/fleetboard-io/fleetboard/pkg/controller/mcs"
 	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/fleetboard-io/fleetboard/pkg/tunnel"
+	"github.com/fleetboard-io/fleetboard/utils"
 	"github.com/pkg/errors"
 )
 
@@ -106,7 +106,7 @@ func (s *Syncer) Start(ctx context.Context) (err error) {
 	s.McsInformerFactory.Start(ctx.Done())
 	s.HubInformerFactory.Start(ctx.Done())
 
-	klog.Info("Starting Syncer and init virtual CIDR...")
+	klog.Info("Starting Syncer and init virtual service CIDR...")
 	var cidr string
 	if cidr, err = s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet,
 		s.LocalNamespace, s.KubeClientSet); err != nil {
@@ -116,7 +116,7 @@ func (s *Syncer) Start(ctx context.Context) (err error) {
 		klog.Infof("we allocate %s for virtual service in this cluster", cidr)
 	}
 
-	err = s.updateInnerClusterIPCIDRToCNFPod(ctx, cidr)
+	err = s.updateServiceCIDRToCNFPod(ctx, cidr)
 	if err != nil {
 		klog.Errorf("Failed to update cnf pod : %v with inner cluster ip cidr", err)
 		return err
@@ -134,7 +134,7 @@ func (s *Syncer) Start(ctx context.Context) (err error) {
 	return nil
 }
 
-func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr string) error {
+func (s *Syncer) updateServiceCIDRToCNFPod(ctx context.Context, cidr string) error {
 	// update cidr to all the cnf pod
 	results, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).List(ctx, metav1.ListOptions{
 		LabelSelector: known.LabelCNFPod,
@@ -145,21 +145,10 @@ func (s *Syncer) updateInnerClusterIPCIDRToCNFPod(ctx context.Context, cidr stri
 	}
 
 	var errs error
-	for _, pod := range results.Items {
-		retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			newPod, err := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).Get(ctx, pod.Name, metav1.GetOptions{})
-			if err != nil {
-				klog.Errorf("Failed to get latest version cnf pood: %v", err)
-				return err
-			}
-			if newPod.Annotations == nil {
-				newPod.Annotations = make(map[string]string)
-			}
-			newPod.Annotations[fmt.Sprintf(known.InnerClusterIPCIDR, known.FleetboardPrefix)] = cidr
-			_, updateErr := s.KubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
-				Update(ctx, newPod, metav1.UpdateOptions{})
-			return updateErr
-		})
+	for i := range results.Items {
+		pod := &results.Items[i]
+		retryErr := utils.SetSpecificAnnotations(s.KubeClientSet, pod,
+			[]string{known.InnerClusterIPCIDR}, []string{cidr}, true)
 		if retryErr != nil {
 			klog.Errorf("Failed to update cnf pod %s: %v", pod.Name, retryErr)
 			errs = fmt.Errorf("%v; %v", errs, retryErr)

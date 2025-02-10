@@ -38,7 +38,7 @@ func TestFindServiceIPRange(t *testing.T) {
 			continue
 		}
 
-		result, _ := FindServiceIPRange(podLister)
+		result, _ := FindClusterServiceIPRange(podLister)
 		if result != expected {
 			t.Errorf("test for %s: expected %s, got %s", test.description, expected, result)
 		}
@@ -71,7 +71,7 @@ func TestFindPodIPRange(t *testing.T) {
 			continue
 		}
 
-		result, _ := FindPodIPRange(podLister)
+		result, _ := FindClusterPodIPRange(podLister)
 		if result != expected {
 			t.Errorf("test for %s: expected %s, got %s", test.description, expected, result)
 		}

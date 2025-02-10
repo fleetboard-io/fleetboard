@@ -31,7 +31,7 @@ func GetHubConfig(kubeClientSet kubernetes.Interface, spec *tunnel.Specification
 		}
 		bootClient := kubernetes.NewForConfigOrDie(clientConfig)
 		if secretList, secretListErr := bootClient.CoreV1().Secrets(known.FleetboardSystemNamespace).
-			List(context.Background(), metav1.ListOptions{}); tokenGenerateErr != nil {
+			List(context.Background(), metav1.ListOptions{}); secretListErr != nil {
 			return nil, fmt.Errorf("can't list hubSecret list from hub cluster: %v", secretListErr)
 		} else {
 			hubSecret = nil
