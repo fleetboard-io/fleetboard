@@ -38,8 +38,8 @@ func NewIPAM() *IPAM {
 	}
 }
 
-// GetCIDRFromIP get existing virtual service cidr from existing endpointslices
-func GetCIDRFromIP(ip string) (string, error) {
+// GetServiceCIDRFromIP get existing virtual service cidr from existing endpointslices
+func GetServiceCIDRFromIP(ip string) (string, error) {
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
 		return "", fmt.Errorf("invalid IP address: %s", ip)
@@ -52,7 +52,7 @@ func GetCIDRFromIP(ip string) (string, error) {
 	return ipNet.String(), nil
 }
 
-func GenerateRandomCIDR(existingCIDRs ...string) (string, error) {
+func GenerateRandomServiceCIDR(existingCIDRs ...string) (string, error) {
 	// RFC1918 private address pool
 	privateRanges := []string{
 		"10.0.0.0/8",
@@ -100,55 +100,96 @@ func GenerateRandomCIDR(existingCIDRs ...string) (string, error) {
 	return "", errors.New("failed to generate a non-conflicting /24 CIDR after 100 attempts")
 }
 
-// InitNewCIDR init a CIDR from local multi serviceimports first get CIDR from local ip.
-func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
-	kubeClientSet kubernetes.Interface) (string, error) {
-	localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(targetNamespace).
-		List(context.Background(), metav1.ListOptions{})
+func NewRandomServiceCIDR(kubeClientSet kubernetes.Interface) (string, error) {
+	// random generate /24 CIDR
+	serviceCIDR, err := FindClusterServiceIPRange(kubeClientSet)
 	if err != nil {
-		klog.Errorf("failed to list service import in this local cluster %v", err)
-		return "", fmt.Errorf("failed to list service import: %v", err)
+		return "", fmt.Errorf("failed to find service CIDR: %v", err)
 	}
+	podCIDR, err := FindClusterPodIPRange(kubeClientSet)
+	if err != nil {
+		return "", fmt.Errorf("failed to find pod CIDR: %v", err)
+	}
+	klog.Infof("Detected cluster service/pod CIDR: %s, %s", serviceCIDR, podCIDR)
 
+	newCIDR, err := GenerateRandomServiceCIDR(serviceCIDR, podCIDR)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random CIDR: %v", err)
+	}
+	return newCIDR, nil
+}
+
+// GetServiceCIDRFromCNFPod get existing virtual service CIDR form cnf pod annotations
+func GetServiceCIDRFromCNFPod(kubeClientSet kubernetes.Interface) (string, error) {
+	podList, err := kubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: known.LabelCNFPod,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list cnf pods: %v", err)
+	}
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		cidrs := GetSpecificAnnotation(pod, known.InnerClusterIPCIDR)
+		if len(cidrs) > 0 && len(cidrs[0]) > 0 {
+			return cidrs[0], nil
+		}
+	}
+	return "", nil
+}
+
+// GetServiceCIDR get existing virtual service CIDR and IPs
+func GetServiceCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
+	kubeClientSet kubernetes.Interface) (string, []string, error) {
 	var virtualServiceIPs []string
-	for _, localServiceImport := range localSIList.Items {
-		if len(localServiceImport.Spec.IPs) != 0 {
-			virtualServiceIPs = append(virtualServiceIPs, localServiceImport.Spec.IPs[0])
+	if localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(targetNamespace).
+		List(context.Background(), metav1.ListOptions{}); err != nil {
+		return "", nil, fmt.Errorf("failed to list service import: %v", err)
+	} else {
+		for _, localServiceImport := range localSIList.Items {
+			if len(localServiceImport.Spec.IPs) != 0 {
+				virtualServiceIPs = append(virtualServiceIPs, localServiceImport.Spec.IPs[0])
+			}
 		}
 	}
 
-	var newCIDR string
 	if len(virtualServiceIPs) > 0 {
 		// if we get one IP, use the first one to determine /24 CIDR
-		newCIDR, err = GetCIDRFromIP(virtualServiceIPs[0])
+		newCIDR, err := GetServiceCIDRFromIP(virtualServiceIPs[0])
 		if err != nil {
-			return "", fmt.Errorf("failed to get CIDR from IP: %v", err)
+			return "", nil, fmt.Errorf("failed to get service CIDR from IP: %v", err)
 		}
-		klog.Errorf("Using CIDR from existing ServiceImport IP: %s", newCIDR)
-	} else {
-		// if there is no endpointslices random generate /24 CIDR
-		var serviceCIDR, podCIDR string
-		serviceCIDR, err = FindServiceIPRange(kubeClientSet)
-		if err != nil {
-			// TODO: consider kubeadm default service cidr 10.96.0.0/16
-			return "", fmt.Errorf("failed to find service CIDR: %v", err)
-		}
-		podCIDR, err = FindPodIPRange(kubeClientSet)
-		if err != nil {
-			// TODO: pod cidr is not required by all cni, although most cni requires it
-			return "", fmt.Errorf("failed to find pod CIDR: %v", err)
-		}
-		klog.Infof("Detected cluster service/pod CIDR: %s, %s", serviceCIDR, podCIDR)
-
-		newCIDR, err = GenerateRandomCIDR(serviceCIDR, podCIDR)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate random CIDR: %v", err)
-		}
-		klog.Infof("Generated random non-conflicting CIDR: %s", newCIDR)
+		return newCIDR, virtualServiceIPs, nil
 	}
 
-	err = i.InitPrefix(newCIDR)
+	// get cidr from cnf pod annotation to avoid regenerating every new leader selected
+	newCIDR, err := GetServiceCIDRFromCNFPod(kubeClientSet)
 	if err != nil {
+		return "", nil, fmt.Errorf("failed to get service CIDR from cnf pod: %v", err)
+	}
+
+	return newCIDR, virtualServiceIPs, nil
+}
+
+// InitNewCIDR init a CIDR to allocate local-cluster-range ip for imported multi-cluster virtual services
+func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
+	kubeClientSet kubernetes.Interface) (string, error) {
+	newCIDR, virtualServiceIPs, err := GetServiceCIDR(mcsClientSet, targetNamespace, kubeClientSet)
+	if err != nil {
+		return "", fmt.Errorf("failed to get service CIDR: %v", err)
+	}
+
+	if newCIDR != "" {
+		klog.Infof("Using existing service CIDR and IPs: %s, %v", newCIDR, virtualServiceIPs)
+	} else {
+		cidr, err := NewRandomServiceCIDR(kubeClientSet)
+		if err != nil {
+			return "", fmt.Errorf("failed to new service CIDR: %v", err)
+		}
+		newCIDR = cidr
+		klog.Infof("New random non-conflicting service CIDR: %s", newCIDR)
+	}
+
+	if err := i.InitPrefix(newCIDR); err != nil {
 		klog.Errorf("failed to initialize prefix: %v", err)
 		return "", err
 	}

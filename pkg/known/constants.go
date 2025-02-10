@@ -54,7 +54,7 @@ const (
 	DaemonCIDR         = "%s.io/daemon_cidr"
 	CNFCIDR            = "%s.io/cnf_cidr"
 	CLUSTERCIDR        = "%s.io/cluster_cidr"
-	InnerClusterIPCIDR = "%s.io/inner_cluster_ip_cidr"
+	InnerClusterIPCIDR = "%s.io/inner_cluster_ip_cidr" // todo: rename to ServiceCIDR
 	PublicKey          = "%s.io/public_key"
 	DEDINICIP          = "router.fleetboard.io/dedicated_ip"
 )
@@ -64,4 +64,9 @@ const (
 	DefaultDeviceName = "wg0"
 
 	UDPPort = 31820
+)
+
+const (
+	EnvPodName      = "FLEETBOARD_PODNAME"
+	EnvPodNamespace = "FLEETBOARD_PODNAMESPACE"
 )

@@ -62,11 +62,18 @@ func isPodStatusPhaseAlive(p *v1.Pod) bool {
 
 func AddAnnotationToSelf(client kubernetes.Interface, annotationKey, annotationValue string, override bool) error {
 	// Get the Pod's name and namespace from the environment variables
-	podName := os.Getenv("FLEETBOARD_PODNAME")
-	namespace := os.Getenv("FLEETBOARD_PODNAMESPACE")
+	podName := os.Getenv(known.EnvPodName)
+	namespace := os.Getenv(known.EnvPodNamespace)
 
-	klog.Infof("podname is %s and namespace is %s ", podName, namespace)
-	return setSpecificAnnotation(client, namespace, podName, annotationKey, annotationValue, override)
+	pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("get pod %s/%s failed: %v", namespace, podName, err)
+	}
+
+	return SetSpecificAnnotations(client, pod, []string{annotationKey}, []string{annotationValue}, override)
 }
 
 func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool) {
@@ -95,15 +102,19 @@ func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool)
 	}
 }
 
-// PatchPodWithRetry get and update specific pod.
-func PatchPodWithRetry(client kubernetes.Interface, pod *v1.Pod, secondaryCIDR, globalCIDR string) error {
+// DeprecatedPatchPodAnnotationsWithRetry update specific pod annotations
+// replaced by SetSpecificAnnotations
+func DeprecatedPatchPodAnnotationsWithRetry(client kubernetes.Interface, pod *v1.Pod,
+	annotationKeys, annotationValues []string) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
 		cachedPod := pod.DeepCopy()
 		if pod.GetAnnotations() == nil {
 			pod.Annotations = make(map[string]string)
 		}
-		pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.FleetboardPrefix)] = secondaryCIDR
-		pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.FleetboardPrefix)] = globalCIDR
+		for i, annoKey := range annotationKeys {
+			pod.Annotations[annoKey] = annotationValues[i]
+		}
+
 		patch, err := GenerateMergePatchPayload(cachedPod, pod)
 		if err != nil {
 			klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
@@ -112,7 +123,7 @@ func PatchPodWithRetry(client kubernetes.Interface, pod *v1.Pod, secondaryCIDR, 
 		_, patchErr := client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
 			types.MergePatchType, patch, metav1.PatchOptions{}, "")
 		if patchErr != nil {
-			klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
+			klog.Errorf("patch pod %s/%s failed: %v", pod.Namespace, pod.Name, err)
 			pod, err = client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.GetName(), metav1.GetOptions{})
 			if k8serrors.IsNotFound(err) {
 				return nil
@@ -124,24 +135,6 @@ func PatchPodWithRetry(client kubernetes.Interface, pod *v1.Pod, secondaryCIDR, 
 		}
 		return nil
 	})
-}
-
-func PatchPodConfig(client kubernetes.Interface, cachedPod, pod *v1.Pod) error {
-	patch, err := GenerateMergePatchPayload(cachedPod, pod)
-	if err != nil {
-		klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
-		return err
-	}
-	_, err = client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
-		types.MergePatchType, patch, metav1.PatchOptions{}, "")
-	if err != nil {
-		klog.Errorf("patch pod %s/%s failed: %v", pod.Name, pod.Namespace, err)
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-	return nil
 }
 
 func GenerateMergePatchPayload(original, modified runtime.Object) ([]byte, error) {
@@ -165,46 +158,48 @@ func createMergePatch(originalJSON, modifiedJSON []byte, _ interface{}) ([]byte,
 	return jsonpatch.CreateMergePatch(originalJSON, modifiedJSON)
 }
 
-func setSpecificAnnotation(client kubernetes.Interface, namespace, podName, annotationKey, annotationValue string,
+// SetSpecificAnnotations replaces DeprecatedPatchPodAnnotationsWithRetry
+func SetSpecificAnnotations(client kubernetes.Interface, pod *v1.Pod, annotationKeys, annotationValues []string,
 	override bool) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() (err error) {
-		// Get the Pod
-		pod, err := client.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("can't find pod with name %s in %s", podName, namespace)
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return err
-		}
 		cachedPod := pod.DeepCopy()
 		if pod.Annotations == nil {
 			pod.Annotations = map[string]string{}
 		}
-		annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 
-		existingValues, ok := pod.Annotations[annotationKey]
-		if ok && !override {
-			existingValuesSlice := strings.Split(existingValues, ",")
-			if !ContainsString(existingValuesSlice, annotationValue) {
-				pod.Annotations[annotationKey] = existingValues + "," + annotationValue
+		for i, annotationKey := range annotationKeys {
+			annotationValue := annotationValues[i]
+			annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
+
+			existingValues, ok := pod.Annotations[annotationKey]
+			if ok && !override {
+				existingValuesSlice := strings.Split(existingValues, ",")
+				if !ContainsString(existingValuesSlice, annotationValue) {
+					pod.Annotations[annotationKey] = existingValues + "," + annotationValue
+				}
+			} else {
+				pod.Annotations[annotationKey] = annotationValue
 			}
-		} else {
-			pod.Annotations[annotationKey] = annotationValue
 		}
 
 		patch, err := GenerateMergePatchPayload(cachedPod, pod)
 		if err != nil {
-			klog.Errorf("failed to generate patch for pod %s/%s: %v", pod.Name, pod.Namespace, err)
+			err = fmt.Errorf("get pod %s/%s patch payload failed: %v", pod.Namespace, pod.Name, err)
+			klog.Error(err)
 			return err
 		}
-		_, patchErr := client.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name,
+		_, err = client.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name,
 			types.MergePatchType, patch, metav1.PatchOptions{}, "")
-		return patchErr
+		if err != nil {
+			err = fmt.Errorf("patch pod %s/%s failed: %v", pod.Namespace, pod.Name, err)
+			klog.Error(err)
+			return err
+		}
+		return nil
 	})
 }
 
-// GetSpecificAnnotation get DaemonCIDR from pod annotation return "" if is empty.
+// GetSpecificAnnotation may be confusing when one key has one value but another has multiple values.
 func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	annotations := pod.Annotations
 	allAnnoValue := make([]string, 0)
@@ -212,8 +207,9 @@ func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 		return allAnnoValue
 	}
 
-	for _, item := range annotationKeys {
-		if val, ok := annotations[fmt.Sprintf(item, known.FleetboardPrefix)]; ok {
+	for _, annotationKey := range annotationKeys {
+		annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
+		if val, ok := annotations[annotationKey]; ok {
 			existingValuesSlice := strings.Split(val, ",")
 			allAnnoValue = append(allAnnoValue, existingValuesSlice...)
 		}

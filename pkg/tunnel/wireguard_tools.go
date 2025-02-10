@@ -168,8 +168,7 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonCNFTunnelConfi
 	remoteIP := net.ParseIP(daemonPeerConfig.endpointIP)
 	remotePort := daemonPeerConfig.port
 	if remoteIP == nil {
-		klog.Infof("failed to parse pod %s on node %s eth0 IP.", daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
-		return errors.New("failed to parse ")
+		return errors.Errorf("failed to parse eth0 IP of pod %s on node %s", daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
 	} else {
 		endpoint = &net.UDPAddr{
 			IP:   remoteIP,
@@ -180,12 +179,15 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonCNFTunnelConfi
 	allowedIPs := parseSubnets(daemonPeerConfig.SecondaryCIDR)
 
 	// Parse remote public key.
+	if len(daemonPeerConfig.PublicKey) == 0 {
+		return errors.Errorf("invalid empty public key of pod %s on node %s", daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
+	}
 	remoteKey, err := wgtypes.ParseKey(daemonPeerConfig.PublicKey[0])
 	if err != nil {
 		return errors.Wrap(err, "failed to parse daemonPeerConfig public key")
 	}
 
-	klog.Infof("Connecting daemon nri endpoint %s with publicKey %s",
+	klog.Infof("Connecting daemon nciri endpoint %s with publicKey %s",
 		daemonPeerConfig.NodeID, remoteKey)
 	w.Lock()
 	defer w.Unlock()
@@ -194,7 +196,7 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonCNFTunnelConfi
 	oldCon, found := w.innerConnections[daemonPeerConfig.NodeID]
 	if found {
 		if oldKey, e := wgtypes.ParseKey(oldCon.PublicKey[0]); e == nil {
-			// because every time when nri pod restart it will change the public key and the tunnel should be re-build.
+			// because every time when cnf pod restart it will change the public key and the tunnel should be re-build.
 			if oldKey.String() == remoteKey.String() {
 				// Existing connection, update status and skip.
 				klog.Infof("Skipping connect for existing daemonPeerConfig key %s", oldKey)

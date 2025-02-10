@@ -80,7 +80,7 @@ func (m *Manager) dedinicEngine(ctx context.Context) {
 		klog.Fatalf("create fleetboard bridge failed: %v", err)
 	}
 
-	klog.Info("start nri dedicated plugin run")
+	klog.Info("start cnf dedicated plugin run")
 	dedinic.InitNRIPlugin(m.localK8sClient)
 }
 
@@ -236,17 +236,16 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 }
 
 func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
-	klog.Infof("wait for cidr ready")
 	for dedinic.NodeCIDR == "" || dedinic.GlobalCIDR == "" || dedinic.CNFPodIP == "" || dedinic.InnerClusterIPCIDR == "" {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
 		if err == nil && pod != nil {
-			klog.Infof("cnf pod annotions: %v", pod.Annotations)
+			klog.Infof("wait for cnf cidr ready: cnf annotions: %v", pod.Annotations)
 			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.FleetboardPrefix)]
 			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.FleetboardPrefix)]
 			dedinic.InnerClusterIPCIDR = pod.Annotations[fmt.Sprintf(known.InnerClusterIPCIDR, known.FleetboardPrefix)]
 			dedinic.CNFPodIP = pod.Status.PodIP
 		} else {
-			klog.Errorf("have not find the cnf pod")
+			klog.Errorf("wait for cnf cidr ready: not finding the cnf pod")
 		}
 		<-time.After(5 * time.Second)
 	}

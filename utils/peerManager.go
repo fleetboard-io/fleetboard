@@ -24,7 +24,7 @@ func ApplyPeerWithRetry(client clientset.Interface, peer *v1alpha1.Peer) error {
 				klog.Infof("create peer %s successfully", peer.Name)
 				return true, nil
 			}
-			klog.Infof("create with error %v", lastError)
+			klog.Warningf("create with error %v", lastError)
 			if !errors.IsAlreadyExists(lastError) {
 				klog.Infof("create with error %v", lastError)
 				return false, lastError
