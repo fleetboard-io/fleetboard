@@ -55,7 +55,14 @@ func NewPeerController(spec tunnel.Specification, localK8sClient kubernetes.Inte
 
 	yachtController := yacht.NewController("peer").
 		WithCacheSynced(peerInformer.Informer().HasSynced).
-		WithHandlerFunc(peerController.Handle).
+		WithHandlerContextFunc(func(ctx context.Context, key interface{}) (*time.Duration, error) {
+			select {
+			case <-ctx.Done():
+				return nil, nil
+			default:
+				return peerController.Handle(key)
+			}
+		}).
 		WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
 			var tempObj interface{}
 			if newObj != nil {
@@ -134,7 +141,7 @@ func (p *PeerController) Handle(obj interface{}) (requeueAfter *time.Duration, e
 		return p.RecyclePeer(cachedPeer)
 	}
 
-	if !p.spec.AsHub {
+	if p.spec.AsCluster {
 		// just cluster, only wait if the coming peer has no cidr.
 		if len(cachedPeer.Spec.PodCIDR) == 0 || len(cachedPeer.Spec.PodCIDR[0]) == 0 {
 			return &failedPeriod, errors.NewServiceUnavailable("cidr is not allocated.")

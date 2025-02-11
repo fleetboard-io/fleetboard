@@ -90,6 +90,9 @@ func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool)
 		if isLeader {
 			pod.Labels[known.LeaderCNFLabelKey] = "true"
 		} else {
+			if _, ok := pod.Labels[known.LeaderCNFLabelKey]; !ok {
+				return nil // not need to update
+			}
 			delete(pod.Labels, known.LeaderCNFLabelKey)
 		}
 

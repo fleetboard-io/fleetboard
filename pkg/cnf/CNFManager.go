@@ -49,7 +49,7 @@ type Manager struct {
 func (m *Manager) Run(ctx context.Context) error {
 	// only cnf pod in master of control plane will be a candidate.
 	isCandidate := utils.CheckIfMasterOrControlNode(m.localK8sClient, m.agentSpec.NodeName)
-	if !m.agentSpec.AsHub {
+	if m.agentSpec.AsCluster {
 		if isCandidate {
 			go m.startLeaderElection(m.leaderLock, ctx)
 		} else {
@@ -90,21 +90,22 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	agentSpec := tunnel.Specification{}
-	var w *tunnel.Wireguard
-	var hubKubeConfig *rest.Config
-	var octoClient *fleetboardClientset.Clientset
+
+	var agentSpec tunnel.Specification
 	if err = envconfig.Process(known.FleetboardPrefix, &agentSpec); err != nil {
 		return nil, err
 	}
 	agentSpec.Options = *opts
 	klog.Infof("got config info %v", agentSpec)
+
 	localK8sClient := kubernetes.NewForConfigOrDie(localConfig)
+
 	// create and init wire guard device
-	w, err = tunnel.CreateAndUpTunnel(localK8sClient, agentSpec)
+	w, err := tunnel.CreateAndUpTunnel(localK8sClient, &agentSpec)
 	if err != nil {
 		klog.Fatalf("can't init wire guard tunnel: %v", err)
 	}
+
 	// 配置 Leader 选举
 	// TODO leader pod location with filter.
 	lock := &resourcelock.LeaseLock{
@@ -122,7 +123,9 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	if err != nil {
 		klog.Fatalf("get inner cluster tunnel controller failed: %v", err)
 	}
-	if !agentSpec.AsHub {
+
+	var hubKubeConfig *rest.Config
+	if agentSpec.AsCluster {
 		// wait until secret is ready.
 		hubKubeConfig, err = syncerConfig.GetHubConfig(localK8sClient, &agentSpec)
 		if err != nil {
@@ -131,10 +134,12 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	} else {
 		hubKubeConfig = localConfig
 	}
-	if octoClient, err = fleetboardClientset.NewForConfig(hubKubeConfig); err != nil {
+	octoClient, err := fleetboardClientset.NewForConfig(hubKubeConfig)
+	if err != nil {
 		klog.Fatalf("get hub fleetboard client failed: %v", err)
 		return nil, err
 	}
+
 	hubInformerFactory := fleetinformers.NewSharedInformerFactoryWithOptions(octoClient, known.DefaultResync,
 		fleetinformers.WithNamespace(agentSpec.ShareNamespace))
 	interController, err := tunnelcontroller.NewPeerController(agentSpec, localK8sClient, w,
@@ -170,7 +175,7 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 		leaderLock:                lock,
 		currentLeader:             "",
 		hubKubeConfig:             hubKubeConfig,
-		octoClient:                octoClient,
+		octoClient:                octoClient, // TODO rename to hubClient?
 		interController:           interController,
 		syncerAgent:               syncerAgent,
 	}
@@ -186,11 +191,12 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Infof("I am the leader: %s", m.wireguard.Spec.PodName)
+
 				m.innerConnectionController.RecycleAllResources()
 				m.currentLeader = m.wireguard.Spec.PodName
 				m.innerConnectionController.SetCurrentLeader(m.currentLeader)
-				m.interController.Start(ctx)
 
+				m.interController.Start(ctx)
 				if m.agentSpec.AsCluster {
 					go func() {
 						if syncerStartErr := m.syncerAgent.Start(ctx); syncerStartErr != nil {
@@ -215,9 +221,12 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 					// already handled, so ignore.
 					return
 				}
+
 				klog.Infof("New leader elected: %s", identity)
+
 				m.interController.RecycleAllResources()
 				m.innerConnectionController.RecycleAllResources()
+
 				m.currentLeader = identity
 				m.innerConnectionController.SetCurrentLeader(m.currentLeader)
 				utils.UpdatePodLabels(m.localK8sClient, m.wireguard.Spec.PodName, false)

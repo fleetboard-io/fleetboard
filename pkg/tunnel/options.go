@@ -64,15 +64,15 @@ func (o *Options) Validate() []error {
 		allErrors = append(allErrors, fmt.Errorf("--shared-namespace must be specified"))
 	}
 
-	if !o.AsHub && len(o.LocalNamespace) == 0 {
+	if o.AsCluster && len(o.LocalNamespace) == 0 {
 		allErrors = append(allErrors, fmt.Errorf("--local-namespace must be specified when run as cluster"))
 	}
 
-	if !o.AsHub && len(o.HubSecretNamespace) == 0 {
+	if o.AsCluster && len(o.HubSecretNamespace) == 0 {
 		allErrors = append(allErrors, fmt.Errorf("--hub-secret-namespace must be specified when run as cluser"))
 	}
 
-	if !o.AsHub && len(o.HubSecretName) == 0 {
+	if o.AsCluster && len(o.HubSecretName) == 0 {
 		allErrors = append(allErrors, fmt.Errorf("--hub-secret-name must be specified when run as cluser"))
 	}
 

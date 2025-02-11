@@ -163,8 +163,8 @@ func (w *Wireguard) Init(client *kubernetes.Clientset) error {
 	return utils.AddAnnotationToSelf(client, known.PublicKey, w.Keys.PublicKey.String(), true)
 }
 
-func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec Specification) (*Wireguard, error) {
-	w, err := NewTunnel(&agentSpec)
+func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec *Specification) (*Wireguard, error) {
+	w, err := NewTunnel(agentSpec)
 	if err != nil {
 		klog.Fatal(err)
 		return nil, err
