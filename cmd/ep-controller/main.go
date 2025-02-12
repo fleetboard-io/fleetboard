@@ -20,12 +20,13 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice"
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 var (
 	kubeconfig      string
 	processIdentify string
-	NAMESPACE       = "fleetboard"
+	namespace       = known.FleetboardSystemNamespace
 )
 
 func main() {
@@ -34,7 +35,10 @@ func main() {
 		filepath.Join(os.Getenv("HOME"), ".kube", "config"), "absolute path to the kubeconfig file")
 	flag.Parse()
 
-	NAMESPACE = os.Getenv("NAMESPACE")
+	ns := os.Getenv(known.EnvPodNamespace)
+	if ns != "" {
+		namespace = ns
+	}
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		// fallback to kube config
@@ -89,7 +93,7 @@ func startLeaderElection(ctx context.Context, clientset *kubernetes.Clientset, s
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      "fleetboard-dedinic-controller",
-			Namespace: NAMESPACE,
+			Namespace: namespace,
 		},
 		Client: clientset.CoordinationV1(),
 		LockConfig: resourcelock.ResourceLockConfig{

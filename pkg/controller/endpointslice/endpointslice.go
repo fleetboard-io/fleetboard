@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"golang.org/x/time/rate"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -71,9 +72,9 @@ const (
 	// maxSyncBackOff is the max backoff period for syncService calls.
 	maxSyncBackOff = 1000 * time.Second
 
-	// controllerName is a unique value used with LabelManagedBy to indicated
+	// managedByName is a unique value used with LabelManagedBy to indicated
 	// the component managing an EndpointSlice.
-	controllerName = "mcs.fleetboard.io"
+	managedByName = known.LabelValueManagedBy
 )
 
 // NewController creates and initializes a new Controller
@@ -181,7 +182,7 @@ func NewController(ctx context.Context, podInformer coreinformers.PodInformer,
 		c.endpointSliceTracker,
 		c.topologyCache,
 		c.eventRecorder,
-		controllerName,
+		managedByName,
 	)
 
 	return c

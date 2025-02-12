@@ -52,8 +52,8 @@ type Reconciler struct {
 	// to enable TopologyAwareHints.
 	topologyCache *topologycache.TopologyCache
 	// eventRecorder allows Reconciler to record and publish events.
-	eventRecorder  record.EventRecorder
-	controllerName string
+	eventRecorder record.EventRecorder
+	managedByName string
 }
 
 // endpointMeta includes the attributes we group slices on, this type helps with
@@ -243,7 +243,7 @@ func (r *Reconciler) reconcileByAddressType(logger klog.Logger, service *corev1.
 	if len(existingSlices) == len(slicesToDelete) && len(slicesToCreate) < 1 {
 		// Check for existing placeholder slice outside of the core control flow
 		placeholderSlice := newEndpointSlice(logger, service, &endpointMeta{ports: []discovery.EndpointPort{},
-			addressType: addressType}, r.controllerName)
+			addressType: addressType}, r.managedByName)
 		if len(slicesToDelete) == 1 && placeholderSliceCompare.DeepEqual(slicesToDelete[0], placeholderSlice) {
 			// We are about to unnecessarily delete/recreate the placeholder, remove it now.
 			slicesToDelete = slicesToDelete[:0]
@@ -311,7 +311,7 @@ func NewReconciler(client clientset.Interface, nodeLister corelisters.NodeLister
 		metricsCache:         metrics.NewCache(maxEndpointsPerSlice),
 		topologyCache:        topologyCache,
 		eventRecorder:        eventRecorder,
-		controllerName:       controllerName,
+		managedByName:        controllerName,
 	}
 }
 
@@ -476,7 +476,7 @@ func (r *Reconciler) reconcileByPortMapping(
 		}
 
 		// generate the slice labels and check if parent labels have changed
-		labels, labelsChanged := setEndpointSliceLabels(logger, existingSlice, service, r.controllerName)
+		labels, labelsChanged := setEndpointSliceLabels(logger, existingSlice, service, r.managedByName)
 
 		// If an endpoint was updated or removed, mark for update or delete
 		//nolint:all
@@ -550,7 +550,7 @@ func (r *Reconciler) reconcileByPortMapping(
 
 		// If we didn't find a sliceToFill, generate a new empty one.
 		if sliceToFill == nil {
-			sliceToFill = newEndpointSlice(logger, service, endpointMeta, r.controllerName)
+			sliceToFill = newEndpointSlice(logger, service, endpointMeta, r.managedByName)
 		} else {
 			// deep copy required to modify this slice.
 			sliceToFill = sliceToFill.DeepCopy()
@@ -593,7 +593,7 @@ func (r *Reconciler) DeleteService(namespace, name string) {
 }
 
 func (r *Reconciler) GetControllerName() string {
-	return r.controllerName
+	return r.managedByName
 }
 
 // ManagedByChanged returns true if one of the provided EndpointSlices is
@@ -606,5 +606,5 @@ func (r *Reconciler) ManagedByChanged(endpointSlice1, endpointSlice2 *discovery.
 // EndpointSlices is the EndpointSlice controller.
 func (r *Reconciler) ManagedByController(endpointSlice *discovery.EndpointSlice) bool {
 	managedBy := endpointSlice.Labels[discovery.LabelManagedBy]
-	return managedBy == r.controllerName
+	return managedBy == r.managedByName
 }

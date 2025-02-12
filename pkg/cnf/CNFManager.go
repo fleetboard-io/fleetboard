@@ -63,11 +63,11 @@ func (m *Manager) Run(ctx context.Context) error {
 }
 
 func (m *Manager) dedinicEngine(ctx context.Context) {
-	dedinic.CNFPodName = os.Getenv("FLEETBOARD_PODNAME")
+	dedinic.CNFPodName = os.Getenv(known.EnvPodName)
 	if dedinic.CNFPodName == "" {
 		klog.Fatalf("get self pod name failed")
 	}
-	dedinic.CNFPodNamespace = os.Getenv("FLEETBOARD_PODNAMESPACE")
+	dedinic.CNFPodNamespace = os.Getenv(known.EnvPodNamespace)
 	if dedinic.CNFPodNamespace == "" {
 		klog.Fatalf("get self pod namespace failed")
 	}
@@ -245,13 +245,13 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 }
 
 func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
-	for dedinic.NodeCIDR == "" || dedinic.GlobalCIDR == "" || dedinic.CNFPodIP == "" || dedinic.InnerClusterIPCIDR == "" {
+	for dedinic.NodeCIDR == "" || dedinic.TunnelCIDR == "" || dedinic.CNFPodIP == "" || dedinic.ServiceCIDR == "" {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
 		if err == nil && pod != nil {
 			klog.Infof("wait for cnf cidr ready: cnf annotions: %v", pod.Annotations)
 			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardNodeCIDR, known.FleetboardPrefix)]
-			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardTunnelCIDR, known.FleetboardPrefix)]
-			dedinic.InnerClusterIPCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardServiceCIDR, known.FleetboardPrefix)]
+			dedinic.TunnelCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardTunnelCIDR, known.FleetboardPrefix)]
+			dedinic.ServiceCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardServiceCIDR, known.FleetboardPrefix)]
 			dedinic.CNFPodIP = pod.Status.PodIP
 		} else {
 			klog.Errorf("wait for cnf cidr ready: not finding the cnf pod")
@@ -259,5 +259,5 @@ func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
 		<-time.After(5 * time.Second)
 	}
 	klog.Infof("cnf cidr ready, nodecidr: %v, globalcidr: %v, cnfpodip: %v, innerclusteripcidr: %v",
-		dedinic.NodeCIDR, dedinic.GlobalCIDR, dedinic.CNFPodIP, dedinic.InnerClusterIPCIDR)
+		dedinic.NodeCIDR, dedinic.TunnelCIDR, dedinic.CNFPodIP, dedinic.ServiceCIDR)
 }

@@ -21,18 +21,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var ParallelIPKey string
-
-func init() {
-	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
-	if ParallelIPKey == "" {
-		ParallelIPKey = "router.fleetboard.io/dedicated_ip"
-	}
-}
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
-	klog.Infof("KEY: %v", ParallelIPKey)
 	klog.Infof("Pod Annotation: %v :%v", pod.Name, pod.Annotations)
-	if val, ok := pod.Annotations[ParallelIPKey]; ok && len(val) > 0 {
+	if val, ok := pod.Annotations[known.FleetboardParallelIP]; ok && len(val) > 0 {
 		return net.ParseIP(val), nil
 	}
 	return nil, errors.New("there is no dedicated ip")

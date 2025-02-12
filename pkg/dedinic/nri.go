@@ -13,18 +13,18 @@ import (
 	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
-var (
-	CNFBridgeName = "fleetboard"
+const (
+	CNFBridgeName = known.CNFBridgeName
 )
 
 var (
-	NodeCIDR           string
-	GlobalCIDR         string
-	InnerClusterIPCIDR string
-	CNFPodName         string
-	CNFPodNamespace    string
-	CNFPodIP           string
-	CNFBridgeIP        string
+	NodeCIDR        string
+	TunnelCIDR      string
+	ServiceCIDR     string
+	CNFPodName      string
+	CNFPodNamespace string
+	CNFPodIP        string
+	CNFBridgeIP     string
 )
 
 type CNIPlugin struct {
