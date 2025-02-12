@@ -40,6 +40,52 @@ type InnerClusterTunnelController struct {
 	sync.RWMutex
 }
 
+func NewInnerClusterTunnelController(w *tunnel.Wireguard,
+	kubeClientSet kubernetes.Interface) (*InnerClusterTunnelController, error) {
+	// only fleetboard system namespace pod is responsible for wire guard
+	k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClientSet, 10*time.Minute,
+		informers.WithNamespace(known.FleetboardSystemNamespace),
+		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.LabelSelector = known.RouterCNFCreatedByLabel
+		}),
+	)
+	podInformer := k8sInformerFactory.Core().V1().Pods()
+
+	ictController := &InnerClusterTunnelController{
+		wireguard:           w,
+		kubeInformerFactory: k8sInformerFactory,
+		podLister:           podInformer.Lister(),
+		podSynced:           podInformer.Informer().HasSynced,
+		kubeClientSet:       kubeClientSet,
+		currentLeader:       "",
+	}
+	podController := yacht.NewController("daemon pod for inner cluster tunnel connection").
+		WithCacheSynced(podInformer.Informer().HasSynced).
+		WithHandlerFunc(ictController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
+		var newPod *v1.Pod
+		// delete event
+		if newObj == nil {
+			pod := oldObj.(*v1.Pod)
+			return ictController.ShouldHandlerPod(pod), nil
+		} else {
+			newPod = newObj.(*v1.Pod)
+			shouldHandle := ictController.ShouldHandlerPod(newPod)
+			publicKey := utils.GetSpecificAnnotation(newPod, known.PublicKey)
+			if shouldHandle && utils.IsRunningAndHasIP(newPod) && len(publicKey) != 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	_, err := podInformer.Informer().AddEventHandler(podController.DefaultResourceEventHandlerFuncs())
+	if err != nil {
+		return nil, err
+	}
+	ictController.yachtController = podController
+
+	return ictController, nil
+}
+
 func (ict *InnerClusterTunnelController) EnqueueAdditionalInnerConnectionHandleObj(podName string) {
 	if pod, err := ict.kubeClientSet.CoreV1().Pods(known.FleetboardSystemNamespace).
 		Get(context.TODO(), podName, metav1.GetOptions{}); err == nil {
@@ -74,7 +120,7 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	}
 
 	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
-	if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod, []string{known.CNFCIDR, known.DaemonCIDR},
+	if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod, []string{known.FleetboardTunnelCIDR, known.FleetboardNodeCIDR},
 		[]string{ict.globalCIDR, secondaryCIDR}, true); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
@@ -105,7 +151,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (*time.Durat
 		return nil, err
 	}
 	daemonConfig := tunnel.DaemonConfigFromPod(pod, isLeader)
-	klog.Infof("inner cluster controller handle pod: %+v", daemonConfig)
+	klog.Infof("inner cluster tunnel controller handle pod: %v", daemonConfig)
 	// pod is been deleting
 	if !utils.IsPodAlive(pod) {
 		klog.Infof("pod %s is not alive", key)
@@ -146,7 +192,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (*time.Durat
 				return &requestAfter, err
 			}
 			if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod,
-				[]string{known.InnerClusterIPCIDR}, []string{cidr}, true); err != nil {
+				[]string{known.FleetboardServiceCIDR}, []string{cidr}, true); err != nil {
 				// must patch virtual service annotation ahead for cnf pod to start
 				klog.Errorf("set service cidr annotation failed: %v, retrying", err)
 				return &requestAfter, err
@@ -216,52 +262,6 @@ func (ict *InnerClusterTunnelController) recycleResources(podConfig *tunnel.Daem
 	return nil
 }
 
-func NewInnerClusterTunnelController(w *tunnel.Wireguard,
-	kubeClientSet kubernetes.Interface) (*InnerClusterTunnelController, error) {
-	// only fleetboard system namespace pod is responsible for wire guard
-	k8sInformerFactory := informers.NewSharedInformerFactoryWithOptions(kubeClientSet, 10*time.Minute,
-		informers.WithNamespace(known.FleetboardSystemNamespace),
-		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.LabelSelector = known.RouterCNFCreatedByLabel
-		}),
-	)
-	podInformer := k8sInformerFactory.Core().V1().Pods()
-
-	ictController := &InnerClusterTunnelController{
-		wireguard:           w,
-		kubeInformerFactory: k8sInformerFactory,
-		podLister:           podInformer.Lister(),
-		podSynced:           podInformer.Informer().HasSynced,
-		kubeClientSet:       kubeClientSet,
-		currentLeader:       "",
-	}
-	podController := yacht.NewController("daemon pod for inner cluster tunnel connection").
-		WithCacheSynced(podInformer.Informer().HasSynced).
-		WithHandlerFunc(ictController.Handle).WithEnqueueFilterFunc(func(oldObj, newObj interface{}) (bool, error) {
-		var newPod *v1.Pod
-		// delete event
-		if newObj == nil {
-			pod := oldObj.(*v1.Pod)
-			return ictController.ShouldHandlerPod(pod), nil
-		} else {
-			newPod = newObj.(*v1.Pod)
-			shouldHandle := ictController.ShouldHandlerPod(newPod)
-			publicKey := utils.GetSpecificAnnotation(newPod, known.PublicKey)
-			if shouldHandle && utils.IsRunningAndHasIP(newPod) && len(publicKey) != 0 {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	_, err := podInformer.Informer().AddEventHandler(podController.DefaultResourceEventHandlerFuncs())
-	if err != nil {
-		return nil, err
-	}
-	ictController.yachtController = podController
-
-	return ictController, nil
-}
-
 func (ict *InnerClusterTunnelController) Start(ctx context.Context) {
 	defer runtime.HandleCrash()
 	ict.kubeInformerFactory.Start(ctx.Done())
@@ -319,17 +319,17 @@ func getInnerClusterExistingCIDR(k8sClient kubernetes.Interface, clientset *flee
 	spec *tunnel.Specification) ([]string, string, string, error) {
 	existingCIDR := make([]string, 0)
 	globalCIDR, clusterCIDR := config.WaitGetCIDRFromHubclient(clientset, spec)
-	if err := utils.AddAnnotationToSelf(k8sClient, known.CNFCIDR, globalCIDR, true); err != nil {
+	if err := utils.AddAnnotationToSelf(k8sClient, known.FleetboardTunnelCIDR, globalCIDR, true); err != nil {
 		return existingCIDR, "", "", err
 	}
-	if err := utils.AddAnnotationToSelf(k8sClient, known.CLUSTERCIDR, clusterCIDR, true); err != nil {
+	if err := utils.AddAnnotationToSelf(k8sClient, known.FleetboardClusterCIDR, clusterCIDR, true); err != nil {
 		return existingCIDR, "", "", err
 	}
 	if podList, errListPod := k8sClient.CoreV1().Pods(known.FleetboardSystemNamespace).List(context.TODO(),
 		metav1.ListOptions{LabelSelector: known.RouterCNFCreatedByLabel}); errListPod == nil {
 		for _, existingPod := range podList.Items {
 			pod := existingPod
-			cidr := utils.GetSpecificAnnotation(&pod, known.DaemonCIDR)
+			cidr := utils.GetSpecificAnnotation(&pod, known.FleetboardNodeCIDR)
 			if len(cidr) != 0 {
 				existingCIDR = append(existingCIDR, cidr[0])
 			}

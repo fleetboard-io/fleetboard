@@ -232,7 +232,7 @@ func (ch cniHandler) updateTheIPToPod(podName, podNamespace, ip string) error {
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
-	pod.Annotations[known.DEDINICIP] = ip
+	pod.Annotations[known.DedinicIP] = ip
 
 	// Update the Pod
 	_, err = ch.kubeClient.CoreV1().Pods(podNamespace).Update(context.TODO(), pod, metav1.UpdateOptions{})

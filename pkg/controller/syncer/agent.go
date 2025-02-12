@@ -148,7 +148,7 @@ func (s *Syncer) updateServiceCIDRToCNFPod(ctx context.Context, cidr string) err
 	for i := range results.Items {
 		pod := &results.Items[i]
 		retryErr := utils.SetSpecificAnnotations(s.KubeClientSet, pod,
-			[]string{known.InnerClusterIPCIDR}, []string{cidr}, true)
+			[]string{known.FleetboardServiceCIDR}, []string{cidr}, true)
 		if retryErr != nil {
 			klog.Errorf("Failed to update cnf pod %s: %v", pod.Name, retryErr)
 			errs = fmt.Errorf("%v; %v", errs, retryErr)

@@ -32,18 +32,18 @@ import (
 
 // Manager defines configuration for cnf-related controllers
 type Manager struct {
-	agentSpec                 tunnel.Specification
-	localK8sClient            *kubernetes.Clientset
-	wireguard                 *tunnel.Wireguard
-	innerConnectionController *tunnelcontroller.InnerClusterTunnelController
-	leaderLock                *resourcelock.LeaseLock
+	agentSpec      tunnel.Specification
+	localK8sClient *kubernetes.Clientset
+	hubConfig      *rest.Config
+	hubClient      *fleetboardClientset.Clientset
+	wireguard      *tunnel.Wireguard
+	leaderLock     *resourcelock.LeaseLock
 	// current leader name of cnf daemon-set
-	currentLeader       string
-	innerControllerOnce sync.Once
-	hubKubeConfig       *rest.Config
-	octoClient          *fleetboardClientset.Clientset
-	interController     *tunnelcontroller.PeerController
-	syncerAgent         *syncer.Syncer
+	currentLeader             string
+	innerTunnelControllerOnce sync.Once
+	innerTunnelController     *tunnelcontroller.InnerClusterTunnelController
+	interTunnelController     *tunnelcontroller.InterClusterTunnelController
+	serviceSyncer             *syncer.Syncer
 }
 
 func (m *Manager) Run(ctx context.Context) error {
@@ -53,7 +53,7 @@ func (m *Manager) Run(ctx context.Context) error {
 		if isCandidate {
 			go m.startLeaderElection(m.leaderLock, ctx)
 		} else {
-			go m.innerConnectionController.Start(ctx)
+			go m.innerTunnelController.Start(ctx)
 		}
 		m.dedinicEngine(ctx)
 	} else {
@@ -108,7 +108,7 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 
 	// 配置 Leader 选举
 	// TODO leader pod location with filter.
-	lock := &resourcelock.LeaseLock{
+	leaderLock := &resourcelock.LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Name:      "cnf-leader-election",
 			Namespace: known.FleetboardSystemNamespace,
@@ -119,31 +119,31 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 		},
 	}
 
-	innerController, err := tunnelcontroller.NewInnerClusterTunnelController(w, localK8sClient)
+	innerTunnelController, err := tunnelcontroller.NewInnerClusterTunnelController(w, localK8sClient)
 	if err != nil {
 		klog.Fatalf("get inner cluster tunnel controller failed: %v", err)
 	}
 
-	var hubKubeConfig *rest.Config
+	var hubConfig *rest.Config
 	if agentSpec.AsCluster {
 		// wait until secret is ready.
-		hubKubeConfig, err = syncerConfig.GetHubConfig(localK8sClient, &agentSpec)
+		hubConfig, err = syncerConfig.GetHubConfig(localK8sClient, &agentSpec)
 		if err != nil {
 			klog.Fatalf("get hub kubeconfig failed: %v", err)
 		}
 	} else {
-		hubKubeConfig = localConfig
+		hubConfig = localConfig
 	}
-	octoClient, err := fleetboardClientset.NewForConfig(hubKubeConfig)
+	hubK8sClient, err := fleetboardClientset.NewForConfig(hubConfig)
 	if err != nil {
 		klog.Fatalf("get hub fleetboard client failed: %v", err)
 		return nil, err
 	}
 
-	hubInformerFactory := fleetinformers.NewSharedInformerFactoryWithOptions(octoClient, known.DefaultResync,
+	hubInformerFactory := fleetinformers.NewSharedInformerFactoryWithOptions(hubK8sClient, known.DefaultResync,
 		fleetinformers.WithNamespace(agentSpec.ShareNamespace))
-	interController, err := tunnelcontroller.NewPeerController(agentSpec, localK8sClient, w,
-		octoClient, hubInformerFactory)
+	interTunnelController, err := tunnelcontroller.NewInterClusterTunnelController(&agentSpec, localK8sClient, w,
+		hubK8sClient, hubInformerFactory)
 	if err != nil {
 		klog.Fatalf("start peer controller failed: %v", err)
 	}
@@ -156,28 +156,28 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 		klog.Fatalf("error creating dynamic client: %v", err)
 	}
 
-	syncerAgent, errSyncerController := syncer.New(&agentSpec, known.SyncerConfig{
+	serviceSyncer, errSyncer := syncer.New(&agentSpec, known.SyncerConfig{
 		LocalRestConfig: localConfig,
 		LocalClient:     dynamicLocalClient,
 		LocalNamespace:  agentSpec.LocalNamespace,
 		LocalClusterID:  agentSpec.ClusterID,
-	}, hubKubeConfig)
-	if errSyncerController != nil {
-		klog.Fatalf("Failed to create syncer agent: %v", errSyncerController)
-		return nil, errSyncerController
+	}, hubConfig)
+	if errSyncer != nil {
+		klog.Fatalf("Failed to create syncer agent: %v", errSyncer)
+		return nil, errSyncer
 	}
 
 	manager := &Manager{
-		agentSpec:                 agentSpec,
-		wireguard:                 w,
-		localK8sClient:            localK8sClient,
-		innerConnectionController: innerController,
-		leaderLock:                lock,
-		currentLeader:             "",
-		hubKubeConfig:             hubKubeConfig,
-		octoClient:                octoClient, // TODO rename to hubClient?
-		interController:           interController,
-		syncerAgent:               syncerAgent,
+		agentSpec:             agentSpec,
+		wireguard:             w,
+		localK8sClient:        localK8sClient,
+		hubConfig:             hubConfig,
+		hubClient:             hubK8sClient,
+		leaderLock:            leaderLock,
+		currentLeader:         "",
+		innerTunnelController: innerTunnelController,
+		interTunnelController: interTunnelController,
+		serviceSyncer:         serviceSyncer,
 	}
 	return manager, nil
 }
@@ -192,23 +192,23 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 			OnStartedLeading: func(ctx context.Context) {
 				klog.Infof("I am the leader: %s", m.wireguard.Spec.PodName)
 
-				m.innerConnectionController.RecycleAllResources()
+				m.innerTunnelController.RecycleAllResources()
 				m.currentLeader = m.wireguard.Spec.PodName
-				m.innerConnectionController.SetCurrentLeader(m.currentLeader)
+				m.innerTunnelController.SetCurrentLeader(m.currentLeader)
 
-				m.interController.Start(ctx)
+				m.interTunnelController.Start(ctx)
 				if m.agentSpec.AsCluster {
 					go func() {
-						if syncerStartErr := m.syncerAgent.Start(ctx); syncerStartErr != nil {
+						if syncerStartErr := m.serviceSyncer.Start(ctx); syncerStartErr != nil {
 							klog.Fatalf("Failed to start syncer agent: %v", syncerStartErr)
 						}
 					}()
-					if errConfig := m.innerConnectionController.ConfigWithExistingCIDR(m.octoClient); errConfig != nil {
+					if errConfig := m.innerTunnelController.ConfigWithExistingCIDR(m.hubClient); errConfig != nil {
 						klog.Fatalf("failed to config annotation: %v", errConfig)
 					}
-					m.innerConnectionController.EnqueueExistingAdditionalInnerConnectionHandle()
-					m.innerControllerOnce.Do(func() {
-						go m.innerConnectionController.Start(ctx)
+					m.innerTunnelController.EnqueueExistingAdditionalInnerConnectionHandle()
+					m.innerTunnelControllerOnce.Do(func() {
+						go m.innerTunnelController.Start(ctx)
 					})
 				}
 			},
@@ -224,17 +224,17 @@ func (m *Manager) startLeaderElection(lock resourcelock.Interface, ctx context.C
 
 				klog.Infof("New leader elected: %s", identity)
 
-				m.interController.RecycleAllResources()
-				m.innerConnectionController.RecycleAllResources()
+				m.interTunnelController.RecycleAllResources()
+				m.innerTunnelController.RecycleAllResources()
 
 				m.currentLeader = identity
-				m.innerConnectionController.SetCurrentLeader(m.currentLeader)
+				m.innerTunnelController.SetCurrentLeader(m.currentLeader)
 				utils.UpdatePodLabels(m.localK8sClient, m.wireguard.Spec.PodName, false)
 
 				if m.agentSpec.AsCluster {
-					m.innerConnectionController.EnqueueAdditionalInnerConnectionHandleObj(identity)
-					m.innerControllerOnce.Do(func() {
-						go m.innerConnectionController.Start(ctx)
+					m.innerTunnelController.EnqueueAdditionalInnerConnectionHandleObj(identity)
+					m.innerTunnelControllerOnce.Do(func() {
+						go m.innerTunnelController.Start(ctx)
 					})
 				}
 			},
@@ -249,9 +249,9 @@ func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
 		if err == nil && pod != nil {
 			klog.Infof("wait for cnf cidr ready: cnf annotions: %v", pod.Annotations)
-			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.DaemonCIDR, known.FleetboardPrefix)]
-			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.CNFCIDR, known.FleetboardPrefix)]
-			dedinic.InnerClusterIPCIDR = pod.Annotations[fmt.Sprintf(known.InnerClusterIPCIDR, known.FleetboardPrefix)]
+			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardNodeCIDR, known.FleetboardPrefix)]
+			dedinic.GlobalCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardTunnelCIDR, known.FleetboardPrefix)]
+			dedinic.InnerClusterIPCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardServiceCIDR, known.FleetboardPrefix)]
 			dedinic.CNFPodIP = pod.Status.PodIP
 		} else {
 			klog.Errorf("wait for cnf cidr ready: not finding the cnf pod")

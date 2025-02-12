@@ -2,7 +2,6 @@ package known
 
 import "time"
 
-const DediNIC = "eth-fleet"
 const (
 	LabelValueManagedBy = "mcs.fleetboard.io"
 )
@@ -50,18 +49,20 @@ const (
 
 // IPAM annotation const.
 const (
-	FleetboardPrefix   = "fleetboard"
-	DaemonCIDR         = "%s.io/daemon_cidr"
-	CNFCIDR            = "%s.io/cnf_cidr"
-	CLUSTERCIDR        = "%s.io/cluster_cidr"
-	InnerClusterIPCIDR = "%s.io/inner_cluster_ip_cidr" // todo: rename to ServiceCIDR
-	PublicKey          = "%s.io/public_key"
-	DEDINICIP          = "router.fleetboard.io/dedicated_ip"
+	FleetboardPrefix      = "fleetboard" // todo: replace %s with constant?
+	FleetboardTunnelCIDR  = "%s.io/tunnel_cidr"
+	FleetboardClusterCIDR = "%s.io/cluster_cidr"
+	FleetboardNodeCIDR    = "%s.io/node_cidr"
+	FleetboardServiceCIDR = "%s.io/service_cidr"
+
+	PublicKey = "%s.io/public_key"
+	DedinicIP = "router.fleetboard.io/dedicated_ip"
 )
 
 const (
 	// DefaultDeviceName specifies name of WireGuard network device.
 	DefaultDeviceName = "wg0"
+	DediNIC           = "eth-fleet"
 
 	UDPPort = 31820
 )
