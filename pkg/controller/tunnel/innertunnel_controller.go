@@ -120,7 +120,8 @@ func (ict *InnerClusterTunnelController) SpawnNewCIDRForNRIPod(pod *v1.Pod) (str
 	}
 
 	klog.Infof("pod get a cidr from %s with %s", existingCIDR, secondaryCIDR)
-	if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod, []string{known.FleetboardTunnelCIDR, known.FleetboardNodeCIDR},
+	if err := utils.SetSpecificAnnotations(ict.kubeClientSet, pod,
+		[]string{known.FleetboardTunnelCIDR, known.FleetboardNodeCIDR},
 		[]string{ict.globalCIDR, secondaryCIDR}, true); err != nil {
 		klog.Errorf("set pod annotation with error %v", err)
 		return "", err
@@ -151,7 +152,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (*time.Durat
 		return nil, err
 	}
 	daemonConfig := tunnel.DaemonConfigFromPod(pod, isLeader)
-	klog.Infof("inner cluster tunnel controller handle pod: %v", daemonConfig)
+	klog.Infof("inner cluster tunnel controller handle pod: %+v", daemonConfig)
 	// pod is been deleting
 	if !utils.IsPodAlive(pod) {
 		klog.Infof("pod %s is not alive", key)
@@ -211,7 +212,7 @@ func (ict *InnerClusterTunnelController) Handle(podKey interface{}) (*time.Durat
 	}
 
 	if errAddInnerTunnel := ict.wireguard.AddInnerClusterTunnel(daemonConfig); errAddInnerTunnel != nil {
-		klog.Errorf("add inner cluster tunnel failed: %v", errAddInnerTunnel)
+		klog.Errorf("add inner cluster tunnel failed: %v, retrying", errAddInnerTunnel)
 		return &requestAfter, errAddInnerTunnel
 	}
 	klog.Infof("pod %s inner cluster tunnel has been added successfully", key)

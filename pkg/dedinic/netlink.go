@@ -45,8 +45,7 @@ func generateNicName(containerID, ifname string) (string, string) {
 func CreateBridge(bridgeName string) error {
 	bridgeLink, err := netlink.LinkByName(bridgeName)
 	if err == nil {
-		err := netlink.LinkDel(bridgeLink)
-		if err != nil {
+		if err = netlink.LinkDel(bridgeLink); err != nil {
 			return fmt.Errorf("remove existing link failed: %v", err)
 		}
 	}

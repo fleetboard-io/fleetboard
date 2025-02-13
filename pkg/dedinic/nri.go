@@ -132,7 +132,7 @@ func (p *CNIPlugin) RunPodSandbox(pod *api.PodSandbox) (err error) {
 		ContainerID:  pod.GetId(),
 		NetNs:        nsPath,
 		IfName:       known.DediNIC,
-		Provider:     known.FleetboardPrefix,
+		Provider:     known.CNIProviderName,
 	}
 
 	err = csh.handleAdd(podRequest)

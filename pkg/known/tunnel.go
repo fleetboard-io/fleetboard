@@ -13,7 +13,8 @@ const (
 	DefaultDeviceName = "wg0"
 	DediNIC           = "eth-fleet"
 
-	CNFBridgeName = Fleetboard
+	CNFBridgeName   = Fleetboard
+	CNIProviderName = Fleetboard
 
 	UDPPort = 31820
 )

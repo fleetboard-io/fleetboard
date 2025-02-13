@@ -2,7 +2,6 @@ package cnf
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -92,7 +91,7 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	}
 
 	var agentSpec tunnel.Specification
-	if err = envconfig.Process(known.FleetboardPrefix, &agentSpec); err != nil {
+	if err = envconfig.Process(known.FleetboardConfigPrefix, &agentSpec); err != nil {
 		return nil, err
 	}
 	agentSpec.Options = *opts
@@ -249,9 +248,9 @@ func waitForCIDRReady(ctx context.Context, k8sClient *kubernetes.Clientset) {
 		pod, err := k8sClient.CoreV1().Pods(dedinic.CNFPodNamespace).Get(ctx, dedinic.CNFPodName, metav1.GetOptions{})
 		if err == nil && pod != nil {
 			klog.Infof("wait for cnf cidr ready: cnf annotions: %v", pod.Annotations)
-			dedinic.NodeCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardNodeCIDR, known.FleetboardPrefix)]
-			dedinic.TunnelCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardTunnelCIDR, known.FleetboardPrefix)]
-			dedinic.ServiceCIDR = pod.Annotations[fmt.Sprintf(known.FleetboardServiceCIDR, known.FleetboardPrefix)]
+			dedinic.NodeCIDR = pod.Annotations[known.FleetboardNodeCIDR]
+			dedinic.TunnelCIDR = pod.Annotations[known.FleetboardTunnelCIDR]
+			dedinic.ServiceCIDR = pod.Annotations[known.FleetboardServiceCIDR]
 			dedinic.CNFPodIP = pod.Status.PodIP
 		} else {
 			klog.Errorf("wait for cnf cidr ready: not finding the cnf pod")

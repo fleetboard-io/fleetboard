@@ -163,7 +163,6 @@ func SetSpecificAnnotations(client kubernetes.Interface, pod *v1.Pod, annotation
 
 		for i, annotationKey := range annotationKeys {
 			annotationValue := annotationValues[i]
-			annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 
 			existingValues, ok := pod.Annotations[annotationKey]
 			if ok && !override {
@@ -202,7 +201,6 @@ func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	}
 
 	for _, annotationKey := range annotationKeys {
-		annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 		if val, ok := annotations[annotationKey]; ok {
 			existingValuesSlice := strings.Split(val, ",")
 			allAnnoValue = append(allAnnoValue, existingValuesSlice...)
