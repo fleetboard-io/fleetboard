@@ -129,7 +129,7 @@ func GetServiceCIDRFromCNFPod(kubeClientSet kubernetes.Interface) (string, error
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
-		cidrs := GetSpecificAnnotation(pod, known.InnerClusterIPCIDR)
+		cidrs := GetSpecificAnnotation(pod, known.FleetboardServiceCIDR)
 		if len(cidrs) > 0 && len(cidrs[0]) > 0 {
 			return cidrs[0], nil
 		}

@@ -48,15 +48,14 @@ func NewCNFCommand(ctx context.Context) *cobra.Command {
 			cliflag.PrintFlags(fs)
 
 			// set default options
-			err := o.Complete()
-			if err != nil {
+			if err := o.Complete(); err != nil {
 				return err
 			}
-
 			// validate options
 			if errs := o.Validate(); len(errs) != 0 {
 				return utilerrors.NewAggregate(errs)
 			}
+
 			cm, err := cnf.NewCNFManager(o)
 			if err != nil {
 				return err

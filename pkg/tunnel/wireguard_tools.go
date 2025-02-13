@@ -168,7 +168,8 @@ func (w *Wireguard) AddInnerClusterTunnel(daemonPeerConfig *DaemonCNFTunnelConfi
 	remoteIP := net.ParseIP(daemonPeerConfig.endpointIP)
 	remotePort := daemonPeerConfig.port
 	if remoteIP == nil {
-		return errors.Errorf("failed to parse eth0 IP of pod %s on node %s", daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
+		return errors.Errorf("invalid eth0 IP '%s' of pod %s on node %s",
+			daemonPeerConfig.endpointIP, daemonPeerConfig.PodID, daemonPeerConfig.NodeID)
 	} else {
 		endpoint = &net.UDPAddr{
 			IP:   remoteIP,

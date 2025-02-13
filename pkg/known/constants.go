@@ -1,27 +1,32 @@
 package known
 
-import "time"
-
-const DediNIC = "eth-fleet"
-const (
-	LabelValueManagedBy = "mcs.fleetboard.io"
+import (
+	"time"
 )
 
+const (
+	Fleetboard                = "fleetboard"
+	FleetboardSystemNamespace = "fleetboard-system"
+	SyncNamespace             = "syncer-operator"
+	HubClusterName            = "hub"
+	HubSecretName             = Fleetboard
+)
+
+// pod environment variables
+const (
+	EnvPodName      = "FLEETBOARD_PODNAME"
+	EnvPodNamespace = "FLEETBOARD_PODNAMESPACE"
+)
+
+const (
+	// AppFinalizer are internal finalizer values must be qualified name.
+	AppFinalizer string = "apps.fleetboard.io/finalizer"
+	// DefaultResync means the default resync time
+	DefaultResync = time.Hour * 12
+)
 const (
 	MaxNamespaceLength = 10
 	MaxNameLength      = 10
-)
-
-type RouteOperation int
-
-const (
-	Add RouteOperation = iota
-	Delete
-)
-
-// These are internal finalizer values must be qualified name.
-const (
-	AppFinalizer string = "apps.fleetboard.io/finalizer"
 )
 
 // fields should be ignored when compared
@@ -34,39 +39,4 @@ const (
 	MetaResourceVersion = "/metadata/resourceVersion"
 
 	SectionStatus = "/status"
-)
-
-const (
-	// DefaultResync means the default resync time
-	DefaultResync = time.Hour * 12
-)
-
-const (
-	HubSecretName             = "fleetboard"
-	FleetboardSystemNamespace = "fleetboard-system"
-	SyncNamespace             = "syncer-operator"
-	HubClusterName            = "hub"
-)
-
-// IPAM annotation const.
-const (
-	FleetboardPrefix   = "fleetboard"
-	DaemonCIDR         = "%s.io/daemon_cidr"
-	CNFCIDR            = "%s.io/cnf_cidr"
-	CLUSTERCIDR        = "%s.io/cluster_cidr"
-	InnerClusterIPCIDR = "%s.io/inner_cluster_ip_cidr" // todo: rename to ServiceCIDR
-	PublicKey          = "%s.io/public_key"
-	DEDINICIP          = "router.fleetboard.io/dedicated_ip"
-)
-
-const (
-	// DefaultDeviceName specifies name of WireGuard network device.
-	DefaultDeviceName = "wg0"
-
-	UDPPort = 31820
-)
-
-const (
-	EnvPodName      = "FLEETBOARD_PODNAME"
-	EnvPodNamespace = "FLEETBOARD_PODNAMESPACE"
 )

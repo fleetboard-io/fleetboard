@@ -62,11 +62,11 @@ func (ch cniHandler) handleAdd(rq *CniRequest) error {
 	ipStr := ip.IPs[0].Address.String()
 	routes := []Route{
 		{
-			Destination: GlobalCIDR,
+			Destination: TunnelCIDR,
 			Gateway:     CNFBridgeIP,
 		},
 		{
-			Destination: InnerClusterIPCIDR,
+			Destination: ServiceCIDR,
 			Gateway:     CNFBridgeIP,
 		}}
 	err = ch.configureNic(rq.NetNs, rq.ContainerID, rq.IfName, ipStr, routes)
@@ -232,7 +232,7 @@ func (ch cniHandler) updateTheIPToPod(podName, podNamespace, ip string) error {
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
-	pod.Annotations[known.DEDINICIP] = ip
+	pod.Annotations[known.FleetboardParallelIP] = ip
 
 	// Update the Pod
 	_, err = ch.kubeClient.CoreV1().Pods(podNamespace).Update(context.TODO(), pod, metav1.UpdateOptions{})

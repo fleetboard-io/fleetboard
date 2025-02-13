@@ -68,7 +68,14 @@ func NewServiceExportController(clusteID string,
 	// add event handler
 	yachtcontroller := yacht.NewController("serviceexport").
 		WithCacheSynced(seInformer.Informer().HasSynced, epsInformer.Informer().HasSynced).
-		WithHandlerFunc(sec.Handle)
+		WithHandlerContextFunc(func(ctx context.Context, key interface{}) (*time.Duration, error) {
+			select {
+			case <-ctx.Done():
+				return nil, nil
+			default:
+				return sec.Handle(key)
+			}
+		})
 	_, err := seInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
 	if err != nil {
 		return nil, err

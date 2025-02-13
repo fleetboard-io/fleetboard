@@ -21,18 +21,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var ParallelIPKey string
-
-func init() {
-	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
-	if ParallelIPKey == "" {
-		ParallelIPKey = "router.fleetboard.io/dedicated_ip"
-	}
-}
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
-	klog.Infof("KEY: %v", ParallelIPKey)
 	klog.Infof("Pod Annotation: %v :%v", pod.Name, pod.Annotations)
-	if val, ok := pod.Annotations[ParallelIPKey]; ok && len(val) > 0 {
+	if val, ok := pod.Annotations[known.FleetboardParallelIP]; ok && len(val) > 0 {
 		return net.ParseIP(val), nil
 	}
 	return nil, errors.New("there is no dedicated ip")
@@ -90,6 +81,9 @@ func UpdatePodLabels(client kubernetes.Interface, podName string, isLeader bool)
 		if isLeader {
 			pod.Labels[known.LeaderCNFLabelKey] = "true"
 		} else {
+			if _, ok := pod.Labels[known.LeaderCNFLabelKey]; !ok {
+				return nil // not need to update
+			}
 			delete(pod.Labels, known.LeaderCNFLabelKey)
 		}
 
@@ -169,7 +163,6 @@ func SetSpecificAnnotations(client kubernetes.Interface, pod *v1.Pod, annotation
 
 		for i, annotationKey := range annotationKeys {
 			annotationValue := annotationValues[i]
-			annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 
 			existingValues, ok := pod.Annotations[annotationKey]
 			if ok && !override {
@@ -208,7 +201,6 @@ func GetSpecificAnnotation(pod *v1.Pod, annotationKeys ...string) []string {
 	}
 
 	for _, annotationKey := range annotationKeys {
-		annotationKey = fmt.Sprintf(annotationKey, known.FleetboardPrefix)
 		if val, ok := annotations[annotationKey]; ok {
 			existingValuesSlice := strings.Split(val, ",")
 			allAnnoValue = append(allAnnoValue, existingValuesSlice...)

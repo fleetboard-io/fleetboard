@@ -20,9 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
+	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"k8s.io/klog/v2"
 
 	v1 "k8s.io/api/core/v1"
@@ -37,16 +37,8 @@ import (
 	utilnet "k8s.io/utils/net"
 )
 
-var ParallelIPKey string
-
-func init() {
-	ParallelIPKey = os.Getenv("PARALLEL_IP_ANNOTATION")
-	if ParallelIPKey == "" {
-		ParallelIPKey = "router.fleetboard.io/dedicated_ip"
-	}
-}
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
-	if val, ok := pod.Annotations[ParallelIPKey]; ok && len(val) > 0 {
+	if val, ok := pod.Annotations[known.FleetboardParallelIP]; ok && len(val) > 0 {
 		return net.ParseIP(val), nil
 	}
 	return nil, errors.New("there is no dedicated ip")

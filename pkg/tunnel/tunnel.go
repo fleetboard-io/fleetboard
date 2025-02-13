@@ -72,13 +72,13 @@ func DaemonConfigFromPod(pod *v1.Pod, isLeader bool) *DaemonCNFTunnelConfig {
 		NodeID:        pod.Spec.NodeName,
 		PodID:         pod.Name,
 		endpointIP:    utils.GetEth0IP(pod),
-		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.DaemonCIDR),
-		ServiceCIDR:   utils.GetSpecificAnnotation(pod, known.InnerClusterIPCIDR),
+		SecondaryCIDR: utils.GetSpecificAnnotation(pod, known.FleetboardNodeCIDR),
+		ServiceCIDR:   utils.GetSpecificAnnotation(pod, known.FleetboardServiceCIDR),
 		port:          known.UDPPort,
 		PublicKey:     utils.GetSpecificAnnotation(pod, known.PublicKey),
 	}
 	if !isLeader {
-		daemonConfig.SecondaryCIDR = utils.GetSpecificAnnotation(pod, known.CNFCIDR)
+		daemonConfig.SecondaryCIDR = utils.GetSpecificAnnotation(pod, known.FleetboardTunnelCIDR)
 	}
 	return daemonConfig
 }
@@ -163,8 +163,8 @@ func (w *Wireguard) Init(client *kubernetes.Clientset) error {
 	return utils.AddAnnotationToSelf(client, known.PublicKey, w.Keys.PublicKey.String(), true)
 }
 
-func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec Specification) (*Wireguard, error) {
-	w, err := NewTunnel(&agentSpec)
+func CreateAndUpTunnel(k8sClient *kubernetes.Clientset, agentSpec *Specification) (*Wireguard, error) {
+	w, err := NewTunnel(agentSpec)
 	if err != nil {
 		klog.Fatal(err)
 		return nil, err

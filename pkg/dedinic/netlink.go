@@ -43,20 +43,23 @@ func generateNicName(containerID, ifname string) (string, string) {
 		fmt.Sprintf("%s_%s_c", containerID[0:12-len(ifname)], ifname)
 }
 func CreateBridge(bridgeName string) error {
+	bridgeLink, err := netlink.LinkByName(bridgeName)
+	if err == nil {
+		if err = netlink.LinkDel(bridgeLink); err != nil {
+			return fmt.Errorf("remove existing link failed: %v", err)
+		}
+	}
+
 	// Create a new bridge
 	bridge := &netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: bridgeName}}
-	err := netlink.LinkDel(bridge)
-	if err != nil {
-		klog.Errorf("remove exist link failed: %v", err)
-	}
 	if err = netlink.LinkAdd(bridge); err != nil {
 		return fmt.Errorf("could not add %s: %v", bridgeName, err)
 	}
 
 	// Find the bridge link
-	bridgeLink, err := netlink.LinkByName(bridgeName)
+	bridgeLink, err = netlink.LinkByName(bridgeName)
 	if err != nil {
-		return fmt.Errorf("could not find %s: %v", bridgeName, err)
+		return fmt.Errorf("could not find bridge %s: %v", bridgeName, err)
 	}
 
 	// Bring the bridge up

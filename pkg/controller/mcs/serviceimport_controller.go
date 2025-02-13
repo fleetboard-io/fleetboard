@@ -64,7 +64,14 @@ func NewServiceImportController(kubeclient kubernetes.Interface,
 	// add event handler for ServiceImport
 	yachtcontroller := yacht.NewController("serviceimport").
 		WithCacheSynced(siInformer.Informer().HasSynced, epsInformer.Informer().HasSynced).
-		WithHandlerFunc(sic.Handle).
+		WithHandlerContextFunc(func(ctx context.Context, key interface{}) (*time.Duration, error) {
+			select {
+			case <-ctx.Done():
+				return nil, nil
+			default:
+				return sic.Handle(key)
+			}
+		}).
 		WithEnqueueFilterFunc(preFilter)
 	_, err := sic.localSIInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
 	if err != nil {
