@@ -96,7 +96,7 @@ func NewServiceImportController(kubeclient kubernetes.Interface,
 
 func (s *ServiceImportController) AddInitialInfoToServiceImport(si *v1alpha1.ServiceImport) (bool, error) {
 	siChanged := false
-	if len(si.Spec.IPs) == 0 {
+	if si.Spec.IPs == nil {
 		si.Spec.IPs = make([]string, 0)
 	}
 	isHeadless := si.Spec.Type == v1alpha1.Headless
@@ -114,13 +114,13 @@ func (s *ServiceImportController) AddInitialInfoToServiceImport(si *v1alpha1.Ser
 			siChanged = true
 		}
 	} else {
-		if len(si.Spec.IPs) == 0 {
+		if len(si.Spec.IPs) == 0 || len(si.Spec.IPs[0]) == 0 {
 			ip, errAllocate := s.IPAM.AllocateIP()
 			if errAllocate != nil {
 				return siChanged, errAllocate
 			} else {
 				siChanged = true
-				si.Spec.IPs = append(si.Spec.IPs, ip)
+				si.Spec.IPs = []string{ip}
 			}
 		}
 	}
@@ -139,6 +139,8 @@ func (s *ServiceImportController) getServiceImportFromEndpointSlice(obj interfac
 				known.LabelServiceNameSpace: rawServiceNamespace,
 			})); err == nil && len(siList) > 0 {
 			return siList[0], nil
+		} else {
+			klog.Errorf("failed to list ServiceImport for ServiceImport: %v", err)
 		}
 	}
 	klog.Infof("can't resolve service import from this slice %s/%s", slice.Namespace, slice.Name)

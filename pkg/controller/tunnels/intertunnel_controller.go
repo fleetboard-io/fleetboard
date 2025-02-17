@@ -1,4 +1,4 @@
-package tunnel
+package tunnels
 
 import (
 	"context"

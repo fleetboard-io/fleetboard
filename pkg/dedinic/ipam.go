@@ -1,6 +1,7 @@
 package dedinic
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -73,7 +74,7 @@ func GetIP(rq *CniRequest, ipamConfStr string) (res *current.Result, err error) 
 		for _, ip := range requestedIPs {
 			errstr = errstr + " " + ip.String()
 		}
-		return nil, fmt.Errorf(errstr)
+		return nil, errors.New(errstr)
 	}
 
 	result.Routes = ipamConf.Routes
@@ -94,19 +95,19 @@ func DelIP(rq *CniRequest, ipamConfStr string) error {
 	defer store.Close()
 
 	// Loop through all ranges, releasing all IPs, even if an error occurs
-	var errors []string
+	var errorMesgs []string
 	for idx, rangeset := range ipamConf.Ranges {
 		set := rangeset
 		ipAllocator := allocator.NewIPAllocator(&set, store, idx)
 
 		err := ipAllocator.Release(rq.ContainerID, rq.IfName)
 		if err != nil {
-			errors = append(errors, err.Error())
+			errorMesgs = append(errorMesgs, err.Error())
 		}
 	}
 
-	if errors != nil {
-		return fmt.Errorf(strings.Join(errors, ";"))
+	if errorMesgs != nil {
+		return errors.New(strings.Join(errorMesgs, ";"))
 	}
 	return nil
 }

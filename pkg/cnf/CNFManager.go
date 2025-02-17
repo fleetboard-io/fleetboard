@@ -19,7 +19,7 @@ import (
 
 	syncerConfig "github.com/fleetboard-io/fleetboard/pkg/config"
 	"github.com/fleetboard-io/fleetboard/pkg/controller/syncer"
-	tunnelcontroller "github.com/fleetboard-io/fleetboard/pkg/controller/tunnel"
+	tunnelcontroller "github.com/fleetboard-io/fleetboard/pkg/controller/tunnels"
 	"github.com/fleetboard-io/fleetboard/pkg/dedinic"
 	fleetboardClientset "github.com/fleetboard-io/fleetboard/pkg/generated/clientset/versioned"
 	fleetinformers "github.com/fleetboard-io/fleetboard/pkg/generated/informers/externalversions"
@@ -102,7 +102,7 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	// create and init wire guard device
 	w, err := tunnel.CreateAndUpTunnel(localK8sClient, &agentSpec)
 	if err != nil {
-		klog.Fatalf("can't init wire guard tunnel: %v", err)
+		klog.Fatalf("can't init wireguard tunnel: %v", err)
 	}
 
 	// 配置 Leader 选举
