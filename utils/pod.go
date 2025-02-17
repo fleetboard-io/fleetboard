@@ -13,13 +13,15 @@ import (
 	"k8s.io/klog/v2"
 )
 
+const ServiceClusterParam = "--service-cluster-ip-range"
+
 // FindClusterServiceIPRange returns the service ip range for the cluster.
 func FindClusterServiceIPRange(kubeClientSet kubernetes.Interface) (string, error) {
 	// Try to find the service ip range from the kube-apiserver first
 	// and then kube-controller-manager if failed
 	labelKeys := []string{"component", "app.kubernetes.io/component"}
 	labelValues := []string{"kube-apiserver", "kube-controller-manager"}
-	parameter := "--service-cluster-ip-range"
+	parameter := ServiceClusterParam
 	for _, labelValue := range labelValues {
 		for _, labelKey := range labelKeys {
 			labelSelector := labels.SelectorFromSet(labels.Set{labelKey: labelValue})

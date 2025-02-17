@@ -93,7 +93,6 @@ func TestFindPodCommandParameter(t *testing.T) {
 		},
 	}
 
-	const parameter = "--service-cluster-ip-range"
 	const expected = "1.0.0.0/8"
 
 	for _, test := range tests {
@@ -105,7 +104,7 @@ func TestFindPodCommandParameter(t *testing.T) {
 			continue
 		}
 
-		result, err := FindPodCommandParameter(podLister, labelSelector, parameter)
+		result, err := FindPodCommandParameter(podLister, labelSelector, ServiceClusterParam)
 		if err != nil {
 			t.Errorf("test for %s error: %v", test.description, err)
 		} else if result != expected {
@@ -128,7 +127,7 @@ func buildKubeClientSet(pods ...*corev1.Pod) (kubernetes.Interface, error) {
 func buildAPIServerPod(serviceIPRange, _ string) (*corev1.Pod, labels.Selector) { // no --cluster-cidr parameter
 	labelKey, labelValue := "component", "kube-apiserver"
 	return buildPod(metav1.NamespaceSystem, labelValue+"-xxx", labelKey, labelValue,
-		[]string{"kube-apiserver", "--service-cluster-ip-range=" + serviceIPRange}, //nolint:goconst
+		[]string{"kube-apiserver", ServiceClusterParam + "=" + serviceIPRange},
 		[]string{})
 }
 
@@ -136,19 +135,19 @@ func buildAPIServerPodWithArgs(serviceIPRange, _ string) (*corev1.Pod, labels.Se
 	labelKey, labelValue := "component", "kube-apiserver"
 	return buildPod(metav1.NamespaceSystem, labelValue+"-xxx", labelKey, labelValue,
 		[]string{"kube-apiserver"},
-		[]string{"--service-cluster-ip-range=" + serviceIPRange})
+		[]string{ServiceClusterParam + "=" + serviceIPRange})
 }
 
 func buildControllerManagerWithK8sLabel(serviceIPRange, podIPRange string) (*corev1.Pod, labels.Selector) {
 	labelKey, labelValue := "app.kubernetes.io/component", "kube-controller-manager"
 	return buildPod(metav1.NamespaceSystem, "kube-controller-manager-xxx", labelKey, labelValue,
-		[]string{"kube-controller-manager", "--service-cluster-ip-range=" + serviceIPRange, "--cluster-cidr=" + podIPRange},
+		[]string{"kube-controller-manager", ServiceClusterParam + "=" + serviceIPRange, "--cluster-cidr=" + podIPRange},
 		[]string{})
 }
 
 func buildProxyPod(serviceIPRange, podIPRange string) (*corev1.Pod, labels.Selector) {
 	return buildPod(metav1.NamespaceSystem, "kube-proxy-xxx", "k8s-app", "kube-proxy",
-		[]string{"kube-controller-manager", "--service-cluster-ip-range=" + serviceIPRange, "--cluster-cidr=" + podIPRange},
+		[]string{"kube-controller-manager", ServiceClusterParam + "=" + serviceIPRange, "--cluster-cidr=" + podIPRange},
 		[]string{})
 }
 

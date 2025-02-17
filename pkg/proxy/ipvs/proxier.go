@@ -114,22 +114,6 @@ var iptablesJumpChain = []struct {
 	{utiliptables.TableFilter, utiliptables.ChainInput, kubeIPVSFilterChain, "kubernetes ipvs access filter"},
 }
 
-var iptablesChains = []struct {
-	table utiliptables.Table
-	chain utiliptables.Chain
-}{
-	{utiliptables.TableNAT, kubeServicesChain},
-	{utiliptables.TableNAT, kubePostroutingChain},
-	{utiliptables.TableNAT, kubeNodePortChain},
-	{utiliptables.TableNAT, kubeLoadBalancerChain},
-	{utiliptables.TableNAT, kubeMarkMasqChain},
-	{utiliptables.TableFilter, kubeForwardChain},
-	{utiliptables.TableFilter, kubeNodePortChain},
-	{utiliptables.TableFilter, kubeProxyFirewallChain},
-	{utiliptables.TableFilter, kubeSourceRangesFirewallChain},
-	{utiliptables.TableFilter, kubeIPVSFilterChain},
-}
-
 var iptablesCleanupChains = []struct {
 	table utiliptables.Table
 	chain utiliptables.Chain
@@ -945,8 +929,6 @@ func (proxier *Proxier) syncProxyRules() {
 	proxier.filterChains.Write("*filter")
 	proxier.natChains.Write("*nat")
 
-	proxier.createAndLinkKubeChain()
-
 	// make sure dummy interface exists in the system where ipvs Proxier will bind service address on it
 	_, err := proxier.netlinkHandle.EnsureDummyDevice(defaultDummyDevice)
 	if err != nil {
@@ -970,11 +952,6 @@ func (proxier *Proxier) syncProxyRules() {
 	alreadyBoundAddrs, err := proxier.netlinkHandle.GetLocalAddresses(defaultDummyDevice)
 	if err != nil {
 		klog.ErrorS(err, "Error listing addresses binded to dummy interface")
-	}
-	// nodeAddressSet All addresses *except* those on the dummy interface
-	nodeAddressSet, err := proxier.netlinkHandle.GetAllLocalAddressesExcept(defaultDummyDevice)
-	if err != nil {
-		klog.ErrorS(err, "Error listing node addresses")
 	}
 
 	// Build IPVS rules for each service.
@@ -1074,78 +1051,6 @@ func (proxier *Proxier) syncProxyRules() {
 			klog.ErrorS(err, "Failed to sync service", "servicePortName",
 				svcPortName, "virtualServer", serv)
 		}
-
-		// Capture externalIPs.
-		for _, externalIP := range svcInfo.ExternalIPStrings() {
-			// ipset call
-			entry := &utilipset.Entry{
-				IP:       externalIP,
-				Port:     svcInfo.Port(),
-				Protocol: protocol,
-				SetType:  utilipset.HashIPPort,
-			}
-
-			if svcInfo.ExternalPolicyLocal() {
-				if valid := proxier.ipsetList[kubeExternalIPLocalSet].validateEntry(entry); !valid {
-					klog.ErrorS(nil, "Error adding entry to ipset", "entry", entry, "ipset",
-						proxier.ipsetList[kubeExternalIPLocalSet].Name)
-					continue
-				}
-				proxier.ipsetList[kubeExternalIPLocalSet].activeEntries.Insert(entry.String())
-			} else {
-				// We have to SNAT packets to external IPs.
-				if valid := proxier.ipsetList[kubeExternalIPSet].validateEntry(entry); !valid {
-					klog.ErrorS(nil, "Error adding entry to ipset", "entry", entry, "ipset", proxier.ipsetList[kubeExternalIPSet].Name)
-					continue
-				}
-				proxier.ipsetList[kubeExternalIPSet].activeEntries.Insert(entry.String())
-			}
-
-			// ipvs call
-			serv := &utilipvs.VirtualServer{
-				Address:   netutils.ParseIPSloppy(externalIP),
-				Port:      uint16(svcInfo.Port()),
-				Protocol:  string(svcInfo.Protocol()),
-				Scheduler: proxier.ipvsScheduler,
-			}
-			if svcInfo.SessionAffinityType() == v1.ServiceAffinityClientIP {
-				serv.Flags |= utilipvs.FlagPersistent
-				serv.Timeout = uint32(svcInfo.StickyMaxAgeSeconds())
-			}
-			// Set the source hash flag needed for the distribution method "mh"
-			if proxier.ipvsScheduler == "mh" {
-				serv.Flags |= utilipvs.FlagSourceHash
-			}
-			// We must not add the address to the dummy device if it exist on another interface
-			shouldBind := !nodeAddressSet.Has(serv.Address.String())
-			if err = proxier.syncService(svcPortNameString, serv, shouldBind, alreadyBoundAddrs); err == nil {
-				activeIPVSServices.Insert(serv.String())
-				if shouldBind {
-					activeBindAddrs.Insert(serv.Address.String())
-				}
-				if err = proxier.syncEndpoint(svcPortName, svcInfo.ExternalPolicyLocal(), serv); err != nil {
-					klog.ErrorS(err, "Failed to sync endpoint for service", "servicePortName", svcPortName, "virtualServer", serv)
-				}
-			} else {
-				klog.ErrorS(err, "Failed to sync service", "servicePortName", svcPortName, "virtualServer", serv)
-			}
-		}
-
-		if svcInfo.HealthCheckNodePort() != 0 {
-			nodePortSet := proxier.ipsetList[kubeHealthCheckNodePortSet]
-			entry := &utilipset.Entry{
-				// No need to provide ip info
-				Port:     svcInfo.HealthCheckNodePort(),
-				Protocol: "tcp",
-				SetType:  utilipset.BitmapPort,
-			}
-
-			if valid := nodePortSet.validateEntry(entry); !valid {
-				klog.ErrorS(nil, "Error adding entry to ipset", "entry", entry, "ipset", nodePortSet.Name)
-				continue
-			}
-			nodePortSet.activeEntries.Insert(entry.String())
-		}
 	}
 
 	// Set the KUBE-IPVS-IPS set to the "activeBindAddrs"
@@ -1168,19 +1073,6 @@ func (proxier *Proxier) syncProxyRules() {
 	proxier.iptablesData.Write(proxier.filterChains.Bytes())
 	proxier.iptablesData.Write(proxier.filterRules.Bytes())
 
-	klog.V(5).InfoS("Restoring iptables", "rules", proxier.iptablesData.Bytes())
-	err = proxier.iptables.RestoreAll(proxier.iptablesData.Bytes(),
-		utiliptables.NoFlushTables, utiliptables.RestoreCounters)
-	if err != nil {
-		if pErr, ok := err.(utiliptables.ParseError); ok {
-			lines := utiliptables.ExtractLines(proxier.iptablesData.Bytes(), pErr.Line(), 3)
-			klog.ErrorS(pErr, "Failed to execute iptables-restore", "rules", lines)
-		} else {
-			klog.ErrorS(err, "Failed to execute iptables-restore", "rules", proxier.iptablesData.Bytes())
-		}
-		metrics.IptablesRestoreFailuresTotal.Inc()
-		return
-	}
 	for name, lastChangeTriggerTimes := range endpointUpdateResult.LastChangeTriggerTimes {
 		for _, lastChangeTriggerTime := range lastChangeTriggerTimes {
 			latency := metrics.SinceInSeconds(lastChangeTriggerTime)
@@ -1483,28 +1375,6 @@ func (proxier *Proxier) acceptIPVSTraffic() {
 				"-m", "set", "--match-set", proxier.ipsetList[set].Name, matchType,
 				"-j", "ACCEPT",
 			)
-		}
-	}
-}
-
-// createAndLinkKubeChain create all kube chains that ipvs proxier need and write basic link.
-func (proxier *Proxier) createAndLinkKubeChain() {
-	for _, ch := range iptablesChains {
-		if _, err := proxier.iptables.EnsureChain(ch.table, ch.chain); err != nil {
-			klog.ErrorS(err, "Failed to ensure chain exists", "table", ch.table, "chain", ch.chain)
-			return
-		}
-		if ch.table == utiliptables.TableNAT {
-			proxier.natChains.Write(utiliptables.MakeChainLine(ch.chain))
-		} else {
-			proxier.filterChains.Write(utiliptables.MakeChainLine(ch.chain))
-		}
-	}
-
-	for _, jc := range iptablesJumpChain {
-		args := []string{"-m", "comment", "--comment", jc.comment, "-j", string(jc.to)}
-		if _, err := proxier.iptables.EnsureRule(utiliptables.Prepend, jc.table, jc.from, args...); err != nil {
-			klog.ErrorS(err, "Failed to ensure chain jumps", "table", jc.table, "srcChain", jc.from, "dstChain", jc.to)
 		}
 	}
 }
