@@ -31,8 +31,6 @@ import (
 	"k8s.io/kubernetes/pkg/proxy/metrics"
 	netutils "k8s.io/utils/net"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
-
-	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 // BaseServicePortInfo contains base information that defines a service.
@@ -315,20 +313,8 @@ func (sct *ServiceImportChangeTracker) serviceImportToServiceMap(serviceImport *
 		return nil
 	}
 
-	// get service name and namespace
-	nameLabel, ok := serviceImport.Labels[known.LabelServiceName]
-	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no name label", "serviceImport", klog.KObj(serviceImport))
-		return nil
-	}
-	namespaceLabel, ok := serviceImport.Labels[known.LabelServiceNameSpace]
-	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no namespace label", "serviceImport", klog.KObj(serviceImport))
-		return nil
-	}
-
 	svcPortMap := make(ServicePortMap)
-	svcName := types.NamespacedName{Namespace: namespaceLabel, Name: nameLabel}
+	svcName := types.NamespacedName{Namespace: serviceImport.Namespace, Name: serviceImport.Name}
 	for i := range serviceImport.Spec.Ports {
 		servicePort := serviceImport.Spec.Ports[i]
 

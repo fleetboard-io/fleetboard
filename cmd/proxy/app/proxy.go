@@ -632,8 +632,13 @@ func (s *ProxyServer) Run() error {
 		return err
 	}
 
+	hasFleetServiceName, err := labels.NewRequirement(known.LabelServiceName, selection.Exists, nil)
+	if err != nil {
+		return err
+	}
+
 	labelSelector := labels.NewSelector()
-	labelSelector = labelSelector.Add(*noProxyName, *noHeadlessEndpoints)
+	labelSelector = labelSelector.Add(*noProxyName, *noHeadlessEndpoints, *hasFleetServiceName)
 
 	// Make informers that filter out objects that want a non-default service proxy.
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(s.Client, s.Config.ConfigSyncPeriod.Duration,

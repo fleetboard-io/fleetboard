@@ -7,7 +7,6 @@ import (
 const (
 	Fleetboard                = "fleetboard"
 	FleetboardSystemNamespace = "fleetboard-system"
-	SyncNamespace             = "syncer-operator"
 	HubClusterName            = "hub"
 	HubSecretName             = Fleetboard
 )

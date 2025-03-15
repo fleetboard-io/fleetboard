@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,10 +140,10 @@ func GetServiceCIDRFromCNFPod(kubeClientSet kubernetes.Interface) (string, error
 }
 
 // GetServiceCIDR get existing virtual service CIDR and IPs
-func GetServiceCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
+func GetServiceCIDR(mcsClientSet *mcsclientset.Clientset,
 	kubeClientSet kubernetes.Interface) (string, []string, error) {
 	var virtualServiceIPs []string
-	if localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(targetNamespace).
+	if localSIList, err := mcsClientSet.MulticlusterV1alpha1().ServiceImports(v1.NamespaceAll).
 		List(context.Background(), metav1.ListOptions{}); err != nil {
 		return "", nil, fmt.Errorf("failed to list service import: %v", err)
 	} else {
@@ -174,9 +175,8 @@ func GetServiceCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string
 }
 
 // InitNewCIDR init a CIDR to allocate local-cluster-range ip for imported multi-cluster virtual services
-func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, targetNamespace string,
-	kubeClientSet kubernetes.Interface) (string, error) {
-	newCIDR, virtualServiceIPs, err := GetServiceCIDR(mcsClientSet, targetNamespace, kubeClientSet)
+func (i *IPAM) InitNewCIDR(mcsClientSet *mcsclientset.Clientset, kubeClientSet kubernetes.Interface) (string, error) {
+	newCIDR, virtualServiceIPs, err := GetServiceCIDR(mcsClientSet, kubeClientSet)
 	if err != nil {
 		return "", fmt.Errorf("failed to get service CIDR: %v", err)
 	}

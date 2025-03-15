@@ -158,7 +158,6 @@ func NewCNFManager(opts *tunnel.Options) (*Manager, error) {
 	serviceSyncer, errSyncer := syncer.New(&agentSpec, known.SyncerConfig{
 		LocalRestConfig: localConfig,
 		LocalClient:     dynamicLocalClient,
-		LocalNamespace:  agentSpec.LocalNamespace,
 		LocalClusterID:  agentSpec.ClusterID,
 	}, hubConfig)
 	if errSyncer != nil {

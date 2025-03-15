@@ -31,8 +31,7 @@ type AgentConfig struct {
 }
 
 type Syncer struct {
-	ClusterID      string
-	LocalNamespace string
+	ClusterID string
 
 	HubKubeConfig           *rest.Config
 	SyncerConf              known.SyncerConfig
@@ -78,7 +77,6 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 		return nil, err
 	}
 
-	syncerConf.LocalNamespace = spec.LocalNamespace
 	syncerConf.LocalClusterID = spec.ClusterID
 	syncerConf.RemoteNamespace = spec.ShareNamespace
 
@@ -88,7 +86,6 @@ func New(spec *tunnel.Specification, syncerConf known.SyncerConfig, hubKubeConfi
 		HubKubeConfig:           hubKubeConfig,
 		ServiceExportController: serviceExportController,
 		ServiceImportController: serviceImportController,
-		LocalNamespace:          syncerConf.LocalNamespace,
 		KubeInformerFactory:     kubeInformerFactory,
 		KubeClientSet:           localKubeClientSet,
 		McsInformerFactory:      mcsInformerFactory,
@@ -108,8 +105,7 @@ func (s *Syncer) Start(ctx context.Context) (err error) {
 
 	klog.Info("Starting Syncer and init virtual service CIDR...")
 	var cidr string
-	if cidr, err = s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet,
-		s.LocalNamespace, s.KubeClientSet); err != nil {
+	if cidr, err = s.ServiceImportController.IPAM.InitNewCIDR(s.LocalMcsClientSet, s.KubeClientSet); err != nil {
 		klog.Errorf("we allocate for virtual service failed for %v", err)
 		return err
 	} else {

@@ -50,7 +50,6 @@ import (
 	netutils "k8s.io/utils/net"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
-	"github.com/fleetboard-io/fleetboard/pkg/known"
 	"github.com/fleetboard-io/fleetboard/pkg/proxy"
 )
 
@@ -471,20 +470,9 @@ type servicePortInfo struct {
 func newServiceInfo(port *v1.ServicePort, serviceImport *v1alpha1.ServiceImport,
 	bsvcPortInfo *proxy.BaseServicePortInfo) proxy.ServicePort {
 	svcPort := &servicePortInfo{BaseServicePortInfo: bsvcPortInfo}
-	// get service name and namespace
-	nameLabel, ok := serviceImport.Labels[known.LabelServiceName]
-	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no name label", "serviceImport", klog.KObj(serviceImport))
-		return nil
-	}
-	namespaceLabel, ok := serviceImport.Labels[known.LabelServiceNameSpace]
-	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no namespace label", "serviceImport", klog.KObj(serviceImport))
-		return nil
-	}
 
 	// Store the following for performance reasons.
-	svcName := types.NamespacedName{Namespace: namespaceLabel, Name: nameLabel}
+	svcName := types.NamespacedName{Namespace: serviceImport.Namespace, Name: serviceImport.Name}
 	svcPortName := proxy.ServicePortName{NamespacedName: svcName, Port: port.Name}
 	svcPort.nameString = svcPortName.String()
 

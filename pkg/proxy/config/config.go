@@ -27,8 +27,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsinformer "sigs.k8s.io/mcs-api/pkg/client/informers/externalversions/apis/v1alpha1"
-
-	"github.com/fleetboard-io/fleetboard/pkg/known"
 )
 
 // ServiceImportHandler is an abstract interface of objects which receive
@@ -119,11 +117,6 @@ func (c *EndpointSliceConfig) handleAddEndpointSlice(obj interface{}) {
 		return
 	}
 	for _, h := range c.eventHandlers {
-		if endpointSlice.Namespace != known.SyncNamespace {
-			klog.Infof("EndpointSliceConfig.handleAddEndpointSlice will not deal: %v/%v",
-				endpointSlice.Namespace, endpointSlice.Name)
-			continue
-		}
 		klog.V(4).InfoS("Calling handler.OnEndpointSliceAdd", "endpointslice",
 			klog.KObj(endpointSlice))
 		h.OnEndpointSliceAdd(endpointSlice)
@@ -142,11 +135,6 @@ func (c *EndpointSliceConfig) handleUpdateEndpointSlice(oldObj, newObj interface
 		return
 	}
 	for _, h := range c.eventHandlers {
-		if newEndpointSlice.Namespace != known.SyncNamespace {
-			klog.Infof("EndpointSliceConfig.handleUpdateEndpointSlice will not deal: %v/%v",
-				newEndpointSlice.Namespace, newEndpointSlice.Name)
-			continue
-		}
 		klog.V(4).InfoS("Calling handler.OnEndpointSliceUpdate", "endpointslice",
 			klog.KObj(newEndpointSlice))
 		h.OnEndpointSliceUpdate(oldEndpointSlice, newEndpointSlice)
@@ -167,12 +155,6 @@ func (c *EndpointSliceConfig) handleDeleteEndpointSlice(obj interface{}) {
 		}
 	}
 	for _, h := range c.eventHandlers {
-		if endpointSlice.Namespace != known.SyncNamespace {
-			klog.Infof("EndpointSliceConfig.handleDeleteEndpointSlice will not deal: %v/%v",
-				endpointSlice.Namespace, endpointSlice.Name)
-			continue
-		}
-
 		klog.V(4).InfoS("Calling handler.OnEndpointsDelete", "endpointslice", klog.KObj(endpointSlice))
 		h.OnEndpointSliceDelete(endpointSlice)
 	}
