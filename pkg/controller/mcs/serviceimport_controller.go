@@ -71,8 +71,7 @@ func NewServiceImportController(kubeclient kubernetes.Interface,
 			default:
 				return sic.Handle(key)
 			}
-		}).
-		WithEnqueueFilterFunc(preFilter)
+		})
 	_, err := sic.localSIInformer.Informer().AddEventHandler(yachtcontroller.DefaultResourceEventHandlerFuncs())
 	if err != nil {
 		klog.Errorf("failed to add event handler for serviceimport: %v", err)
@@ -131,38 +130,17 @@ func (s *ServiceImportController) AddInitialInfoToServiceImport(si *v1alpha1.Ser
 func (s *ServiceImportController) getServiceImportFromEndpointSlice(obj interface{}) (*v1alpha1.ServiceImport, error) {
 	slice := obj.(*discoveryv1.EndpointSlice)
 	rawServiceName, serviceExist := slice.Labels[known.LabelServiceName]
-	rawServiceNamespace, serviceNamespaceExsit := slice.Labels[known.LabelServiceNameSpace]
+	_, serviceNamespaceExsit := slice.Labels[known.LabelServiceNameSpace]
 	if serviceExist && serviceNamespaceExsit {
-		if siList, err := s.localSILister.ServiceImports(s.operatorNamespace).List(
-			labels.SelectorFromSet(labels.Set{
-				known.LabelServiceName:      rawServiceName,
-				known.LabelServiceNameSpace: rawServiceNamespace,
-			})); err == nil && len(siList) > 0 {
-			return siList[0], nil
+		if si, err := s.localSILister.ServiceImports(slice.Namespace).Get(rawServiceName); err == nil {
+			return si, nil
 		} else {
-			klog.Errorf("failed to list ServiceImport for ServiceImport: %v", err)
+			klog.Errorf("failed to list ServiceImport for EndpointSlice %s/%s: %v",
+				slice.Namespace, slice.Name, err)
 		}
 	}
 	klog.Infof("can't resolve service import from this slice %s/%s", slice.Namespace, slice.Name)
 	return nil, fmt.Errorf("can't resolve service import from this slice %s/%s", slice.Namespace, slice.Name)
-}
-
-// preFilter filter ServiceImport if has no label known.LabelServiceName and known.LabelServiceNameSpace
-func preFilter(oldObj, newObj interface{}) (bool, error) {
-	var si *v1alpha1.ServiceImport
-	if newObj == nil {
-		// Delete
-		si = oldObj.(*v1alpha1.ServiceImport)
-	} else {
-		// Add or Update
-		si = newObj.(*v1alpha1.ServiceImport)
-	}
-	_, serviceExist := si.Labels[known.LabelServiceName]
-	_, serviceNamespaceExist := si.Labels[known.LabelServiceNameSpace]
-	if !serviceExist || !serviceNamespaceExist {
-		return false, nil
-	}
-	return true, nil
 }
 
 func (s *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Duration, err error) {
@@ -202,6 +180,7 @@ func (s *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Du
 		si, err = s.mcsClientset.MulticlusterV1alpha1().ServiceImports(namespace).Update(context.TODO(),
 			si, metav1.UpdateOptions{})
 		if err != nil {
+			klog.Errorf("failed to update serviceimport %s/%s, for %v", si.Namespace, si.Name, err)
 			d := time.Second
 			return &d, err
 		}
@@ -209,12 +188,12 @@ func (s *ServiceImportController) Handle(obj interface{}) (requeueAfter *time.Du
 
 	// apply endpoint slices.
 	srcLabelMap := labels.Set{
-		known.LabelServiceName:      si.Labels[known.LabelServiceName],
-		known.LabelServiceNameSpace: si.Labels[known.LabelServiceNameSpace],
+		known.LabelServiceName:      si.Name,
+		known.LabelServiceNameSpace: si.Namespace,
 	}
 	dstLabelMap := labels.Set{
-		known.LabelServiceName:      si.Labels[known.LabelServiceName],
-		known.LabelServiceNameSpace: si.Labels[known.LabelServiceNameSpace],
+		known.LabelServiceName:      si.Name,
+		known.LabelServiceNameSpace: si.Namespace,
 	}
 
 	endpointSliceList, err := utils.RemoveNonexistentEndpointslice(s.sourceEndpointSlicesLister, "",
@@ -266,8 +245,8 @@ func (s *ServiceImportController) Run(ctx context.Context, delicatedNamespace st
 
 // recycleServiceImport recycle derived service and derived endpoint slices.
 func (s *ServiceImportController) recycleServiceImport(ctx context.Context, si *v1alpha1.ServiceImport) error {
-	rawServiceName := si.Labels[known.LabelServiceName]
-	rawServiceNamespace := si.Labels[known.LabelServiceNameSpace]
+	rawServiceName := si.Name
+	rawServiceNamespace := si.Namespace
 	// 1. recycle endpoint slices.
 	if err := s.localk8sClient.DiscoveryV1().EndpointSlices(si.Namespace).
 		DeleteCollection(ctx, metav1.DeleteOptions{}, metav1.ListOptions{

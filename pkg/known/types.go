@@ -12,7 +12,6 @@ type SyncerConfig struct {
 	// LocalClient the client used to access local resources to sync. This is optional and is provided for unit testing
 	// in lieu of the LocalRestConfig. If not specified, one is created from the LocalRestConfig.
 	LocalClient     dynamic.Interface
-	LocalNamespace  string
 	LocalClusterID  string
 	RemoteNamespace string
 }

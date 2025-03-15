@@ -36,10 +36,6 @@ apiVersion: multicluster.x-k8s.io/v1alpha1
 kind: ServiceImport
 metadata:
   name: nginx-svc
-  namespace: syncer-operator
-  labels:
-    services.fleetboard.io/multi-cluster-service-LocalNamespace: default
-    services.fleetboard.io/multi-cluster-service-name: nginx-svc
 spec:
   type: "ClusterSetIP"
   ports:

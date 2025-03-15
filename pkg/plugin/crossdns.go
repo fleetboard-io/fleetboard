@@ -75,11 +75,7 @@ func (c *CrossDNS) getDNSRecord(ctx context.Context, _ string, state *request.Re
 		klog.Fatal("unable to sync caches for endpointslices or service import")
 	}
 
-	si, errGetSI := c.SILister.ServiceImports("syncer-operator").List(labels.SelectorFromSet(
-		labels.Set{
-			known.LabelServiceNameSpace: pReq.namespace,
-			known.LabelServiceName:      pReq.service,
-		}))
+	si, errGetSI := c.SILister.ServiceImports(pReq.namespace).Get(pReq.service)
 	if errGetSI != nil {
 		klog.Errorf("Failed to get service import %v", errGetSI)
 		return dns.RcodeServerFailure, errors.New("failed to write response")
@@ -88,16 +84,16 @@ func (c *CrossDNS) getDNSRecord(ctx context.Context, _ string, state *request.Re
 	var dnsRecords []DNSRecord
 	var err error
 	var srcEndpointSliceList []*v1.EndpointSlice
-	if si[0].Spec.Type == v1alpha1.ClusterSetIP {
-		if len(si[0].Spec.IPs) != 0 {
+	if si.Spec.Type == v1alpha1.ClusterSetIP {
+		if len(si.Spec.IPs) != 0 {
 			record := DNSRecord{
-				IP: si[0].Spec.IPs[0],
+				IP: si.Spec.IPs[0],
 			}
 			dnsRecords = append(dnsRecords, record)
 		}
 	} else {
 		if pReq.cluster != "" {
-			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
+			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices(pReq.namespace).List(
 				labels.SelectorFromSet(
 					labels.Set{
 						known.LabelServiceNameSpace: pReq.namespace,
@@ -105,7 +101,7 @@ func (c *CrossDNS) getDNSRecord(ctx context.Context, _ string, state *request.Re
 						known.LabelClusterID:        pReq.cluster,
 					}))
 		} else {
-			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices("syncer-operator").List(
+			srcEndpointSliceList, err = c.endpointSlicesLister.EndpointSlices(pReq.namespace).List(
 				labels.SelectorFromSet(
 					labels.Set{
 						known.LabelServiceNameSpace: pReq.namespace,

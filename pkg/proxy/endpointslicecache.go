@@ -123,12 +123,12 @@ func newEndpointSliceTracker() *endpointSliceTracker {
 func newEndpointSliceInfo(endpointSlice *discovery.EndpointSlice, remove bool) *endpointSliceInfo {
 	nameLabel, ok := endpointSlice.Labels[known.LabelServiceName]
 	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no name label", "serviceImport", klog.KObj(endpointSlice))
+		klog.ErrorS(nil, "EndpointSlice has no name label", "EndpointSlice", klog.KObj(endpointSlice))
 		return nil
 	}
 	namespaceLabel, ok := endpointSlice.Labels[known.LabelServiceNameSpace]
 	if !ok {
-		klog.ErrorS(nil, "ServiceImport has no namespace label", "serviceImport",
+		klog.ErrorS(nil, "EndpointSlice has no namespace label", "EndpointSlice",
 			klog.KObj(endpointSlice))
 		return nil
 	}

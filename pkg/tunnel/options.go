@@ -23,8 +23,6 @@ type Options struct {
 	HubSecretName string
 	// used to share endpoint slices in hub
 	ShareNamespace string
-	// used to store endpoint slices in local clusters
-	LocalNamespace string
 	// true means run as hub
 	AsHub bool
 	// true means run as cluster
@@ -62,10 +60,6 @@ func (o *Options) Validate() []error {
 
 	if len(o.ShareNamespace) == 0 {
 		allErrors = append(allErrors, fmt.Errorf("--shared-namespace must be specified"))
-	}
-
-	if o.AsCluster && len(o.LocalNamespace) == 0 {
-		allErrors = append(allErrors, fmt.Errorf("--local-namespace must be specified when run as cluster"))
 	}
 
 	if o.AsCluster && len(o.HubSecretNamespace) == 0 {
@@ -113,9 +107,6 @@ func (o *Options) Flags() (fss cliflag.NamedFlagSets) {
 
 	fs.StringVar(&o.ShareNamespace, "shared-namespace", o.ShareNamespace,
 		"shared namespace in hub used to share endpoint slices across clusters")
-
-	fs.StringVar(&o.LocalNamespace, "local-namespace", o.LocalNamespace,
-		"local namespace in cluster used to share endpoint slices across clusters")
 
 	return fss
 }
