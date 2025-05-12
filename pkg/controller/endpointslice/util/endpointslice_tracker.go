@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
@@ -187,6 +189,20 @@ func (est *EndpointSliceTracker) GenerationsForSliceUnsafe(endpointSlice *discov
 // getServiceNN returns a namespaced name for the Service corresponding to the
 // provided EndpointSlice.
 func getServiceNN(endpointSlice *discovery.EndpointSlice) types.NamespacedName {
-	serviceName := endpointSlice.Labels[discovery.LabelServiceName]
+	serviceName, _ := GetServiceNameFromEpLabel(endpointSlice.Labels[discovery.LabelServiceName])
 	return types.NamespacedName{Name: serviceName, Namespace: endpointSlice.Namespace}
+}
+
+func GetServiceLabelFromSvcName(serviceName string) string {
+	return fmt.Sprintf("%s-----%s", "nauti-service", serviceName)
+}
+func GetServiceNameFromEpLabel(label string) (string, error) {
+	parts := strings.Split(label, "-----")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid label format")
+	}
+	if parts[0] != "nauti-service" {
+		return "", fmt.Errorf("invalid label prefix")
+	}
+	return parts[1], nil
 }

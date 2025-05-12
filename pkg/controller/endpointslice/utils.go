@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/fleetboard-io/fleetboard/pkg/known"
@@ -210,8 +211,8 @@ func ServiceControllerKey(endpointSlice *discovery.EndpointSlice) (string, error
 	if endpointSlice == nil {
 		return "", fmt.Errorf("nil EndpointSlice passed to ServiceControllerKey()")
 	}
-	serviceName, ok := endpointSlice.Labels[discovery.LabelServiceName]
-	if !ok || serviceName == "" {
+	serviceName, err := GetServiceNameFromEpLabel(endpointSlice.Labels[discovery.LabelServiceName])
+	if err != nil || serviceName == "" {
 		return "", fmt.Errorf("EndpointSlice missing %s label", discovery.LabelServiceName)
 	}
 	return fmt.Sprintf("%s/%s", endpointSlice.Namespace, serviceName), nil
@@ -256,7 +257,7 @@ func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice
 	// add or remove headless label depending on the service Type
 
 	// override endpoint slices reserved labels
-	svcLabels[discovery.LabelServiceName] = service.Name
+	svcLabels[discovery.LabelServiceName] = GetServiceLabelFromSvcName(service.Name)
 	svcLabels[discovery.LabelManagedBy] = controllerName
 	svcLabels[v1.IsHeadlessService] = "true"
 
@@ -403,4 +404,18 @@ func findPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 	}
 
 	return 0, fmt.Errorf("no suitable port for manifest: %s", pod.UID)
+}
+
+func GetServiceLabelFromSvcName(serviceName string) string {
+	return fmt.Sprintf("%s-----%s", "nauti-service", serviceName)
+}
+func GetServiceNameFromEpLabel(label string) (string, error) {
+	parts := strings.Split(label, "-----")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid label format")
+	}
+	if parts[0] != "nauti-service" {
+		return "", fmt.Errorf("invalid label prefix")
+	}
+	return parts[1], nil
 }

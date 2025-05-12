@@ -15,7 +15,7 @@ else
 GIT_VERSION=$(shell git describe --abbrev=0 --tags --always)
 endif
 
-IMAGE_TAG = ${GIT_VERSION}
+IMAGE_TAG = svctest
 REGISTRY ?= ghcr.io
 REGISTRY_NAMESPACE ?= fleetboard-io
 
@@ -81,10 +81,10 @@ image-crossdns:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/crossdns:latest
 
 image-cnf:
-	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
-	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/cnf.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} --push
+# 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG}
+# 	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
+# 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/cnf:latest
 
 image-proxy:
 	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/proxy.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:${IMAGE_TAG}
@@ -93,10 +93,10 @@ image-proxy:
 	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/proxy:latest
 
 image-ep-controller:
-	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
-	docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
-	docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
+	docker buildx build --platform linux/amd64,linux/arm64 $(DOCKERARGS) -f ./build/ep-controller.Dockerfile ./ -t ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG} --push
+	#docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG}
+	#docker tag ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:${IMAGE_TAG} ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
+	#docker push ${REGISTRY}/${REGISTRY_NAMESPACE}/controller:latest
 
 
 images-push: image-crossdns image-cnf image-proxy image-ep-controller
