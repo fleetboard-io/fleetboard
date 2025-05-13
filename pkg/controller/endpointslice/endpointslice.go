@@ -375,7 +375,7 @@ func (c *Controller) syncService(logger klog.Logger, key string) error {
 	}
 
 	esLabelSelector := labels.Set(map[string]string{
-		discovery.LabelServiceName: GetServiceLabelFromSvcName(service.Name),
+		discovery.LabelServiceName: endpointsliceutil.GetServiceLabelFromSvcName(service.Name),
 		discovery.LabelManagedBy:   c.reconciler.GetControllerName(),
 	}).AsSelectorPreValidated()
 	endpointSlices, err := c.endpointSliceLister.EndpointSlices(service.Namespace).List(esLabelSelector)
@@ -461,8 +461,8 @@ func (c *Controller) onEndpointSliceUpdate(logger klog.Logger, prevObj, obj inte
 	// EndpointSlice generation does not change when labels change. Although the
 	// controller will never change LabelServiceName, users might. This check
 	// ensures that we handle changes to this label.
-	svcName, _ := GetServiceNameFromEpLabel(endpointSlice.Labels[discovery.LabelServiceName])
-	prevSvcName, _ := GetServiceNameFromEpLabel(prevEndpointSlice.Labels[discovery.LabelServiceName])
+	svcName, _ := endpointsliceutil.GetServiceNameFromEpLabel(endpointSlice.Labels[discovery.LabelServiceName])
+	prevSvcName, _ := endpointsliceutil.GetServiceNameFromEpLabel(prevEndpointSlice.Labels[discovery.LabelServiceName])
 	if svcName != prevSvcName {
 		logger.Info("label changed", "label", discovery.LabelServiceName, "oldService",
 			prevSvcName, "newService", svcName, "endpointslice", klog.KObj(endpointSlice))
