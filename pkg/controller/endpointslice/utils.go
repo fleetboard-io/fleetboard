@@ -35,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	endpointutil "k8s.io/endpointslice/util"
 	utilnet "k8s.io/utils/net"
+
+	endpointsliceutil "github.com/fleetboard-io/fleetboard/pkg/controller/endpointslice/util"
 )
 
 func GetDedicatedCNIIP(pod *v1.Pod) (ip net.IP, err error) {
@@ -210,8 +212,8 @@ func ServiceControllerKey(endpointSlice *discovery.EndpointSlice) (string, error
 	if endpointSlice == nil {
 		return "", fmt.Errorf("nil EndpointSlice passed to ServiceControllerKey()")
 	}
-	serviceName, ok := endpointSlice.Labels[discovery.LabelServiceName]
-	if !ok || serviceName == "" {
+	serviceName, err := endpointsliceutil.GetServiceNameFromEpLabel(endpointSlice.Labels[discovery.LabelServiceName])
+	if err != nil || serviceName == "" {
 		return "", fmt.Errorf("EndpointSlice missing %s label", discovery.LabelServiceName)
 	}
 	return fmt.Sprintf("%s/%s", endpointSlice.Namespace, serviceName), nil
@@ -256,7 +258,7 @@ func setEndpointSliceLabels(logger klog.Logger, epSlice *discovery.EndpointSlice
 	// add or remove headless label depending on the service Type
 
 	// override endpoint slices reserved labels
-	svcLabels[discovery.LabelServiceName] = service.Name
+	svcLabels[discovery.LabelServiceName] = endpointsliceutil.GetServiceLabelFromSvcName(service.Name)
 	svcLabels[discovery.LabelManagedBy] = controllerName
 	svcLabels[v1.IsHeadlessService] = "true"
 
